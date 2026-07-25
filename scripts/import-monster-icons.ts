@@ -26,21 +26,31 @@ function normalize(text: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-/** De "120px-MHWA-Rey_Dau_Icon.webp" saca "reydau". */
-function keyOf(filename: string): string {
-  const stem = basename(filename, extname(filename))
+/**
+ * De "120px-MHWA-Rey_Dau_Icon.webp" saca "reydau".
+ *
+ * Los templados devuelven además una marca: la API no los trata como monstruos
+ * aparte (son el mismo bicho en dificultad alta), así que comparten id y hay que
+ * guardarlos con sufijo propio para no pisar el icono normal.
+ */
+function keyOf(filename: string): { key: string; tempered: boolean } {
+  let stem = basename(filename, extname(filename))
     // Las miniaturas del wiki vienen con el ancho por delante.
     .replace(/^\d+px-/i, '')
     .replace(/^MHWA[-_]?/i, '')
     // Algunas se descargan como "…Icon.png.webp": la doble extensión sobra.
     .replace(/\.(png|jpe?g|webp)$/i, '')
     .replace(/[-_ ]?icon$/i, '');
-  return normalize(stem);
+
+  const tempered = /^tempered[-_ ]/i.test(stem);
+  if (tempered) stem = stem.replace(/^tempered[-_ ]/i, '');
+
+  return { key: normalize(stem), tempered };
 }
 
 const wanted = new Map<string, number>();
 for (const entry of MONSTER_ICONS) {
-  wanted.set(keyOf(entry.wikiFile), entry.id);
+  wanted.set(keyOf(entry.wikiFile).key, entry.id);
   wanted.set(normalize(entry.en), entry.id);
   wanted.set(normalize(entry.es), entry.id);
 }
@@ -57,24 +67,30 @@ try {
 await mkdir(targetDir, { recursive: true });
 
 const found = new Set<number>();
+const foundTempered = new Set<number>();
 const unmatched: string[] = [];
 
 for (const file of files) {
   const ext = extname(file).toLowerCase();
   if (!['.webp', '.png', '.jpg', '.jpeg', '.avif'].includes(ext)) continue;
 
-  const id = wanted.get(keyOf(file));
+  const { key, tempered } = keyOf(file);
+  const id = wanted.get(key);
   if (id === undefined) {
     unmatched.push(file);
     continue;
   }
 
   // Se conserva la extensión original; el componente prueba varias.
-  await copyFile(join(sourceDir, file), join(targetDir, `${id}${ext}`));
-  found.add(id);
+  const name = tempered ? `${id}-tempered${ext}` : `${id}${ext}`;
+  await copyFile(join(sourceDir, file), join(targetDir, name));
+  (tempered ? foundTempered : found).add(id);
 }
 
 console.log(`\nCopiados ${found.size} de ${MONSTER_ICONS.length} iconos a public/monstruos/`);
+if (foundTempered.size) {
+  console.log(`Y ${foundTempered.size} versiones templadas, como <id>-tempered.`);
+}
 
 const missing = MONSTER_ICONS.filter((m) => !found.has(m.id));
 if (missing.length) {
