@@ -3,7 +3,14 @@ import type { Catalog } from './catalog/types.ts';
 export interface UserDoc {
   _id: string;
   email: string;
+  /** Nombre en la app. Con Google llega ya puesto, sin preguntar nada. */
   name: string;
+  /**
+   * Nombre de cazador dentro de Wilds. Opcional y separado de `name`: quien
+   * entra con Google nunca pasa por un formulario donde escribirlo, así que
+   * tiene que poder quedar vacío y llenarse después desde /cuenta.
+   */
+  hunterName: string | null;
   picture: string | null;
   /** Presente si la cuenta se creó o vinculó con Google. */
   googleId: string | null;
@@ -73,7 +80,10 @@ export interface SavedSetDoc {
   /** Identificador corto y público usado en /set/<slug>. */
   slug: string;
   ownerId: string;
+  /** Se guarda una copia del nombre para que el enlace público no dependa
+   *  de leer al usuario en cada visita. */
   ownerName: string;
+  ownerHunterName: string | null;
   name: string;
   notes: string | null;
   weaponId: number | null;

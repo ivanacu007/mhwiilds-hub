@@ -22,15 +22,20 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   const form = await request.formData();
   const email = String(form.get('email') ?? '').trim().toLowerCase();
   const name = String(form.get('name') ?? '').trim();
+  const hunterName = String(form.get('hunterName') ?? '').trim();
   const password = String(form.get('password') ?? '');
   const inviteCode = normalizeInviteCode(String(form.get('invite') ?? ''));
 
-  const keep = { email, name, invite: inviteCode };
+  const keep = { email, name, hunterName, invite: inviteCode };
 
   const emailError = validateEmail(email);
   if (emailError) return back(emailError, keep);
   if (name.length < 2 || name.length > 40) {
     return back('El nombre debe tener entre 2 y 40 caracteres.', keep);
+  }
+  // El nombre de cazador es opcional, pero si lo escriben tiene que ser usable.
+  if (hunterName && hunterName.length > 40) {
+    return back('El nombre de cazador no puede pasar de 40 caracteres.', keep);
   }
   const passwordError = validatePassword(password);
   if (passwordError) return back(passwordError, keep);
@@ -46,6 +51,7 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   const result = await createUser({
     email,
     name,
+    hunterName,
     picture: null,
     googleId: null,
     passwordHash: await hashPassword(password),

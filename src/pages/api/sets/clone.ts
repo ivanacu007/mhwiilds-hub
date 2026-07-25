@@ -29,6 +29,7 @@ export const POST: APIRoute = async ({ locals, request }) => {
     slug: await uniqueSlug(),
     ownerId: locals.user.id,
     ownerName: locals.user.name,
+    ownerHunterName: locals.user.hunterName,
     name: `${original.name} (copia)`,
     clonedFrom: original.slug,
     // La copia nace privada: compartirla es decisión de quien la copió.

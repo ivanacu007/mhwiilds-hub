@@ -114,7 +114,8 @@ try {
     method: 'POST',
     redirect: 'manual',
     body: new URLSearchParams({
-      email: 'cazador@example.com', name: 'Cazador', password: 'contrasenalarga1', invite: code,
+      email: 'cazador@example.com', name: 'Cazador', hunterName: 'Ivanhunter',
+      password: 'contrasenalarga1', invite: code,
     }),
   });
   const cookie = (register.headers.get('set-cookie') ?? '').split(';')[0];
@@ -185,6 +186,33 @@ try {
 
   const missing = await fetch(`${BASE}/set/noexiste123`);
   check('slug inexistente da 404', missing.status === 404, `${missing.status}`);
+
+  console.log('\n--- Nombre de cazador ---');
+  check('el set se firma con el nombre de cazador', html.includes('Ivanhunter'));
+
+  const cuenta = await (await fetch(`${BASE}/cuenta`, { headers: auth })).text();
+  check('la página de cuenta lo muestra', cuenta.includes('Ivanhunter'));
+
+  const rename = await fetch(`${BASE}/api/auth/profile`, {
+    method: 'POST',
+    headers: auth,
+    redirect: 'manual',
+    body: new URLSearchParams({ name: 'Cazador', hunterName: 'NuevoNombre' }),
+  });
+  check('permite cambiarlo', (rename.headers.get('location') ?? '').includes('aviso='));
+
+  // Los sets guardan copia del nombre; al renombrarse deben actualizarse.
+  const afterRename = await (await fetch(`${BASE}/set/${setData.slug}`)).text();
+  check('los sets ya guardados reflejan el nombre nuevo', afterRename.includes('NuevoNombre'));
+  check('y ya no muestran el viejo', !afterRename.includes('Ivanhunter'));
+
+  const tooLong = await fetch(`${BASE}/api/auth/profile`, {
+    method: 'POST',
+    headers: auth,
+    redirect: 'manual',
+    body: new URLSearchParams({ name: 'Cazador', hunterName: 'x'.repeat(41) }),
+  });
+  check('rechaza un nombre demasiado largo', (tooLong.headers.get('location') ?? '').includes('error='));
 
   console.log('\n--- Aislamiento entre usuarios ---');
   const code2 = await createInvite(null);

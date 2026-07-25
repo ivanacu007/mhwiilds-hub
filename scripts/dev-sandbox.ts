@@ -17,6 +17,11 @@ const mongo = await MongoMemoryServer.create();
 process.env.MONGODB_URI = mongo.getUri();
 process.env.MONGODB_DB = 'sandbox';
 
+// Sin credenciales de Google la app esconde ese botón (con razón). Para poder
+// revisar cómo se ve la pantalla se ponen unas de mentira, salvo que haya reales
+// en el entorno. El botón se dibuja, pero al pulsarlo Google rechaza el cliente.
+const googleIsFake = !process.env.GOOGLE_CLIENT_ID;
+
 const server = spawn('node', ['dist/server/entry.mjs'], {
   env: {
     ...process.env,
@@ -24,6 +29,8 @@ const server = spawn('node', ['dist/server/entry.mjs'], {
     HOST: '127.0.0.1',
     PUBLIC_SITE_URL: BASE,
     NODE_ENV: 'production',
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID ?? 'sandbox-falso.apps.googleusercontent.com',
+    GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET ?? 'sandbox-falso',
   },
   stdio: ['ignore', 'inherit', 'inherit'],
 });
@@ -41,7 +48,11 @@ const code = await createInvite('sandbox');
 
 console.log(`\n  Listo → ${BASE}`);
 console.log(`  Registro: ${BASE}/registro?invite=${code}`);
-console.log(`  Código:   ${code}\n`);
+console.log(`  Código:   ${code}`);
+if (googleIsFake) {
+  console.log('  Google:   botón visible con credenciales falsas (no completa el acceso)');
+}
+console.log('');
 
 const stop = async () => {
   server.kill('SIGTERM');

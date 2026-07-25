@@ -9,6 +9,8 @@ const error = params.get('error');
 const email = params.get('email') ?? '';
 const name = params.get('name') ?? '';
 const invite = params.get('invite') ?? params.get('codigo') ?? '';
+const hunterName = params.get('hunterName') ?? '';
+const googleReady = googleConfigured();
 ---
 
 <Base title="Crear cuenta · Sets de Wilds" noIndex>
@@ -20,6 +22,27 @@ const invite = params.get('invite') ?? params.get('codigo') ?? '';
 
     {error && (
       <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
+    )}
+
+    {googleReady && (
+      <>
+        {/* El código va en la URL: Google no puede pedirlo en su propia pantalla. */}
+        <form method="get" action="/api/auth/google" class="space-y-2">
+          <input
+            name="invite" value={invite} required placeholder="Código de invitación"
+            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
+          />
+          <button class="flex w-full items-center justify-center gap-2 rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800">
+            Crear cuenta con Google
+          </button>
+        </form>
+        <p class="mt-2 text-xs text-base-500">
+          Con Google podrás poner tu nombre de cazador después, desde tu cuenta.
+        </p>
+        <div class="my-4 flex items-center gap-3 text-xs text-base-500">
+          <span class="h-px flex-1 bg-base-800"></span>o con tu correo<span class="h-px flex-1 bg-base-800"></span>
+        </div>
+      </>
     )}
 
     <form method="post" action="/api/auth/register" class="space-y-3">
@@ -36,6 +59,18 @@ const invite = params.get('invite') ?? params.get('codigo') ?? '';
           name="name" value={name} required minlength="2" maxlength="40" autocomplete="nickname"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">
+          Nombre de cazador <span class="text-base-500">(opcional)</span>
+        </span>
+        <input
+          name="hunterName" value={hunterName} maxlength="40" placeholder="Como te llamas en Wilds"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+        />
+        <span class="mt-1 block text-xs text-base-500">
+          Es el que ven tus amigos en los sets que compartas. Lo puedes poner después.
+        </span>
       </label>
       <label class="block">
         <span class="mb-1 block text-sm text-base-300">Correo</span>
@@ -57,22 +92,10 @@ const invite = params.get('invite') ?? params.get('codigo') ?? '';
       </button>
     </form>
 
-    {googleConfigured() && (
-      <>
-        <div class="my-4 flex items-center gap-3 text-xs text-base-500">
-          <span class="h-px flex-1 bg-base-800"></span>o<span class="h-px flex-1 bg-base-800"></span>
-        </div>
-        {/* El código viaja en la URL porque Google no lo puede pedir en su pantalla. */}
-        <form method="get" action="/api/auth/google" class="space-y-2">
-          <input
-            name="invite" value={invite} required placeholder="Código de invitación"
-            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
-          />
-          <button class="w-full rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800">
-            Crear cuenta con Google
-          </button>
-        </form>
-      </>
+    {!googleReady && (
+      <p class="mt-4 rounded border border-base-800 bg-base-900 px-3 py-2 text-xs text-base-500">
+        El acceso con Google no está configurado en este servidor.
+      </p>
     )}
 
     <p class="mt-6 text-center text-sm text-base-500">

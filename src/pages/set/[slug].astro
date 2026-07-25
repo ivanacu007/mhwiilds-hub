@@ -86,20 +86,22 @@ const skills = [...skillTotals.entries()]
 
 const summary = skills.slice(0, 6).map((s) => `${s.name} ${s.level}`).join(' · ');
 const isOwner = user?.id === set.ownerId;
+// El nombre de cazador es lo que sus amigos reconocen; el de la app es el respaldo.
+const author = set.ownerHunterName || set.ownerName;
 ---
 
 <Base
   title={`${set.name} · Sets de Wilds`}
   description={summary}
   ogTitle={`${set.name} — set de Monster Hunter Wilds`}
-  ogDescription={`Por ${set.ownerName}. ${summary}`}
+  ogDescription={`Por ${author}. ${summary}`}
   noIndex={!set.isPublic}
 >
   <article class="mx-auto max-w-3xl">
     <header class="mb-5">
       <h1 class="text-2xl font-semibold">{set.name}</h1>
       <p class="mt-1 text-sm text-base-500">
-        Compartido por {set.ownerName} · Defensa {defense}
+        Compartido por {author} · Defensa {defense}
         {!set.isPublic && <span class="ml-2 rounded bg-base-800 px-1.5 py-0.5 text-xs">privado</span>}
       </p>
       {set.notes && <p class="mt-2 text-sm text-base-300">{set.notes}</p>}

@@ -36,7 +36,11 @@ export const POST: APIRoute = async ({ locals, request }) => {
     );
   }
 
-  const doc = buildSetDoc(body, { id: locals.user.id, name: locals.user.name }, await uniqueSlug());
+  const doc = buildSetDoc(
+    body,
+    { id: locals.user.id, name: locals.user.name, hunterName: locals.user.hunterName },
+    await uniqueSlug(),
+  );
 
   // Un set sin ninguna pieza no sirve de nada y ensucia la lista.
   const hasAnyPiece = doc.head || doc.chest || doc.arms || doc.waist || doc.legs;

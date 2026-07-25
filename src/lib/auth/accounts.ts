@@ -16,6 +16,7 @@ export async function findByEmail(email: string): Promise<UserDoc | null> {
 export async function createUser(params: {
   email: string;
   name: string;
+  hunterName?: string | null;
   picture: string | null;
   googleId: string | null;
   passwordHash: string | null;
@@ -35,6 +36,7 @@ export async function createUser(params: {
     _id: newUserId(),
     email,
     name: params.name,
+    hunterName: params.hunterName?.trim() || null,
     picture: params.picture,
     googleId: params.googleId,
     passwordHash: params.passwordHash,

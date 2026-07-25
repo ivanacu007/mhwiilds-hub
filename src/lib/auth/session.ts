@@ -18,6 +18,7 @@ export interface PublicUser {
   id: string;
   email: string;
   name: string;
+  hunterName: string | null;
   picture: string | null;
   hasPassword: boolean;
 }
@@ -27,6 +28,8 @@ export function toPublicUser(user: UserDoc): PublicUser {
     id: user._id,
     email: user.email,
     name: user.name,
+    // Las cuentas creadas antes de que existiera el campo no lo traen.
+    hunterName: user.hunterName ?? null,
     picture: user.picture,
     hasPassword: Boolean(user.passwordHash),
   };

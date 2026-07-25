@@ -59,7 +59,7 @@ export interface SetInput {
 
 export function buildSetDoc(
   input: SetInput,
-  owner: { id: string; name: string },
+  owner: { id: string; name: string; hunterName: string | null },
   slug: string,
 ): SavedSetDoc {
   const now = new Date();
@@ -68,6 +68,7 @@ export function buildSetDoc(
     slug,
     ownerId: owner.id,
     ownerName: owner.name,
+    ownerHunterName: owner.hunterName,
     name: input.name.trim().slice(0, 60) || 'Set sin nombre',
     notes: input.notes ? String(input.notes).trim().slice(0, 500) : null,
     weaponId: Number.isInteger(input.weaponId) && (input.weaponId as number) > 0 ? input.weaponId : null,
