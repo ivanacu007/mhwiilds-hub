@@ -6,3 +6,7 @@ dist/
 .env.production
 *.log
 .DS_Store
+
+# Iconos de monstruos: contenido local, no se versiona
+public/monstruos/*
+!public/monstruos/README.md

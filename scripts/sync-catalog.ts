@@ -27,6 +27,7 @@ console.table({
   talismanes: catalog.charms.length,
   armas: catalog.weapons.length,
   materiales: catalog.items.length,
+  monstruos: catalog.monsters.length,
 });
 console.log(`Tamaño serializado: ${mb(catalog)}`);
 
@@ -39,6 +40,12 @@ if (!catalog.armor.some((a) => a.skills.length > 0)) problems.push('ninguna arma
 if (!catalog.armor.some((a) => a.slots.length > 0)) problems.push('ninguna armadura trae slots');
 if (!catalog.armorSets.some((s) => s.setBonus.length > 0)) problems.push('ningún set trae bonus de serie');
 if (!catalog.charms.some((c) => c.ranks.length > 0)) problems.push('ningún talismán trae rangos');
+if (catalog.monsters.length < 20) problems.push('muy pocos monstruos grandes');
+// Sin umbrales no hay coronas que rastrear, que es medio perfil de cazador.
+const sinCoronas = catalog.monsters.filter((m) => !m.size);
+if (sinCoronas.length) {
+  problems.push(`${sinCoronas.length} monstruos sin umbrales de corona: ${sinCoronas.map((m) => m.name).join(', ')}`);
+}
 
 if (problems.length) {
   console.error('\nEl catálogo descargado no pasa la validación:');

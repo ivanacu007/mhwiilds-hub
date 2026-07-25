@@ -11,7 +11,8 @@
     "sync:catalog": "node scripts/sync-catalog.ts",
     "invite": "node scripts/make-invite.ts",
     "test:smoke": "node scripts/smoke-test.ts",
-    "sandbox": "node scripts/dev-sandbox.ts"
+    "sandbox": "node scripts/dev-sandbox.ts",
+    "iconos:importar": "node scripts/import-monster-icons.ts"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",

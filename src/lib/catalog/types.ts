@@ -120,6 +120,31 @@ export interface Item {
   rarity: number;
 }
 
+/**
+ * Umbrales de tamaño que reparten las coronas. Vienen de la API, así que la app
+ * puede deducir qué coronas tiene alguien a partir del tamaño que le salió,
+ * en vez de pedirle que marque casillas.
+ */
+export interface MonsterSize {
+  base: number;
+  /** Corona pequeña: se obtiene con un ejemplar de este tamaño o menor. */
+  mini: number;
+  /** Corona de plata: de este tamaño o mayor. */
+  silver: number;
+  /** Corona de oro: de este tamaño o mayor. */
+  gold: number;
+}
+
+export interface Monster {
+  id: number;
+  name: string;
+  species: string;
+  size: MonsterSize | null;
+  elements: string[];
+  weaknesses: string[];
+  locations: string[];
+}
+
 export interface Catalog {
   /** Marca de tiempo del import; el cliente la usa para invalidar su caché. */
   version: string;
@@ -131,6 +156,8 @@ export interface Catalog {
   charms: Charm[];
   weapons: Weapon[];
   items: Item[];
+  /** Solo los grandes: son los que tienen coronas. */
+  monsters: Monster[];
 }
 
 /** Índices por id, para no andar buscando linealmente en el cliente. */
@@ -143,6 +170,7 @@ export interface CatalogIndex {
   charmById: Map<number, Charm>;
   itemById: Map<number, Item>;
   weaponById: Map<number, Weapon>;
+  monsterById: Map<number, Monster>;
   /** Piezas agrupadas por ranura, que es como las recorre el solver. */
   armorByKind: Record<ArmorKind, ArmorPiece[]>;
 }
@@ -164,6 +192,7 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
     charmById: new Map(catalog.charms.map((c) => [c.id, c])),
     itemById: new Map(catalog.items.map((i) => [i.id, i])),
     weaponById: new Map(catalog.weapons.map((w) => [w.id, w])),
+    monsterById: new Map((catalog.monsters ?? []).map((m) => [m.id, m])),
     armorByKind,
   };
 }

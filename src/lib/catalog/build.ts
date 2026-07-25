@@ -14,6 +14,7 @@ import type {
   Decoration,
   Item,
   Material,
+  Monster,
   Skill,
   SkillGrant,
   SkillKind,
@@ -100,7 +101,7 @@ function baseCharmName(rankName: string): string {
 }
 
 export async function buildCatalog(locale: string): Promise<Catalog> {
-  const [rawSkills, rawArmor, rawSets, rawDecos, rawCharms, rawWeapons, rawItems] =
+  const [rawSkills, rawArmor, rawSets, rawDecos, rawCharms, rawWeapons, rawItems, rawMonsters] =
     await Promise.all([
       fetchResource(locale, 'skills'),
       fetchResource(locale, 'armor'),
@@ -109,6 +110,7 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
       fetchResource(locale, 'charms'),
       fetchResource(locale, 'weapons'),
       fetchResource(locale, 'items'),
+      fetchResource(locale, 'monsters'),
     ]);
 
   const skills: Skill[] = rawSkills.map((s) => ({
@@ -201,6 +203,31 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
     rarity: i.rarity ?? 1,
   }));
 
+  // Solo los grandes: los pequeños no tienen coronas ni entran en el registro.
+  const monsters: Monster[] = rawMonsters
+    .filter((m) => m.kind === 'large')
+    .map((m) => {
+      const size = m.size ?? null;
+      return {
+        id: m.id,
+        name: m.name,
+        species: m.species ?? 'unknown',
+        // Sin los cuatro umbrales no se puede deducir ninguna corona.
+        size:
+          size && ['base', 'mini', 'silver', 'gold'].every((k) => typeof size[k] === 'number')
+            ? { base: size.base, mini: size.mini, silver: size.silver, gold: size.gold }
+            : null,
+        elements: (m.elements ?? []).filter((e: unknown) => typeof e === 'string'),
+        weaknesses: (m.weaknesses ?? [])
+          .map((w: Raw) => (typeof w === 'string' ? w : w?.element))
+          .filter((w: unknown): w is string => typeof w === 'string'),
+        locations: (m.locations ?? [])
+          .map((l: Raw) => (typeof l === 'string' ? l : l?.name))
+          .filter((l: unknown): l is string => typeof l === 'string'),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+
   return {
     version: new Date().toISOString(),
     locale,
@@ -211,5 +238,6 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
     charms,
     weapons,
     items,
+    monsters,
   };
 }
