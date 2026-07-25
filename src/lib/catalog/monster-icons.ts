@@ -60,12 +60,19 @@ export const MONSTER_ICONS: MonsterIconEntry[] = [
  * Niveles de un mismo monstruo. La API no los separa —comparten id, solo cambia
  * la dificultad— así que se distinguen por sufijo en el nombre del archivo.
  */
-export type MonsterVariant = 'normal' | 'tempered' | 'arch-tempered';
+export type MonsterVariant = 'normal' | 'frenzied' | 'tempered' | 'arch-tempered';
 
-export const MONSTER_VARIANTS: MonsterVariant[] = ['normal', 'tempered', 'arch-tempered'];
+/** En orden de dificultad, que es como se muestran. */
+export const MONSTER_VARIANTS: MonsterVariant[] = [
+  'normal',
+  'frenzied',
+  'tempered',
+  'arch-tempered',
+];
 
 export const VARIANT_LABEL: Record<MonsterVariant, string> = {
   normal: 'Normal',
+  frenzied: 'Frenético',
   tempered: 'Templado',
   'arch-tempered': 'Arcotemplado',
 };

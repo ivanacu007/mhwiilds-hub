@@ -51,6 +51,9 @@ function keyOf(filename: string): { key: string; variant: MonsterVariant } {
   } else if (/^tempered[-_ ]/i.test(stem)) {
     variant = 'tempered';
     stem = stem.replace(/^tempered[-_ ]/i, '');
+  } else if (/^frenzied[-_ ]/i.test(stem)) {
+    variant = 'frenzied';
+    stem = stem.replace(/^frenzied[-_ ]/i, '');
   }
 
   return { key: normalize(stem), variant };
@@ -76,6 +79,7 @@ await mkdir(targetDir, { recursive: true });
 
 const found: Record<MonsterVariant, Set<number>> = {
   normal: new Set(),
+  frenzied: new Set(),
   tempered: new Set(),
   'arch-tempered': new Set(),
 };
@@ -99,6 +103,7 @@ for (const file of files) {
 
 console.log(`\nCopiados a public/monstruos/:`);
 console.log(`  normales      ${found.normal.size} de ${MONSTER_ICONS.length}`);
+console.log(`  frenéticos    ${found.frenzied.size}`);
 console.log(`  templados     ${found.tempered.size}`);
 console.log(`  arcotemplados ${found['arch-tempered'].size}`);
 
