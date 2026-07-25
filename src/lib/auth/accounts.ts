@@ -1,0 +1,129 @@
+import { users } from '../db.ts';
+import type { UserDoc } from '../models.ts';
+import { consumeInvite, releaseInvite } from './invites.ts';
+import { newUserId } from './session.ts';
+import type { GoogleProfile } from './google.ts';
+
+export type AccountResult =
+  | { ok: true; user: UserDoc }
+  | { ok: false; error: string };
+
+export async function findByEmail(email: string): Promise<UserDoc | null> {
+  const collection = await users();
+  return collection.findOne({ email: email.trim().toLowerCase() });
+}
+
+export async function createUser(params: {
+  email: string;
+  name: string;
+  picture: string | null;
+  googleId: string | null;
+  passwordHash: string | null;
+  inviteCode: string;
+}): Promise<AccountResult> {
+  const email = params.email.trim().toLowerCase();
+  const collection = await users();
+
+  // Se consume la invitación primero para que dos registros simultáneos con el
+  // mismo código no puedan colarse ambos.
+  const claimed = await consumeInvite(params.inviteCode, 'pending');
+  if (!claimed) {
+    return { ok: false, error: 'Ese código de invitación no existe o ya fue usado.' };
+  }
+
+  const user: UserDoc = {
+    _id: newUserId(),
+    email,
+    name: params.name,
+    picture: params.picture,
+    googleId: params.googleId,
+    passwordHash: params.passwordHash,
+    invitedWith: params.inviteCode,
+    createdAt: new Date(),
+    lastLoginAt: new Date(),
+  };
+
+  try {
+    await collection.insertOne(user);
+  } catch (err: any) {
+    await releaseInvite(params.inviteCode);
+    if (err?.code === 11000) {
+      // Distinguir el índice que chocó evita el mensaje engañoso de "ya existe
+      // ese correo" cuando en realidad colisionó otra cosa.
+      const clashedOnEmail = String(err?.keyPattern ? Object.keys(err.keyPattern)[0] : '') === 'email';
+      return {
+        ok: false,
+        error: clashedOnEmail
+          ? 'Ya existe una cuenta con ese correo.'
+          : 'Esa cuenta de Google ya está vinculada a otro usuario.',
+      };
+    }
+    throw err;
+  }
+
+  // Ahora que el usuario existe, se apunta la invitación a su id real.
+  const inviteCollection = await (await import('../db.ts')).invites();
+  await inviteCollection.updateOne(
+    { _id: params.inviteCode },
+    { $set: { usedBy: user._id } },
+  );
+
+  return { ok: true, user };
+}
+
+/**
+ * Resuelve el login con Google. Si ya hay una cuenta con ese correo (creada con
+ * contraseña), le vincula el googleId en vez de rechazarla: es la misma persona
+ * y forzarla a recordar cuál de los dos métodos usó sería una molestia inútil.
+ */
+export async function loginWithGoogle(
+  profile: GoogleProfile,
+  inviteCode: string | null,
+): Promise<AccountResult> {
+  const collection = await users();
+
+  const byGoogleId = await collection.findOne({ googleId: profile.googleId });
+  if (byGoogleId) {
+    await collection.updateOne(
+      { _id: byGoogleId._id },
+      { $set: { lastLoginAt: new Date(), picture: profile.picture } },
+    );
+    return { ok: true, user: byGoogleId };
+  }
+
+  const byEmail = await findByEmail(profile.email);
+  if (byEmail) {
+    await collection.updateOne(
+      { _id: byEmail._id },
+      {
+        $set: {
+          googleId: profile.googleId,
+          picture: profile.picture ?? byEmail.picture,
+          lastLoginAt: new Date(),
+        },
+      },
+    );
+    return { ok: true, user: { ...byEmail, googleId: profile.googleId } };
+  }
+
+  if (!inviteCode) {
+    return {
+      ok: false,
+      error: 'No hay ninguna cuenta con ese correo. Para crear una necesitas un código de invitación.',
+    };
+  }
+
+  return createUser({
+    email: profile.email,
+    name: profile.name,
+    picture: profile.picture,
+    googleId: profile.googleId,
+    passwordHash: null,
+    inviteCode,
+  });
+}
+
+export async function touchLogin(userId: string): Promise<void> {
+  const collection = await users();
+  await collection.updateOne({ _id: userId }, { $set: { lastLoginAt: new Date() } });
+}

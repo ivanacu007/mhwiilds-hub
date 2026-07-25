@@ -1,0 +1,82 @@
+---
+import Base from '../layouts/Base.astro';
+import { googleConfigured } from '../lib/auth/google.ts';
+
+if (Astro.locals.user) return Astro.redirect('/armador');
+
+const params = Astro.url.searchParams;
+const error = params.get('error');
+const email = params.get('email') ?? '';
+const name = params.get('name') ?? '';
+const invite = params.get('invite') ?? params.get('codigo') ?? '';
+---
+
+<Base title="Crear cuenta · Sets de Wilds" noIndex>
+  <div class="mx-auto max-w-sm">
+    <h1 class="mb-2 text-2xl font-semibold">Crear cuenta</h1>
+    <p class="mb-6 text-sm text-base-500">
+      El registro es por invitación. Si no tienes código, pídeselo a quien te pasó el enlace.
+    </p>
+
+    {error && (
+      <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
+    )}
+
+    <form method="post" action="/api/auth/register" class="space-y-3">
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">Código de invitación</span>
+        <input
+          name="invite" value={invite} required placeholder="XXXX-XXXX-XXXX"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
+        />
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">Cómo te llamas</span>
+        <input
+          name="name" value={name} required minlength="2" maxlength="40" autocomplete="nickname"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+        />
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">Correo</span>
+        <input
+          type="email" name="email" value={email} required autocomplete="email"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+        />
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">Contraseña</span>
+        <input
+          type="password" name="password" required minlength="10" autocomplete="new-password"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+        />
+        <span class="mt-1 block text-xs text-base-500">Mínimo 10 caracteres.</span>
+      </label>
+      <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+        Crear cuenta
+      </button>
+    </form>
+
+    {googleConfigured() && (
+      <>
+        <div class="my-4 flex items-center gap-3 text-xs text-base-500">
+          <span class="h-px flex-1 bg-base-800"></span>o<span class="h-px flex-1 bg-base-800"></span>
+        </div>
+        {/* El código viaja en la URL porque Google no lo puede pedir en su pantalla. */}
+        <form method="get" action="/api/auth/google" class="space-y-2">
+          <input
+            name="invite" value={invite} required placeholder="Código de invitación"
+            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
+          />
+          <button class="w-full rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800">
+            Crear cuenta con Google
+          </button>
+        </form>
+      </>
+    )}
+
+    <p class="mt-6 text-center text-sm text-base-500">
+      ¿Ya tienes cuenta? <a href="/entrar" class="text-ember-400 underline">Entra aquí</a>
+    </p>
+  </div>
+</Base>

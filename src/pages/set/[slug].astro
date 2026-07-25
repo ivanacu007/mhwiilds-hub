@@ -1,0 +1,192 @@
+---
+import Base from '../../layouts/Base.astro';
+import { savedSets } from '../../lib/db.ts';
+import { getCatalogIndex } from '../../lib/catalog/store.ts';
+import { ARMOR_KINDS, type ArmorKind } from '../../lib/catalog/types.ts';
+
+const { slug } = Astro.params;
+const user = Astro.locals.user;
+
+const collection = await savedSets();
+const set = await collection.findOne({ slug: slug! });
+
+// Un set privado solo existe para su dueño; para el resto es un 404 sin pistas.
+if (!set || (!set.isPublic && set.ownerId !== user?.id)) {
+  return new Response('Set no encontrado', { status: 404 });
+}
+
+const index = await getCatalogIndex();
+
+const KIND_LABEL: Record<ArmorKind, string> = {
+  head: 'Cabeza', chest: 'Torso', arms: 'Brazos', waist: 'Cintura', legs: 'Piernas',
+};
+
+/** Suma en servidor todo lo que aporta el set, para mostrarlo sin JS. */
+const skillTotals = new Map<number, number>();
+const bump = (skillId: number, level: number) =>
+  skillTotals.set(skillId, (skillTotals.get(skillId) ?? 0) + level);
+
+const setCounts = new Map<number, number>();
+const groupCounts = new Map<number, number>();
+let defense = 0;
+
+const pieces = ARMOR_KINDS.map((kind) => {
+  const stored = set[kind];
+  if (!stored) return { kind, piece: null, decorations: [] };
+
+  const piece = index.armorById.get(stored.armorId) ?? null;
+  if (piece) {
+    defense += piece.defense;
+    for (const grant of piece.skills) bump(grant.skillId, grant.level);
+    if (piece.setId != null) {
+      setCounts.set(piece.setId, (setCounts.get(piece.setId) ?? 0) + 1);
+      const groupId = index.armorSetById.get(piece.setId)?.groupId;
+      if (groupId != null) groupCounts.set(groupId, (groupCounts.get(groupId) ?? 0) + 1);
+    }
+  }
+
+  const decorations = stored.decorations
+    .map((d) => index.decorationById.get(d.decorationId))
+    .filter((d) => d != null);
+  for (const deco of decorations) for (const grant of deco!.skills) bump(grant.skillId, grant.level);
+
+  return { kind, piece, decorations };
+});
+
+const weapon = set.weaponId != null ? index.weaponById.get(set.weaponId) ?? null : null;
+if (weapon) for (const grant of weapon.skills) bump(grant.skillId, grant.level);
+const weaponDecos = set.weaponDecorations
+  .map((d) => index.decorationById.get(d.decorationId))
+  .filter((d) => d != null);
+for (const deco of weaponDecos) for (const grant of deco!.skills) bump(grant.skillId, grant.level);
+
+const charm = set.charmId != null ? index.charmById.get(set.charmId) ?? null : null;
+const charmRank = charm?.ranks.find((r) => r.level === set.charmLevel) ?? null;
+if (charmRank) for (const grant of charmRank.skills) bump(grant.skillId, grant.level);
+
+for (const [setId, count] of setCounts) {
+  for (const bonus of index.armorSetById.get(setId)?.setBonus ?? []) {
+    if (count >= bonus.pieces) bump(bonus.skillId, bonus.level);
+  }
+}
+for (const [groupId, count] of groupCounts) {
+  const owner = index.catalog.armorSets.find((s) => s.groupId === groupId);
+  for (const bonus of owner?.groupBonus ?? []) {
+    if (count >= bonus.pieces) bump(bonus.skillId, bonus.level);
+  }
+}
+
+const skills = [...skillTotals.entries()]
+  .map(([skillId, level]) => {
+    const skill = index.skillById.get(skillId);
+    const max = skill?.ranks.reduce((m, r) => Math.max(m, r.level), 0) ?? level;
+    return { name: skill?.name ?? `#${skillId}`, level: Math.min(level, max) };
+  })
+  .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, 'es'));
+
+const summary = skills.slice(0, 6).map((s) => `${s.name} ${s.level}`).join(' · ');
+const isOwner = user?.id === set.ownerId;
+---
+
+<Base
+  title={`${set.name} · Sets de Wilds`}
+  description={summary}
+  ogTitle={`${set.name} — set de Monster Hunter Wilds`}
+  ogDescription={`Por ${set.ownerName}. ${summary}`}
+  noIndex={!set.isPublic}
+>
+  <article class="mx-auto max-w-3xl">
+    <header class="mb-5">
+      <h1 class="text-2xl font-semibold">{set.name}</h1>
+      <p class="mt-1 text-sm text-base-500">
+        Compartido por {set.ownerName} · Defensa {defense}
+        {!set.isPublic && <span class="ml-2 rounded bg-base-800 px-1.5 py-0.5 text-xs">privado</span>}
+      </p>
+      {set.notes && <p class="mt-2 text-sm text-base-300">{set.notes}</p>}
+    </header>
+
+    <div class="mb-5 flex flex-wrap gap-1">
+      {skills.map((skill) => (
+        <span class="rounded bg-ember-500/15 px-2 py-1 text-sm text-ember-300">
+          {skill.name} {skill.level}
+        </span>
+      ))}
+    </div>
+
+    <div class="space-y-1">
+      {weapon && (
+        <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+          <div class="flex flex-wrap items-baseline gap-2">
+            <span class="w-16 shrink-0 text-xs text-base-500">Arma</span>
+            <span class="font-medium">{weapon.name}</span>
+            <span class="text-xs text-base-500">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
+          </div>
+          {weaponDecos.length > 0 && (
+            <p class="pl-16 text-sm text-ember-300">{weaponDecos.map((d) => d!.name).join(' · ')}</p>
+          )}
+        </div>
+      )}
+
+      {pieces.map(({ kind, piece, decorations }) => (
+        <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+          <div class="flex flex-wrap items-baseline gap-2">
+            <span class="w-16 shrink-0 text-xs text-base-500">{KIND_LABEL[kind]}</span>
+            <span class="font-medium">{piece?.name ?? '—'}</span>
+            {piece && (
+              <span class="text-xs text-base-500">{piece.slots.map((s) => `[${s}]`).join('')}</span>
+            )}
+          </div>
+          {decorations.length > 0 && (
+            <p class="pl-16 text-sm text-ember-300">{decorations.map((d) => d!.name).join(' · ')}</p>
+          )}
+        </div>
+      ))}
+
+      {charm && (
+        <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+          <div class="flex flex-wrap items-baseline gap-2">
+            <span class="w-16 shrink-0 text-xs text-base-500">Amuleto</span>
+            <span class="font-medium">{charm.name} {set.charmLevel}</span>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <div class="mt-6 flex flex-wrap gap-3">
+      {user && !isOwner && (
+        <button
+          id="clonar"
+          data-slug={set.slug}
+          class="rounded bg-ember-500 px-4 py-2 font-medium text-base-950 hover:bg-ember-400"
+        >
+          Copiar a mis sets
+        </button>
+      )}
+      {!user && (
+        <a href="/entrar" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">
+          Entra para copiarlo
+        </a>
+      )}
+      {isOwner && <a href="/mis-sets" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">Mis sets</a>}
+    </div>
+  </article>
+</Base>
+
+<script>
+  const button = document.getElementById('clonar');
+  button?.addEventListener('click', async () => {
+    button.setAttribute('disabled', 'true');
+    button.textContent = 'Copiando…';
+    const res = await fetch('/api/sets/clone', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ slug: button.dataset.slug }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      window.location.href = `/set/${data.slug}`;
+    } else {
+      button.textContent = 'No se pudo copiar';
+    }
+  });
+</script>

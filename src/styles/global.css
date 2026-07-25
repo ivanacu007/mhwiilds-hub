@@ -1,0 +1,42 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-base-950: #0e0f13;
+  --color-base-900: #15171d;
+  --color-base-850: #1c1f27;
+  --color-base-800: #242833;
+  --color-base-700: #333846;
+  --color-base-500: #6b7280;
+  --color-base-300: #b6bcc9;
+  --color-base-100: #e8eaf0;
+
+  --color-ember-500: #d97b3a;
+  --color-ember-400: #e89050;
+  --color-ember-300: #f0a973;
+
+  --color-jade-500: #3f9e78;
+  --color-jade-400: #52b88f;
+}
+
+html {
+  color-scheme: dark;
+  scrollbar-gutter: stable;
+}
+
+body {
+  background: var(--color-base-950);
+  color: var(--color-base-100);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* Los niveles de ranura usan el mismo código de color que el juego. */
+.slot-1 { color: #9aa4b8; }
+.slot-2 { color: #7fb3d5; }
+.slot-3 { color: #c9a227; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

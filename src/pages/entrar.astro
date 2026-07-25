@@ -1,0 +1,77 @@
+---
+import Base from '../layouts/Base.astro';
+import { googleConfigured } from '../lib/auth/google.ts';
+import { emailConfigured } from '../lib/auth/email.ts';
+
+if (Astro.locals.user) return Astro.redirect('/armador');
+
+const error = Astro.url.searchParams.get('error');
+const aviso = Astro.url.searchParams.get('aviso');
+const email = Astro.url.searchParams.get('email') ?? '';
+const siguiente = Astro.url.searchParams.get('siguiente') ?? '';
+---
+
+<Base title="Entrar · Sets de Wilds" noIndex>
+  <div class="mx-auto max-w-sm">
+    <h1 class="mb-6 text-2xl font-semibold">Entrar</h1>
+
+    {error && (
+      <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
+    )}
+    {aviso && (
+      <p class="mb-4 rounded border border-base-700 bg-base-850 px-3 py-2 text-sm text-base-300">{aviso}</p>
+    )}
+
+    {googleConfigured() && (
+      <>
+        <a
+          href="/api/auth/google"
+          class="mb-4 flex w-full items-center justify-center gap-2 rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800"
+        >
+          Continuar con Google
+        </a>
+        <div class="mb-4 flex items-center gap-3 text-xs text-base-500">
+          <span class="h-px flex-1 bg-base-800"></span>o con tu correo<span class="h-px flex-1 bg-base-800"></span>
+        </div>
+      </>
+    )}
+
+    <form method="post" action="/api/auth/login" class="space-y-3">
+      <input type="hidden" name="siguiente" value={siguiente} />
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">Correo</span>
+        <input
+          type="email" name="email" value={email} required autocomplete="email"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+        />
+      </label>
+      <label class="block">
+        <span class="mb-1 block text-sm text-base-300">Contraseña</span>
+        <input
+          type="password" name="password" required autocomplete="current-password"
+          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+        />
+      </label>
+      <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+        Entrar
+      </button>
+    </form>
+
+    {emailConfigured() && (
+      <details class="mt-4">
+        <summary class="cursor-pointer text-sm text-base-500 hover:text-base-300">Olvidé mi contraseña</summary>
+        <form method="post" action="/api/auth/forgot" class="mt-2 flex gap-2">
+          <input
+            type="email" name="email" placeholder="tu@correo.com" required
+            class="flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+          />
+          <button class="rounded border border-base-700 px-3 py-2 text-sm hover:bg-base-850">Enviar</button>
+        </form>
+      </details>
+    )}
+
+    <p class="mt-6 text-center text-sm text-base-500">
+      ¿Tienes un código de invitación? <a href="/registro" class="text-ember-400 underline">Crea tu cuenta</a>
+    </p>
+  </div>
+</Base>

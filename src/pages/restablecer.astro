@@ -1,0 +1,40 @@
+---
+import Base from '../layouts/Base.astro';
+
+const token = Astro.url.searchParams.get('token') ?? '';
+const error = Astro.url.searchParams.get('error');
+---
+
+<Base title="Nueva contraseña · Sets de Wilds" noIndex>
+  <div class="mx-auto max-w-sm">
+    <h1 class="mb-6 text-2xl font-semibold">Nueva contraseña</h1>
+
+    {error && (
+      <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
+    )}
+
+    {token ? (
+      <form method="post" action="/api/auth/reset" class="space-y-3">
+        <input type="hidden" name="token" value={token} />
+        <label class="block">
+          <span class="mb-1 block text-sm text-base-300">Contraseña nueva</span>
+          <input
+            type="password" name="password" required minlength="10" autocomplete="new-password"
+            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          />
+          <span class="mt-1 block text-xs text-base-500">Mínimo 10 caracteres.</span>
+        </label>
+        <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+          Guardar y entrar
+        </button>
+        <p class="text-xs text-base-500">
+          Al cambiarla se cierran todas las sesiones abiertas en otros dispositivos.
+        </p>
+      </form>
+    ) : (
+      <p class="text-sm text-base-300">
+        Este enlace no trae token. Pide uno nuevo desde <a href="/entrar" class="text-ember-400 underline">la pantalla de entrada</a>.
+      </p>
+    )}
+  </div>
+</Base>

@@ -1,0 +1,89 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  /** Metadatos para el preview al pegar el enlace en WhatsApp o Discord. */
+  ogTitle?: string;
+  ogDescription?: string;
+  noIndex?: boolean;
+}
+
+const { title, description, ogTitle, ogDescription, noIndex } = Astro.props;
+const user = Astro.locals.user;
+const path = Astro.url.pathname;
+
+const nav = [
+  { href: '/inventario', label: 'Inventario' },
+  { href: '/armador', label: 'Armador' },
+  { href: '/mis-sets', label: 'Mis sets' },
+];
+---
+
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    {description && <meta name="description" content={description} />}
+    {noIndex && <meta name="robots" content="noindex" />}
+
+    <meta property="og:title" content={ogTitle ?? title} />
+    <meta property="og:description" content={ogDescription ?? description ?? ''} />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sets de Wilds" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <header class="border-b border-base-800 bg-base-900">
+      <div class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
+        <a href="/" class="font-semibold tracking-tight text-ember-400">Sets de Wilds</a>
+
+        {user && (
+          <nav class="flex gap-1 text-sm">
+            {nav.map((item) => (
+              <a
+                href={item.href}
+                class:list={[
+                  'rounded px-3 py-1.5 transition-colors',
+                  path.startsWith(item.href)
+                    ? 'bg-base-800 text-base-100'
+                    : 'text-base-300 hover:bg-base-850 hover:text-base-100',
+                ]}
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+        )}
+
+        <div class="ml-auto flex items-center gap-3 text-sm">
+          {user ? (
+            <>
+              <span class="hidden text-base-300 sm:inline">{user.name}</span>
+              <form method="post" action="/api/auth/logout">
+                <button class="rounded px-2 py-1 text-base-300 hover:text-base-100">Salir</button>
+              </form>
+            </>
+          ) : (
+            <a href="/entrar" class="rounded bg-ember-500 px-3 py-1.5 font-medium text-base-950 hover:bg-ember-400">
+              Entrar
+            </a>
+          )}
+        </div>
+      </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+      <slot />
+    </main>
+
+    <footer class="border-t border-base-800 px-4 py-4 text-center text-xs text-base-500">
+      Datos del juego vía
+      <a href="https://docs.wilds.mhdb.io/" class="underline hover:text-base-300" rel="noopener">wilds.mhdb.io</a>.
+      Proyecto personal, sin relación con Capcom.
+    </footer>
+  </body>
+</html>

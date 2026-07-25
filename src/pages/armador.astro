@@ -1,0 +1,13 @@
+---
+import Base from '../layouts/Base.astro';
+import SetBuilder from '../components/SetBuilder.tsx';
+---
+
+<Base title="Armador · Sets de Wilds" noIndex>
+  <h1 class="mb-1 text-2xl font-semibold">Armador</h1>
+  <p class="mb-5 text-sm text-base-500">
+    La búsqueda corre en tu navegador, así que es instantánea y no depende del servidor.
+  </p>
+
+  <SetBuilder client:only="preact" />
+</Base>
