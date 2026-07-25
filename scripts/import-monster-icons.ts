@@ -26,10 +26,14 @@ function normalize(text: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
-/** De "MHWA-Rey Dau Icon.webp" saca "reydau". */
+/** De "120px-MHWA-Rey_Dau_Icon.webp" saca "reydau". */
 function keyOf(filename: string): string {
   const stem = basename(filename, extname(filename))
+    // Las miniaturas del wiki vienen con el ancho por delante.
+    .replace(/^\d+px-/i, '')
     .replace(/^MHWA[-_]?/i, '')
+    // Algunas se descargan como "…Icon.png.webp": la doble extensión sobra.
+    .replace(/\.(png|jpe?g|webp)$/i, '')
     .replace(/[-_ ]?icon$/i, '');
   return normalize(stem);
 }
