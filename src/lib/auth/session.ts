@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import type { AstroCookies } from 'astro';
 import { sessions, users } from '../db.ts';
 import type { UserDoc } from '../models.ts';
+import type { MonsterVariant } from '../catalog/monster-icons.ts';
 
 export const SESSION_COOKIE = 'mhw_session';
 const SESSION_DAYS = 30;
@@ -22,6 +23,8 @@ export interface PublicUser {
   hunterId: string | null;
   hr: number | null;
   favoriteMonsters: number[];
+  avatarMonsterId: number | null;
+  avatarVariant: MonsterVariant;
   picture: string | null;
   hasPassword: boolean;
 }
@@ -36,6 +39,8 @@ export function toPublicUser(user: UserDoc): PublicUser {
     hunterId: user.hunterId ?? null,
     hr: user.hr ?? null,
     favoriteMonsters: user.favoriteMonsters ?? [],
+    avatarMonsterId: user.avatarMonsterId ?? null,
+    avatarVariant: user.avatarVariant ?? 'normal',
     picture: user.picture,
     hasPassword: Boolean(user.passwordHash),
   };

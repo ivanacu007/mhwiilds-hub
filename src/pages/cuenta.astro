@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import AvatarPicker from '../components/AvatarPicker.tsx';
 
 const user = Astro.locals.user!;
 const error = Astro.url.searchParams.get('error');
@@ -22,6 +23,15 @@ const aviso = Astro.url.searchParams.get('aviso');
         Todavía no pones tu Hunter Name. Es el que ven tus amigos en tu perfil y en los sets que compartas.
       </p>
     )}
+
+    <section class="mb-5 rounded border border-base-800 bg-base-900 p-3">
+      <h2 class="mb-2 text-sm font-medium text-base-300">Foto de perfil</h2>
+      <AvatarPicker
+        client:only="preact"
+        monsterId={user.avatarMonsterId}
+        variant={user.avatarVariant}
+      />
+    </section>
 
     <form method="post" action="/api/auth/profile" class="space-y-3">
       <label class="block">

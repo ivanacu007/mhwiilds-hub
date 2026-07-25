@@ -3,6 +3,7 @@ import { loadCatalog } from '../lib/client/catalog-client.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import { CROWN_KINDS, deriveCrowns, emptyProgress, formatSize, tallyCrowns, type CrownKind } from '../lib/crowns.ts';
 import { monsterArtDataUri, SPECIES_LABEL } from '../lib/monster-art.ts';
+import { MONSTER_VARIANTS, VARIANT_LABEL, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
 import type { MonsterProgress } from '../lib/models.ts';
 
 type Progress = Record<string, MonsterProgress>;
@@ -200,6 +201,42 @@ function Crown({ kind, earned, dim }: { kind: CrownKind; earned: boolean; dim?: 
   );
 }
 
+/**
+ * Muestra las variantes del monstruo una junto a otra. Los templados y
+ * arcotemplados no existen para todos, y no hay lista de cuáles: si el archivo
+ * falta, la imagen se quita sola y solo queda la normal.
+ */
+function VariantStrip({ monster }: { monster: Monster }) {
+  const [missing, setMissing] = useState<MonsterVariant[]>([]);
+
+  return (
+    <div class="flex shrink-0 gap-1">
+      {MONSTER_VARIANTS.filter((v) => !missing.includes(v)).map((variant) => (
+        <figure key={variant} class="text-center">
+          <img
+            src={monsterIconPath(monster.id, variant)}
+            alt={`${monster.name} ${VARIANT_LABEL[variant]}`}
+            width="56"
+            height="56"
+            class="h-14 w-14 rounded-lg object-contain"
+            style={
+              variant === 'normal'
+                ? { backgroundImage: `url("${monsterArtDataUri(monster, 56)}")`, backgroundSize: 'cover' }
+                : undefined
+            }
+            onError={() => setMissing((current) => [...current, variant])}
+          />
+          {variant !== 'normal' && (
+            <figcaption class="mt-0.5 text-[10px] leading-none text-base-500">
+              {VARIANT_LABEL[variant]}
+            </figcaption>
+          )}
+        </figure>
+      ))}
+    </div>
+  );
+}
+
 function MonsterTile(props: {
   monster: Monster;
   progress: MonsterProgress | undefined;
@@ -216,7 +253,7 @@ function MonsterTile(props: {
     >
       <span class="relative">
         <img
-          src={`/monstruos/${monster.id}.webp`}
+          src={monsterIconPath(monster.id)}
           alt=""
           width="72"
           height="72"
@@ -292,15 +329,7 @@ function MonsterDialog(props: {
     >
       <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-base-700 bg-base-900 p-4">
         <div class="mb-3 flex items-start gap-3">
-          <img
-            src={`/monstruos/${monster.id}.webp`}
-            alt=""
-            width="64"
-            height="64"
-            class="h-16 w-16 rounded-lg object-contain"
-            style={{ backgroundImage: `url("${monsterArtDataUri(monster, 64)}")`, backgroundSize: 'cover' }}
-            onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
-          />
+          <VariantStrip monster={monster} />
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-semibold">{monster.name}</h2>
             <p class="text-xs text-base-500">

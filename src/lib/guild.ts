@@ -1,5 +1,6 @@
 import { guild, users } from './db.ts';
 import type { GuildDoc, UserDoc } from './models.ts';
+import type { MonsterVariant } from './catalog/monster-icons.ts';
 
 const DEFAULT_NAME = 'Gremio sin nombre';
 
@@ -43,6 +44,8 @@ export interface GuildMember {
   hunterId: string | null;
   hr: number | null;
   picture: string | null;
+  avatarMonsterId: number | null;
+  avatarVariant: MonsterVariant;
   favoriteMonsters: number[];
   joinedAt: Date;
   lastLoginAt: Date;
@@ -56,6 +59,8 @@ function toMember(user: UserDoc): GuildMember {
     hunterId: user.hunterId ?? null,
     hr: user.hr ?? null,
     picture: user.picture,
+    avatarMonsterId: user.avatarMonsterId ?? null,
+    avatarVariant: user.avatarVariant ?? 'normal',
     favoriteMonsters: user.favoriteMonsters ?? [],
     joinedAt: user.createdAt,
     lastLoginAt: user.lastLoginAt,

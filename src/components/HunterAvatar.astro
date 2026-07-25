@@ -1,0 +1,67 @@
+---
+import { monsterArtDataUri } from '../lib/monster-art.ts';
+import { monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
+import { getCatalogIndex } from '../lib/catalog/store.ts';
+
+interface Props {
+  hunter: {
+    name: string;
+    hunterName?: string | null;
+    picture?: string | null;
+    avatarMonsterId: number | null;
+    avatarVariant: MonsterVariant;
+  };
+  size?: number;
+  class?: string;
+}
+
+const { hunter, size = 40, class: className } = Astro.props;
+
+/**
+ * Orden de preferencia: el monstruo que eligió, luego su foto de Google, y si no
+ * hay ninguna, su inicial. Lo elegido a mano manda sobre lo que vino de fuera.
+ */
+const monster = hunter.avatarMonsterId != null
+  ? (await getCatalogIndex()).monsterById.get(hunter.avatarMonsterId)
+  : null;
+
+const label = hunter.hunterName || hunter.name;
+const initial = label.trim().charAt(0).toUpperCase() || '?';
+---
+
+{monster ? (
+  <span
+    class:list={['block shrink-0 overflow-hidden rounded-full bg-cover bg-center ring-1 ring-base-700', className]}
+    style={`width:${size}px;height:${size}px;background-image:url("${monsterArtDataUri(monster, size)}")`}
+    title={label}
+  >
+    <img
+      src={monsterIconPath(monster.id, hunter.avatarVariant)}
+      alt=""
+      width={size}
+      height={size}
+      loading="lazy"
+      class="h-full w-full object-cover"
+      onerror="this.remove()"
+    />
+  </span>
+) : hunter.picture ? (
+  <img
+    src={hunter.picture}
+    alt=""
+    width={size}
+    height={size}
+    referrerpolicy="no-referrer"
+    class:list={['shrink-0 rounded-full object-cover ring-1 ring-base-700', className]}
+    style={`width:${size}px;height:${size}px`}
+    title={label}
+  />
+) : (
+  <span
+    class:list={['flex shrink-0 items-center justify-center rounded-full bg-base-800 font-semibold text-base-300 ring-1 ring-base-700', className]}
+    style={`width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px`}
+    title={label}
+  >
+    {initial}
+  </span>
+)}

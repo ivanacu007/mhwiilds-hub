@@ -1,4 +1,5 @@
 import type { Catalog } from './catalog/types.ts';
+import type { MonsterVariant } from './catalog/monster-icons.ts';
 
 export interface UserDoc {
   _id: string;
@@ -16,6 +17,10 @@ export interface UserDoc {
   /** Rango de cazador. */
   hr: number | null;
   favoriteMonsters: number[];
+  /** Monstruo elegido como foto de perfil, si eligió alguno. */
+  avatarMonsterId: number | null;
+  /** Qué nivel de ese monstruo usa: normal, templado o arcotemplado. */
+  avatarVariant: MonsterVariant;
   picture: string | null;
   /** Presente si la cuenta se creó o vinculó con Google. */
   googleId: string | null;

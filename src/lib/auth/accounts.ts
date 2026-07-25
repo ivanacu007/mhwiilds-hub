@@ -40,6 +40,8 @@ export async function createUser(params: {
     hunterId: null,
     hr: null,
     favoriteMonsters: [],
+    avatarMonsterId: null,
+    avatarVariant: 'normal',
     picture: params.picture,
     googleId: params.googleId,
     passwordHash: params.passwordHash,

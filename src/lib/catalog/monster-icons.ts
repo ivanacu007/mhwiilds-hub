@@ -56,7 +56,30 @@ export const MONSTER_ICONS: MonsterIconEntry[] = [
   { id: 34, en: "Gogmazios", es: "Gogmazios", wikiFile: "MHWA-Gogmazios Icon.webp" },
 ];
 
-/** Ruta pública del icono de un monstruo, exista el archivo o no. */
-export function monsterIconPath(monsterId: number): string {
-  return `/monstruos/${monsterId}.webp`;
+/**
+ * Niveles de un mismo monstruo. La API no los separa —comparten id, solo cambia
+ * la dificultad— así que se distinguen por sufijo en el nombre del archivo.
+ */
+export type MonsterVariant = 'normal' | 'tempered' | 'arch-tempered';
+
+export const MONSTER_VARIANTS: MonsterVariant[] = ['normal', 'tempered', 'arch-tempered'];
+
+export const VARIANT_LABEL: Record<MonsterVariant, string> = {
+  normal: 'Normal',
+  tempered: 'Templado',
+  'arch-tempered': 'Arcotemplado',
+};
+
+/** Sufijo del archivo. El normal no lleva ninguno. */
+export function variantSuffix(variant: MonsterVariant): string {
+  return variant === 'normal' ? '' : `-${variant}`;
+}
+
+/** Ruta pública del icono, exista el archivo o no. */
+export function monsterIconPath(monsterId: number, variant: MonsterVariant = 'normal'): string {
+  return `/monstruos/${monsterId}${variantSuffix(variant)}.webp`;
+}
+
+export function isMonsterVariant(value: unknown): value is MonsterVariant {
+  return typeof value === 'string' && (MONSTER_VARIANTS as string[]).includes(value);
 }

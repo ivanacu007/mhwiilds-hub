@@ -344,6 +344,36 @@ try {
   const noSuchHunter = await fetch(`${BASE}/cazador/no-existe`, { headers: auth });
   check('cazador inexistente da 404', noSuchHunter.status === 404, `${noSuchHunter.status}`);
 
+  console.log('\n--- Avatar de monstruo ---');
+  const setAvatar = await fetch(`${BASE}/api/avatar`, {
+    method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ monsterId: monster.id, variant: 'arch-tempered' }),
+  });
+  const avatarData = await setAvatar.json();
+  check('acepta un monstruo como avatar', setAvatar.ok && avatarData.variant === 'arch-tempered');
+
+  const badMonster = await fetch(`${BASE}/api/avatar`, {
+    method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ monsterId: 999999 }),
+  });
+  check('rechaza un monstruo inexistente', badMonster.status === 400, `${badMonster.status}`);
+
+  const badVariant = await fetch(`${BASE}/api/avatar`, {
+    method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ monsterId: monster.id, variant: 'inventada' }),
+  });
+  // Una variante desconocida cae a normal en vez de romper el perfil.
+  check('una variante inválida cae a normal', (await badVariant.json()).variant === 'normal');
+
+  const perfilConAvatar = await (await fetch(`${BASE}/cazador/${userId}`, { headers: auth })).text();
+  check('el perfil pinta el avatar elegido', perfilConAvatar.includes(`/monstruos/${monster.id}`));
+
+  const quitar = await fetch(`${BASE}/api/avatar`, {
+    method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ monsterId: null }),
+  });
+  check('permite quitarlo', (await quitar.json()).monsterId === null);
+
   console.log('\n--- Login ---');
   const badLogin = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',

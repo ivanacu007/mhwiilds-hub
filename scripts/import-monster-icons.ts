@@ -10,7 +10,7 @@
  */
 import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
-import { MONSTER_ICONS } from '../src/lib/catalog/monster-icons.ts';
+import { MONSTER_ICONS, variantSuffix, type MonsterVariant } from '../src/lib/catalog/monster-icons.ts';
 
 // Sin argumento se usa assets/, que es donde se dejan los originales.
 const source = process.argv[2] ?? 'assets';
@@ -33,7 +33,7 @@ function normalize(text: string): string {
  * aparte (son el mismo bicho en dificultad alta), así que comparten id y hay que
  * guardarlos con sufijo propio para no pisar el icono normal.
  */
-function keyOf(filename: string): { key: string; tempered: boolean } {
+function keyOf(filename: string): { key: string; variant: MonsterVariant } {
   let stem = basename(filename, extname(filename))
     // Las miniaturas del wiki vienen con el ancho por delante.
     .replace(/^\d+px-/i, '')
@@ -42,10 +42,18 @@ function keyOf(filename: string): { key: string; tempered: boolean } {
     .replace(/\.(png|jpe?g|webp)$/i, '')
     .replace(/[-_ ]?icon$/i, '');
 
-  const tempered = /^tempered[-_ ]/i.test(stem);
-  if (tempered) stem = stem.replace(/^tempered[-_ ]/i, '');
+  // El orden importa: "Arch_Tempered_X" también empieza por algo que contiene
+  // "tempered", así que hay que descartar el arcotemplado primero.
+  let variant: MonsterVariant = 'normal';
+  if (/^arch[-_ ]?tempered[-_ ]/i.test(stem)) {
+    variant = 'arch-tempered';
+    stem = stem.replace(/^arch[-_ ]?tempered[-_ ]/i, '');
+  } else if (/^tempered[-_ ]/i.test(stem)) {
+    variant = 'tempered';
+    stem = stem.replace(/^tempered[-_ ]/i, '');
+  }
 
-  return { key: normalize(stem), tempered };
+  return { key: normalize(stem), variant };
 }
 
 const wanted = new Map<string, number>();
@@ -66,15 +74,18 @@ try {
 
 await mkdir(targetDir, { recursive: true });
 
-const found = new Set<number>();
-const foundTempered = new Set<number>();
+const found: Record<MonsterVariant, Set<number>> = {
+  normal: new Set(),
+  tempered: new Set(),
+  'arch-tempered': new Set(),
+};
 const unmatched: string[] = [];
 
 for (const file of files) {
   const ext = extname(file).toLowerCase();
   if (!['.webp', '.png', '.jpg', '.jpeg', '.avif'].includes(ext)) continue;
 
-  const { key, tempered } = keyOf(file);
+  const { key, variant } = keyOf(file);
   const id = wanted.get(key);
   if (id === undefined) {
     unmatched.push(file);
@@ -82,17 +93,16 @@ for (const file of files) {
   }
 
   // Se conserva la extensión original; el componente prueba varias.
-  const name = tempered ? `${id}-tempered${ext}` : `${id}${ext}`;
-  await copyFile(join(sourceDir, file), join(targetDir, name));
-  (tempered ? foundTempered : found).add(id);
+  await copyFile(join(sourceDir, file), join(targetDir, `${id}${variantSuffix(variant)}${ext}`));
+  found[variant].add(id);
 }
 
-console.log(`\nCopiados ${found.size} de ${MONSTER_ICONS.length} iconos a public/monstruos/`);
-if (foundTempered.size) {
-  console.log(`Y ${foundTempered.size} versiones templadas, como <id>-tempered.`);
-}
+console.log(`\nCopiados a public/monstruos/:`);
+console.log(`  normales      ${found.normal.size} de ${MONSTER_ICONS.length}`);
+console.log(`  templados     ${found.tempered.size}`);
+console.log(`  arcotemplados ${found['arch-tempered'].size}`);
 
-const missing = MONSTER_ICONS.filter((m) => !found.has(m.id));
+const missing = MONSTER_ICONS.filter((m) => !found.normal.has(m.id));
 if (missing.length) {
   console.log('\nFaltan (se verá el icono generado en su lugar):');
   for (const m of missing) console.log(`  ${m.es}  →  ${m.wikiFile}`);

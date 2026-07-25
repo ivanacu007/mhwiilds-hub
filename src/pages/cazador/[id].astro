@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
+import HunterAvatar from '../../components/HunterAvatar.astro';
 import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
@@ -37,7 +38,9 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
 ---
 
 <Base title={`${displayName(member)} · Sets de Wilds`} noIndex>
-  <header class="mb-6">
+  <header class="mb-6 flex items-start gap-4">
+    <HunterAvatar hunter={member} size={72} />
+    <div>
     <h1 class="text-2xl font-semibold">{displayName(member)}</h1>
     <p class="mt-1 text-sm text-base-500">
       {member.hr ? `Hunter Rank ${member.hr}` : 'Sin HR registrado'}
@@ -51,6 +54,7 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
         <a href="/coronas" class="text-ember-400 underline">Registrar coronas</a>
       </p>
     )}
+    </div>
   </header>
 
   <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
