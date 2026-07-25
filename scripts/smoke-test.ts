@@ -133,6 +133,11 @@ try {
 
   const auth = { cookie };
 
+  // Se necesita el id para visitar el perfil público más adelante.
+  const { users } = await import('../src/lib/db.ts');
+  const userDoc = await (await users()).findOne({ email: 'cazador@example.com' });
+  const userId = userDoc!._id;
+
   console.log('\n--- Sesión ---');
   const anon = await fetch(`${BASE}/inventario`, { redirect: 'manual' });
   check('sin sesión redirige a /entrar', (anon.headers.get('location') ?? '').startsWith('/entrar'));
@@ -246,6 +251,98 @@ try {
   });
   const clonedData = await cloned.json();
   check('sí puede clonar el set público', cloned.status === 201 && clonedData.slug !== setData.slug);
+
+  console.log('\n--- Coronas ---');
+  const monster = catalog.monsters.find((m: any) => m.size);
+  check('el catálogo trae monstruos con umbrales', Boolean(monster), `${catalog.monsters?.length}`);
+
+  // Un ejemplar por debajo del umbral mini y otro por encima del de oro:
+  // deben salir las tres coronas sin marcar nada a mano.
+  const putProgress = await fetch(`${BASE}/api/progress`, {
+    method: 'PUT',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({
+      monsters: {
+        [monster.id]: {
+          smallest: monster.size.mini - 1,
+          largest: monster.size.gold + 1,
+          hunted: 12, captured: 3,
+        },
+        // Entrada vacía: no debe guardarse.
+        999999: { smallest: null, largest: null, hunted: 0, captured: 0 },
+      },
+    }),
+  });
+  check('guarda el progreso', putProgress.ok);
+
+  const savedProgress = (await (await fetch(`${BASE}/api/progress`, { headers: auth })).json()).monsters;
+  check('descarta las entradas vacías', !('999999' in savedProgress));
+  check('conserva cazados y capturados', savedProgress[String(monster.id)]?.hunted === 12);
+
+  const { deriveCrowns } = await import('../src/lib/crowns.ts');
+  const derived = deriveCrowns(monster, savedProgress[String(monster.id)]);
+  check('deduce la corona pequeña por tamaño', derived.mini.earned && derived.mini.fromSize);
+  check('deduce la de oro por tamaño', derived.gold.earned && derived.gold.fromSize);
+
+  // Al revés: un ejemplar dentro del rango normal no debe dar ninguna corona.
+  const none = deriveCrowns(monster, {
+    smallest: monster.size.base, largest: monster.size.base,
+    hunted: 1, captured: 0, manualMini: false, manualSilver: false, manualGold: false,
+  });
+  check('no regala coronas con tamaño normal', !none.mini.earned && !none.gold.earned);
+  check('dice cuánto falta para la siguiente', none.nextGoal != null && none.nextGoal.needed > 0);
+
+  // Si llegan invertidos, se ordenan en vez de perder el dato.
+  await fetch(`${BASE}/api/progress`, {
+    method: 'PUT',
+    headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ monsters: { [monster.id]: { smallest: 900, largest: 100 } } }),
+  });
+  const swapped = (await (await fetch(`${BASE}/api/progress`, { headers: auth })).json())
+    .monsters[String(monster.id)];
+  check('ordena un rango invertido', swapped.smallest === 100 && swapped.largest === 900);
+
+  console.log('\n--- Perfil, gremio y favoritos ---');
+  const perfil = await fetch(`${BASE}/api/auth/profile`, {
+    method: 'POST', headers: auth, redirect: 'manual',
+    body: new URLSearchParams({ name: 'Cazador', hunterName: 'Ivanhunter', hunterId: 'ABC-123', hr: '145' }),
+  });
+  check('guarda Hunter ID y HR', (perfil.headers.get('location') ?? '').includes('aviso='));
+
+  const badHr = await fetch(`${BASE}/api/auth/profile`, {
+    method: 'POST', headers: auth, redirect: 'manual',
+    body: new URLSearchParams({ name: 'Cazador', hr: '0' }),
+  });
+  check('rechaza un HR inválido', (badHr.headers.get('location') ?? '').includes('error='));
+
+  const favs = await fetch(`${BASE}/api/favorites`, {
+    method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },
+    body: JSON.stringify({ monsters: [monster.id, monster.id, -3, 'x'] }),
+  });
+  const favData = await favs.json();
+  check('guarda favoritos sin duplicados ni basura', favData.monsters.length === 1);
+
+  const gremio = await fetch(`${BASE}/api/guild`, {
+    method: 'POST', headers: auth, redirect: 'manual',
+    body: new URLSearchParams({ name: 'Los Cazadores del Sur', motto: 'Sin miedo al Rey Dau' }),
+  });
+  check('nombra el gremio', (gremio.headers.get('location') ?? '').includes('aviso='));
+
+  const gremioHtml = await (await fetch(`${BASE}/gremio`, { headers: auth })).text();
+  check('el gremio muestra su nombre', gremioHtml.includes('Los Cazadores del Sur'));
+
+  const lista = await (await fetch(`${BASE}/cazadores`, { headers: auth })).text();
+  check('la lista muestra al cazador', lista.includes('Ivanhunter'));
+
+  const perfilHtml = await (await fetch(`${BASE}/cazador/${userId}`, { headers: auth })).text();
+  check('el perfil muestra HR y Hunter ID', perfilHtml.includes('145') && perfilHtml.includes('ABC-123'));
+  check('el perfil muestra el monstruo favorito', perfilHtml.includes(monster.name));
+
+  const anonProfile = await fetch(`${BASE}/cazadores`, { redirect: 'manual' });
+  check('los perfiles exigen sesión', (anonProfile.headers.get('location') ?? '').startsWith('/entrar'));
+
+  const noSuchHunter = await fetch(`${BASE}/cazador/no-existe`, { headers: auth });
+  check('cazador inexistente da 404', noSuchHunter.status === 404, `${noSuchHunter.status}`);
 
   console.log('\n--- Login ---');
   const badLogin = await fetch(`${BASE}/api/auth/login`, {

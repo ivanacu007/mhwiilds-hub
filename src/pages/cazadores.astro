@@ -1,0 +1,70 @@
+---
+import Base from '../layouts/Base.astro';
+import { getGuild, listMembers, displayName } from '../lib/guild.ts';
+import { getCatalogIndex } from '../lib/catalog/store.ts';
+import { progress as progressCollection, savedSets } from '../lib/db.ts';
+import { tallyCrowns } from '../lib/crowns.ts';
+
+const guild = await getGuild();
+const members = await listMembers();
+const index = await getCatalogIndex();
+const monsters = index.catalog.monsters;
+
+// Una sola consulta por colección en vez de una por cazador.
+const ids = members.map((m) => m.id);
+const [progressDocs, setCounts] = await Promise.all([
+  (await progressCollection()).find({ _id: { $in: ids } }).toArray(),
+  (await savedSets()).aggregate<{ _id: string; count: number }>([
+    { $match: { ownerId: { $in: ids } } },
+    { $group: { _id: '$ownerId', count: { $sum: 1 } } },
+  ]).toArray(),
+]);
+
+const progressById = new Map(progressDocs.map((d) => [d._id, d.monsters ?? {}]));
+const setsById = new Map(setCounts.map((d) => [d._id, d.count]));
+
+const rows = members
+  .map((member) => ({
+    member,
+    crowns: tallyCrowns(monsters, progressById.get(member.id) ?? {}),
+    sets: setsById.get(member.id) ?? 0,
+  }))
+  .sort((a, b) => b.crowns.gold - a.crowns.gold || (b.member.hr ?? 0) - (a.member.hr ?? 0));
+---
+
+<Base title={`Cazadores · ${guild.name}`} noIndex>
+  <div class="mb-5 flex flex-wrap items-baseline gap-x-3">
+    <h1 class="text-2xl font-semibold">Cazadores</h1>
+    <a href="/gremio" class="text-sm text-base-500 hover:text-ember-400">{guild.name}</a>
+  </div>
+
+  <ul class="space-y-2">
+    {rows.map(({ member, crowns, sets }) => (
+      <li>
+        <a
+          href={`/cazador/${member.id}`}
+          class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded border border-base-800 bg-base-900 px-3 py-2.5 transition-colors hover:border-ember-500/50 hover:bg-base-850"
+        >
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{displayName(member)}</p>
+            <p class="text-xs text-base-500">
+              {member.hr ? `HR ${member.hr}` : 'sin HR'}
+              {member.hunterId && ` · ${member.hunterId}`}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-3 text-sm">
+            <span title="Coronas de oro" class="text-[#e0b53c]">♔ {crowns.gold}</span>
+            <span title="Coronas de plata" class="text-[#c9ccd4]">♔ {crowns.silver}</span>
+            <span title="Coronas pequeñas" class="text-[#8fb8d8]">♔ {crowns.mini}</span>
+            <span class="text-base-500">{sets} {sets === 1 ? 'set' : 'sets'}</span>
+          </div>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  {rows.length === 0 && (
+    <p class="py-10 text-center text-sm text-base-500">Todavía no hay nadie registrado.</p>
+  )}
+</Base>

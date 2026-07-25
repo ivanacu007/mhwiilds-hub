@@ -12,12 +12,8 @@ import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { basename, extname, join, resolve } from 'node:path';
 import { MONSTER_ICONS } from '../src/lib/catalog/monster-icons.ts';
 
-const source = process.argv[2];
-if (!source) {
-  console.error('Uso: npm run iconos:importar -- <carpeta con los archivos>');
-  process.exit(1);
-}
-
+// Sin argumento se usa assets/, que es donde se dejan los originales.
+const source = process.argv[2] ?? 'assets';
 const sourceDir = resolve(source.replace(/^~/, process.env.HOME ?? '~'));
 const targetDir = resolve('public/monstruos');
 
@@ -50,6 +46,7 @@ try {
   files = await readdir(sourceDir);
 } catch {
   console.error(`No pude leer la carpeta: ${sourceDir}`);
+  console.error('Uso: npm run iconos:importar -- <carpeta>   (por defecto: assets/)');
   process.exit(1);
 }
 

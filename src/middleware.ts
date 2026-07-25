@@ -3,7 +3,10 @@ import { ensureIndexes } from './lib/db.ts';
 import { readSession, toPublicUser } from './lib/auth/session.ts';
 
 /** Rutas que exigen sesión. El resto es público (landing, login, /set/<slug>). */
-const PROTECTED = ['/inventario', '/armador', '/mis-sets', '/cuenta'];
+const PROTECTED = [
+  '/inventario', '/armador', '/mis-sets', '/cuenta',
+  '/coronas', '/cazadores', '/cazador', '/gremio',
+];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   await ensureIndexes();

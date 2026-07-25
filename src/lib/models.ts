@@ -11,6 +11,11 @@ export interface UserDoc {
    * tiene que poder quedar vacío y llenarse después desde /cuenta.
    */
   hunterName: string | null;
+  /** El código que se comparte dentro del juego para agregarse. */
+  hunterId: string | null;
+  /** Rango de cazador. */
+  hr: number | null;
+  favoriteMonsters: number[];
   picture: string | null;
   /** Presente si la cuenta se creó o vinculó con Google. */
   googleId: string | null;
@@ -99,6 +104,47 @@ export interface SavedSetDoc {
   isPublic: boolean;
   clonedFrom: string | null;
   createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Progreso por monstruo de un cazador.
+ *
+ * Se guarda el rango de tamaños que le han salido, no las coronas: con los
+ * umbrales del catálogo las coronas se deducen, y además se puede decir cuánto
+ * falta para la siguiente. Las banderas manuales existen para quien prefiera
+ * palomear sin teclear números.
+ */
+export interface MonsterProgress {
+  /** El ejemplar más pequeño que ha cazado. */
+  smallest: number | null;
+  /** El más grande. */
+  largest: number | null;
+  hunted: number;
+  captured: number;
+  /** Coronas marcadas a mano, sin respaldo de tamaño. */
+  manualMini: boolean;
+  manualSilver: boolean;
+  manualGold: boolean;
+}
+
+export interface ProgressDoc {
+  /** userId: un documento de progreso por cazador. */
+  _id: string;
+  /** monsterId -> progreso. */
+  monsters: Record<string, MonsterProgress>;
+  updatedAt: Date;
+}
+
+/**
+ * El gremio. Hay uno solo por servidor: quien entra con una invitación ya es
+ * miembro, así que no hacen falta permisos ni altas y bajas.
+ */
+export interface GuildDoc {
+  _id: 'current';
+  name: string;
+  motto: string | null;
+  updatedBy: string | null;
   updatedAt: Date;
 }
 

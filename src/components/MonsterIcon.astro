@@ -1,0 +1,35 @@
+---
+import { monsterArtDataUri } from '../lib/monster-art.ts';
+
+interface Props {
+  monster: { id: number; name: string; species: string };
+  size?: number;
+  class?: string;
+}
+
+const { monster, size = 72, class: className } = Astro.props;
+
+/**
+ * El emblema generado va de fondo y la imagen local encima. Si el archivo no
+ * existe, el `onerror` la quita y queda el emblema: así no hace falta que el
+ * servidor sepa qué iconos tienes puestos, ni al construir ni al renderizar.
+ */
+const fallback = monsterArtDataUri(monster, size);
+---
+
+<span
+  class:list={['relative block shrink-0 overflow-hidden rounded-xl bg-cover bg-center', className]}
+  style={`width:${size}px;height:${size}px;background-image:url("${fallback}")`}
+  title={monster.name}
+>
+  <img
+    src={`/monstruos/${monster.id}.webp`}
+    alt={monster.name}
+    width={size}
+    height={size}
+    loading="lazy"
+    decoding="async"
+    class="absolute inset-0 h-full w-full object-contain"
+    onerror="this.remove()"
+  />
+</span>

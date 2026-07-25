@@ -1,0 +1,150 @@
+---
+import Base from '../../layouts/Base.astro';
+import MonsterIcon from '../../components/MonsterIcon.astro';
+import { getMember, displayName } from '../../lib/guild.ts';
+import { getCatalogIndex } from '../../lib/catalog/store.ts';
+import { progress as progressCollection, savedSets } from '../../lib/db.ts';
+import { CROWN_KINDS, deriveCrowns, formatSize, tallyCrowns } from '../../lib/crowns.ts';
+import { SPECIES_LABEL } from '../../lib/monster-art.ts';
+
+const member = await getMember(Astro.params.id!);
+if (!member) return new Response('Cazador no encontrado', { status: 404 });
+
+const index = await getCatalogIndex();
+const monsters = index.catalog.monsters;
+
+const doc = await (await progressCollection()).findOne({ _id: member.id });
+const progress = doc?.monsters ?? {};
+const crowns = tallyCrowns(monsters, progress);
+
+const sets = await (await savedSets())
+  .find({ ownerId: member.id, isPublic: true })
+  .sort({ updatedAt: -1 })
+  .limit(12)
+  .toArray();
+
+const favorites = member.favoriteMonsters
+  .map((id) => index.monsterById.get(id))
+  .filter((m) => m != null);
+
+// Solo los que tienen alguna corona: la rejilla completa ya vive en /coronas.
+const withCrowns = monsters
+  .map((monster) => ({ monster, state: deriveCrowns(monster, progress[String(monster.id)]) }))
+  .filter((row) => row.state.mini.earned || row.state.silver.earned || row.state.gold.earned);
+
+const isMe = Astro.locals.user?.id === member.id;
+const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as const;
+---
+
+<Base title={`${displayName(member)} · Sets de Wilds`} noIndex>
+  <header class="mb-6">
+    <h1 class="text-2xl font-semibold">{displayName(member)}</h1>
+    <p class="mt-1 text-sm text-base-500">
+      {member.hr ? `Hunter Rank ${member.hr}` : 'Sin HR registrado'}
+      {member.hunterId && <> · Hunter ID <code class="text-base-300">{member.hunterId}</code></>}
+      {member.hunterName && member.hunterName !== member.name && <> · {member.name}</>}
+    </p>
+    {isMe && (
+      <p class="mt-2 text-sm">
+        <a href="/cuenta" class="text-ember-400 underline">Editar mi perfil</a>
+        <span class="text-base-700"> · </span>
+        <a href="/coronas" class="text-ember-400 underline">Registrar coronas</a>
+      </p>
+    )}
+  </header>
+
+  <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
+    {CROWN_KINDS.map((kind) => (
+      <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+        <p class="text-xs text-base-500">
+          {kind === 'mini' ? 'Pequeñas' : kind === 'silver' ? 'Plata' : 'Oro'}
+        </p>
+        <p class="text-lg font-semibold" style={`color:${CROWN_COLOR[kind]}`}>
+          {crowns[kind]} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
+        </p>
+      </div>
+    ))}
+    <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+      <p class="text-xs text-base-500">Completos</p>
+      <p class="text-lg font-semibold">
+        {crowns.complete} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
+      </p>
+    </div>
+  </section>
+
+  {favorites.length > 0 && (
+    <section class="mb-6">
+      <h2 class="mb-2 text-sm font-medium text-base-300">Monstruos favoritos</h2>
+      <div class="flex flex-wrap gap-2">
+        {favorites.map((monster) => (
+          <div class="flex w-24 flex-col items-center gap-1 text-center">
+            <MonsterIcon monster={monster!} size={64} />
+            <span class="text-xs leading-tight text-base-300">{monster!.name}</span>
+          </div>
+        ))}
+      </div>
+    </section>
+  )}
+
+  <section class="mb-6">
+    <h2 class="mb-2 text-sm font-medium text-base-300">
+      Coronas conseguidas
+      {withCrowns.length > 0 && <span class="text-base-500"> ({withCrowns.length})</span>}
+    </h2>
+
+    {withCrowns.length === 0 ? (
+      <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
+        Todavía no registra ninguna corona.
+      </p>
+    ) : (
+      <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-2">
+        {withCrowns.map(({ monster, state }) => {
+          const p = progress[String(monster.id)];
+          return (
+            <div class="flex items-center gap-2 rounded border border-base-800 bg-base-900 p-2">
+              <MonsterIcon monster={monster} size={44} />
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm">{monster.name}</p>
+                <p class="text-[11px] text-base-500">{SPECIES_LABEL[monster.species] ?? monster.species}</p>
+                <div class="mt-0.5 flex gap-1">
+                  {CROWN_KINDS.map((kind) => (
+                    <span
+                      class="text-xs"
+                      style={`color:${CROWN_COLOR[kind]};opacity:${state[kind].earned ? 1 : 0.2}`}
+                      title={state[kind].fromSize ? 'Confirmada por tamaño' : 'Marcada a mano'}
+                    >♔</span>
+                  ))}
+                  {p?.largest != null && (
+                    <span class="ml-1 text-[11px] text-base-500">máx {formatSize(p.largest)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </section>
+
+  <section>
+    <h2 class="mb-2 text-sm font-medium text-base-300">Sets compartidos</h2>
+    {sets.length === 0 ? (
+      <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
+        No tiene sets públicos.
+      </p>
+    ) : (
+      <ul class="space-y-1">
+        {sets.map((set) => (
+          <li>
+            <a
+              href={`/set/${set.slug}`}
+              class="block rounded border border-base-800 bg-base-900 px-3 py-2 text-sm hover:border-ember-500/50 hover:bg-base-850"
+            >
+              {set.name}
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</Base>

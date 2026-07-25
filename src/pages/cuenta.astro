@@ -19,7 +19,7 @@ const aviso = Astro.url.searchParams.get('aviso');
 
     {!user.hunterName && (
       <p class="mb-4 rounded border border-ember-500/40 bg-ember-500/5 px-3 py-2 text-sm text-base-300">
-        Todavía no pones tu nombre de cazador. Es el que ven tus amigos en los sets que compartas.
+        Todavía no pones tu Hunter Name. Es el que ven tus amigos en tu perfil y en los sets que compartas.
       </p>
     )}
 
@@ -34,19 +34,44 @@ const aviso = Astro.url.searchParams.get('aviso');
 
       <label class="block">
         <span class="mb-1 block text-sm text-base-300">
-          Nombre de cazador <span class="text-base-500">(opcional)</span>
+          Hunter Name <span class="text-base-500">(opcional)</span>
         </span>
         <input
           name="hunterName" value={user.hunterName ?? ''} maxlength="40"
-          placeholder="Como te llamas en Wilds"
+          placeholder="Tu nombre dentro de Wilds"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
+
+      <div class="grid grid-cols-2 gap-3">
+        <label class="block">
+          <span class="mb-1 block text-sm text-base-300">
+            Hunter ID <span class="text-base-500">(opcional)</span>
+          </span>
+          <input
+            name="hunterId" value={user.hunterId ?? ''} maxlength="30" placeholder="Tu código"
+            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono text-sm outline-none focus:border-ember-500"
+          />
+        </label>
+        <label class="block">
+          <span class="mb-1 block text-sm text-base-300">
+            HR <span class="text-base-500">(opcional)</span>
+          </span>
+          <input
+            type="number" name="hr" value={user.hr ?? ''} min="1" max="999" placeholder="—"
+            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          />
+        </label>
+      </div>
 
       <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
         Guardar
       </button>
     </form>
+
+    <p class="mt-4 text-center text-sm">
+      <a href={`/cazador/${user.id}`} class="text-ember-400 underline">Ver mi perfil público</a>
+    </p>
 
     <dl class="mt-8 space-y-2 border-t border-base-800 pt-6 text-sm">
       <div class="flex justify-between gap-4">

@@ -1,6 +1,8 @@
 import { MongoClient, type Db, type Collection } from 'mongodb';
 import type {
   CatalogDoc,
+  GuildDoc,
+  ProgressDoc,
   InventoryDoc,
   InviteDoc,
   ResetTokenDoc,
@@ -60,6 +62,14 @@ export async function inventories(): Promise<Collection<InventoryDoc>> {
 
 export async function savedSets(): Promise<Collection<SavedSetDoc>> {
   return (await getDb()).collection<SavedSetDoc>('sets');
+}
+
+export async function progress(): Promise<Collection<ProgressDoc>> {
+  return (await getDb()).collection<ProgressDoc>('progress');
+}
+
+export async function guild(): Promise<Collection<GuildDoc>> {
+  return (await getDb()).collection<GuildDoc>('guild');
 }
 
 export async function catalogCollection(): Promise<Collection<CatalogDoc>> {
