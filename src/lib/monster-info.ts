@@ -18,6 +18,22 @@ export function affinityLabel(t: Translator, affinity: MonsterAffinity): string 
   return label === key ? affinity.what : label;
 }
 
+/**
+ * Separa debilidades por tipo.
+ *
+ * Mezclarlas y ordenar por nivel esconde lo que más se busca: los estados son
+ * casi siempre nivel 2 o 3 y los elementos nivel 1, así que al recortar la
+ * lista los elementos desaparecían en 32 de los 34 monstruos.
+ */
+export function splitAffinities(list: MonsterAffinity[]): {
+  elements: MonsterAffinity[];
+  statuses: MonsterAffinity[];
+  effects: MonsterAffinity[];
+} {
+  const by = (kind: string) => list.filter((a) => a.kind === kind);
+  return { elements: by('element'), statuses: by('status'), effects: by('effect') };
+}
+
 /** Nombre del tipo de daño de una columna de zonas de impacto. */
 export function damageLabel(t: Translator, key: string): string {
   const full = `el.${key}`;

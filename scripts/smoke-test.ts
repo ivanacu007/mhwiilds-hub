@@ -463,6 +463,33 @@ try {
   check('la lista muestra monstruos', listPage.includes(first.name));
   check('la lista pagina', listPage.includes('?p=2'));
 
+  // Mezclar debilidades y ordenar por nivel escondía el elemento en 32 de 34
+  // monstruos: los estados son nivel 2-3 y los elementos nivel 1.
+  const { splitAffinities } = await import('../src/lib/monster-info.ts');
+  const conElemento = catalog.monsters.filter(
+    (m: any) => splitAffinities(m.weaknesses).elements.length > 0,
+  );
+  check('casi todos tienen debilidad elemental', conElemento.length >= 33,
+    `${conElemento.length} de ${catalog.monsters.length}`);
+
+  const primeraPagina = catalog.monsters.slice(0, 24);
+  const elementosVisibles = primeraPagina.filter((m: any) => {
+    const els = splitAffinities(m.weaknesses).elements;
+    return els.length === 0 || els.some((e: any) => listPage.includes(`${'★'.repeat(e.level ?? 0)}`));
+  });
+  check('la lista enseña el elemento de cada uno',
+    elementosVisibles.length === primeraPagina.length,
+    `${elementosVisibles.length} de ${primeraPagina.length}`);
+
+  // El nombre del elemento traducido tiene que aparecer, no solo las estrellas.
+  const reyDau = catalog.monsters.find((m: any) => m.name.includes('Rey Dau'));
+  const hielo = splitAffinities(reyDau.weaknesses).elements[0];
+  const detalleRey = await (await fetch(`${BASE}/monstruos/${reyDau.id}`, { headers: auth })).text();
+  check('el detalle separa elemental de estados',
+    detalleRey.includes('Elemental') && detalleRey.includes('Estados'));
+  check('y nombra el elemento concreto', hielo != null && detalleRey.includes('Hielo'),
+    JSON.stringify(hielo));
+
   const searched = await (await fetch(`${BASE}/monstruos?q=${encodeURIComponent(first.name)}`, {
     headers: auth,
   })).text();
