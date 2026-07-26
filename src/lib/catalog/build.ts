@@ -15,6 +15,9 @@ import type {
   Item,
   Material,
   Monster,
+  MonsterAffinity,
+  MonsterPart,
+  MonsterReward,
   Skill,
   SkillGrant,
   SkillKind,
@@ -24,6 +27,46 @@ import type {
 import { compareByGameOrder } from './monster-icons.ts';
 
 const API_BASE = 'https://wilds.mhdb.io';
+
+/**
+ * Los nombres de parte llegan de la API como claves en inglés ('left-wing').
+ * Sus traducciones viven en un archivo aparte del mismo proyecto, que la propia
+ * documentación de la API señala.
+ */
+const PART_NAMES_URL =
+  'https://raw.githubusercontent.com/LartTyler/mhdb-wilds-data/main/output/merged/PartNames.json';
+
+/**
+ * Partes que el archivo de origen trae sin traducir en ningún idioma. Es un
+ * hueco de sus datos, no del nuestro: sin esto se mostraría la clave cruda.
+ */
+const PART_NAME_FALLBACK: Record<string, Record<string, string>> = {
+  hide: { en: 'Hide', es: 'Piel', 'es-419': 'Piel' },
+};
+
+async function fetchPartNames(locale: string): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  try {
+    const res = await fetch(PART_NAMES_URL, { headers: { accept: 'application/json' } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const entries = (await res.json()) as { part: string; names: Record<string, string> }[];
+    for (const entry of entries) {
+      if (!entry.part) continue;
+      // es-419 antes que es: son distintos y el latino es el que usa el juego aquí.
+      const name =
+        entry.names?.[locale] ||
+        PART_NAME_FALLBACK[entry.part]?.[locale] ||
+        entry.names?.en ||
+        PART_NAME_FALLBACK[entry.part]?.en;
+      if (name) out.set(entry.part, name);
+    }
+  } catch (err) {
+    // Sin traducciones se muestran las claves: es fea pero legible, y no vale
+    // tumbar la sincronización entera del catálogo por esto.
+    console.warn('[catalog] no se pudieron leer los nombres de parte:', err);
+  }
+  return out;
+}
 
 /** Lo que devuelve la API es más ancho que esto; solo declaramos lo que leemos. */
 type Raw = Record<string, any>;
@@ -102,6 +145,67 @@ function baseCharmName(rankName: string): string {
   return rankName.replace(/\s+[IVX]+$/, '').trim();
 }
 
+/** Debilidades y resistencias comparten forma; solo cambia el campo que nombran. */
+function affinities(raw: unknown): MonsterAffinity[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MonsterAffinity[] = [];
+  for (const entry of raw as Raw[]) {
+    const what = entry?.element ?? entry?.status ?? entry?.effect;
+    if (typeof what !== 'string') continue;
+    out.push({
+      kind: entry?.kind ?? 'element',
+      what,
+      level: typeof entry?.level === 'number' ? entry.level : null,
+      condition: entry?.condition?.trim?.() || null,
+    });
+  }
+  // Primero las más débiles, que es el orden en que se leen.
+  return out.sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || a.what.localeCompare(b.what));
+}
+
+function parts(raw: unknown, names: Map<string, string>): MonsterPart[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MonsterPart[] = [];
+  for (const entry of raw as Raw[]) {
+    const kind = entry?.kind ?? entry?.part;
+    if (typeof kind !== 'string') continue;
+    const multipliers: Record<string, number> = {};
+    for (const [key, value] of Object.entries(entry?.multipliers ?? {})) {
+      if (typeof value === 'number') multipliers[key] = value;
+    }
+    out.push({
+      kind,
+      name: names.get(kind) ?? kind,
+      health: typeof entry?.health === 'number' ? entry.health : null,
+      kinsectEssence: entry?.kinsectEssence ?? null,
+      multipliers,
+    });
+  }
+  return out;
+}
+
+function rewards(raw: unknown): MonsterReward[] {
+  if (!Array.isArray(raw)) return [];
+  const out: MonsterReward[] = [];
+  for (const entry of raw as Raw[]) {
+    const itemId = entry?.item?.id;
+    if (typeof itemId !== 'number') continue;
+    out.push({
+      itemId,
+      conditions: (entry?.conditions ?? [])
+        .filter((c: Raw) => typeof c?.kind === 'string')
+        .map((c: Raw) => ({
+          kind: c.kind,
+          rank: c.rank ?? null,
+          quantity: typeof c.quantity === 'number' ? c.quantity : 1,
+          chance: typeof c.chance === 'number' ? c.chance : null,
+          part: c.part ?? null,
+        })),
+    });
+  }
+  return out;
+}
+
 export async function buildCatalog(locale: string): Promise<Catalog> {
   const [rawSkills, rawArmor, rawSets, rawDecos, rawCharms, rawWeapons, rawItems, rawMonsters] =
     await Promise.all([
@@ -114,6 +218,8 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
       fetchResource(locale, 'items'),
       fetchResource(locale, 'monsters'),
     ]);
+
+  const partNames = await fetchPartNames(locale);
 
   const skills: Skill[] = rawSkills.map((s) => ({
     id: s.id,
@@ -220,12 +326,19 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
             ? { base: size.base, mini: size.mini, silver: size.silver, gold: size.gold }
             : null,
         elements: (m.elements ?? []).filter((e: unknown) => typeof e === 'string'),
-        weaknesses: (m.weaknesses ?? [])
-          .map((w: Raw) => (typeof w === 'string' ? w : w?.element))
-          .filter((w: unknown): w is string => typeof w === 'string'),
+        weaknesses: affinities(m.weaknesses),
+        resistances: affinities(m.resistances),
+        parts: parts(m.parts, partNames),
+        rewards: rewards(m.rewards),
         locations: (m.locations ?? [])
-          .map((l: Raw) => (typeof l === 'string' ? l : l?.name))
-          .filter((l: unknown): l is string => typeof l === 'string'),
+          .map((l: Raw) => ({ name: l?.name ?? '', zones: l?.zoneCount ?? null }))
+          .filter((l: { name: string }) => l.name),
+        variants: (m.variants ?? [])
+          .map((v: Raw) => v?.kind)
+          .filter((k: unknown): k is string => typeof k === 'string'),
+        description: m.description?.trim() || null,
+        tips: m.tips?.trim() || null,
+        baseHealth: typeof m.baseHealth === 'number' ? m.baseHealth : null,
       };
     })
     // El orden por defecto de la guía de campo, no el alfabético.

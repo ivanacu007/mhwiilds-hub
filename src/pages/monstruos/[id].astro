@@ -1,0 +1,206 @@
+---
+import Base from '../../layouts/Base.astro';
+import MonsterIcon from '../../components/MonsterIcon.astro';
+import { getCatalogIndex } from '../../lib/catalog/store.ts';
+import { MONSTER_VARIANTS, type MonsterVariant } from '../../lib/catalog/monster-icons.ts';
+import {
+  DAMAGE_COLUMNS,
+  affinityLabel,
+  damageLabel,
+  formatMultiplier,
+  hitzoneTone,
+} from '../../lib/monster-info.ts';
+
+const t = Astro.locals.t;
+const index = await getCatalogIndex(Astro.locals.locale);
+
+const monster = index.monsterById.get(Number(Astro.params.id));
+if (!monster) return new Response(t('monsters.notFound'), { status: 404 });
+
+/** Solo las columnas que este monstruo usa: si nadie recibe daño de sueño, sobra. */
+const columns = DAMAGE_COLUMNS.filter((key) =>
+  monster.parts.some((p) => p.multipliers[key] != null),
+);
+
+const variants = MONSTER_VARIANTS.filter(
+  (v) => v !== 'normal' && monster.variants.includes(v),
+) as MonsterVariant[];
+
+// Las recompensas se agrupan por material: la API las lista por condición y el
+// mismo material sale de varias, así que sin agrupar se repite media tabla.
+const rewards = monster.rewards
+  .map((reward) => ({
+    item: index.itemById.get(reward.itemId),
+    conditions: reward.conditions,
+  }))
+  .filter((r) => r.item);
+---
+
+<Base
+  title={`${monster.name} · ${t('monsters.title')}`}
+  description={monster.description ?? undefined}
+  noIndex
+>
+  <p class="mb-3 text-sm">
+    <a href="/monstruos" class="text-base-500 hover:text-ember-400">← {t('monsters.backToList')}</a>
+  </p>
+
+  <header class="mb-6 flex flex-wrap items-start gap-4">
+    <MonsterIcon monster={monster} size={88} />
+    <div class="min-w-0 flex-1">
+      <h1 class="text-2xl font-semibold">{monster.name}</h1>
+      <p class="mt-1 text-sm text-base-500">
+        {t(`species.${monster.species}` as never)}
+        {monster.baseHealth && <> · {t('monsters.health')} {monster.baseHealth.toLocaleString()}</>}
+        {monster.size && <> · {t('monsters.baseSize')} {monster.size.base.toFixed(2)}</>}
+      </p>
+      {monster.description && <p class="mt-2 text-sm text-base-300">{monster.description}</p>}
+    </div>
+  </header>
+
+  <div class="grid gap-4 lg:grid-cols-2">
+    <section class="rounded border border-base-800 bg-base-900 p-3">
+      <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.weaknesses')}</h2>
+      {monster.weaknesses.length === 0 ? (
+        <p class="text-sm text-base-500">{t('monsters.noWeaknesses')}</p>
+      ) : (
+        <ul class="space-y-1">
+          {monster.weaknesses.map((w) => (
+            <li class="flex items-center gap-2 text-sm">
+              <span class="w-28 shrink-0">{affinityLabel(t, w)}</span>
+              <span class="text-ember-400">{'★'.repeat(w.level ?? 0)}<span class="text-base-700">{'★'.repeat(3 - (w.level ?? 0))}</span></span>
+              {w.condition && (
+                <span class="text-xs text-base-500">({w.condition})</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {monster.resistances.length > 0 && (
+        <>
+          <h2 class="mb-2 mt-4 text-sm font-medium text-base-300">{t('monsters.resistances')}</h2>
+          <ul class="flex flex-wrap gap-1">
+            {monster.resistances.map((r) => (
+              <li class="rounded bg-base-850 px-2 py-0.5 text-xs text-base-300">
+                {affinityLabel(t, r)}
+                {r.condition && <span class="text-base-500"> · {t('monsters.conditional')}</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </section>
+
+    <section class="rounded border border-base-800 bg-base-900 p-3">
+      {monster.locations.length > 0 && (
+        <>
+          <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.locations')}</h2>
+          <ul class="mb-4 flex flex-wrap gap-1">
+            {monster.locations.map((l) => (
+              <li class="rounded bg-base-850 px-2 py-0.5 text-xs">
+                {l.name}
+                {l.zones && <span class="text-base-500"> · {t('monsters.zones', { count: l.zones })}</span>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {variants.length > 0 && (
+        <>
+          <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.variants')}</h2>
+          <div class="mb-4 flex flex-wrap gap-2">
+            {variants.map((variant) => (
+              <div class="flex flex-col items-center gap-1">
+                <MonsterIcon monster={monster} variant={variant} size={44} />
+                <span class="text-[11px] text-base-500">{t(`variant.${variant}` as never)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {monster.tips && (
+        <>
+          <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.tips')}</h2>
+          <p class="text-sm text-base-300">{monster.tips}</p>
+        </>
+      )}
+    </section>
+  </div>
+
+  {monster.parts.length > 0 && (
+    <section class="mt-4 rounded border border-base-800 bg-base-900 p-3">
+      <h2 class="text-sm font-medium text-base-300">{t('monsters.hitzones')}</h2>
+      <p class="mb-2 text-xs text-base-500">{t('monsters.hitzonesHint')}</p>
+
+      {/* La tabla es ancha: se desplaza sola en móvil en vez de romper la página. */}
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[34rem] text-sm">
+          <thead>
+            <tr class="border-b border-base-800 text-xs text-base-500">
+              <th class="py-1 pr-2 text-left font-normal">{t('monsters.part')}</th>
+              {columns.map((key) => (
+                <th class="px-1 py-1 text-right font-normal">{damageLabel(t, key)}</th>
+              ))}
+              <th class="px-1 py-1 text-right font-normal">{t('monsters.essence')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monster.parts.map((part) => (
+              <tr class="border-b border-base-850/60 last:border-0">
+                <td class="py-1 pr-2">
+                  {part.name}
+                  {part.health && <span class="ml-1 text-xs text-base-600">{part.health}</span>}
+                </td>
+                {columns.map((key) => (
+                  <td class={`px-1 py-1 text-right tabular-nums ${hitzoneTone(part.multipliers[key] ?? 0)}`}>
+                    {formatMultiplier(part.multipliers[key])}
+                  </td>
+                ))}
+                <td class="px-1 py-1 text-right text-xs">
+                  {part.kinsectEssence ? t(`es.${part.kinsectEssence}` as never) : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+
+  {rewards.length > 0 && (
+    <section class="mt-4 rounded border border-base-800 bg-base-900 p-3">
+      <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.rewards')}</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full min-w-[28rem] text-sm">
+          <thead>
+            <tr class="border-b border-base-800 text-xs text-base-500">
+              <th class="py-1 pr-2 text-left font-normal">{t('monsters.material')}</th>
+              <th class="px-2 py-1 text-left font-normal">{t('monsters.source')}</th>
+              <th class="px-1 py-1 text-right font-normal">{t('monsters.chance')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rewards.map(({ item, conditions }) =>
+              conditions.map((condition, i) => (
+                <tr class="border-b border-base-850/60 last:border-0">
+                  <td class="py-1 pr-2">{i === 0 ? item!.name : ''}</td>
+                  <td class="px-2 py-1 text-xs text-base-300">
+                    {t(`cd.${condition.kind}` as never)}
+                    {condition.rank && <span class="text-base-500"> · {t(`rk.${condition.rank}` as never)}</span>}
+                    {condition.quantity > 1 && <span class="text-base-500"> · ×{condition.quantity}</span>}
+                  </td>
+                  <td class="px-1 py-1 text-right tabular-nums text-xs">
+                    {condition.chance != null ? `${condition.chance}%` : '—'}
+                  </td>
+                </tr>
+              )),
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  )}
+</Base>

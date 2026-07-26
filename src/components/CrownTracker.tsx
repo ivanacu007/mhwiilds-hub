@@ -249,18 +249,20 @@ function Crown({ crown, earned, dim, t }: {
  */
 function VariantStrip({
   monster,
+  variants,
   missing,
   onMissing,
   t,
 }: {
   monster: Monster;
+  variants: MonsterVariant[];
   missing: MonsterVariant[];
   onMissing: (variant: MonsterVariant) => void;
   t: Translator;
 }) {
   return (
     <div class="flex shrink-0 flex-wrap gap-1">
-      {MONSTER_VARIANTS.filter((v) => !missing.includes(v)).map((variant) => (
+      {variants.filter((v) => !missing.includes(v)).map((variant) => (
         <figure key={variant} class="text-center">
           <img
             src={monsterIconPath(monster.id, variant)}
@@ -345,11 +347,14 @@ function MonsterDialog(props: {
   const captured = { ...emptyCounts(), ...p.captured };
   const crowns = { ...emptyCrowns(), ...p.crowns };
 
-  // Qué niveles tiene este monstruo se deduce de qué iconos existen: no hay
-  // lista de cuáles tienen templado o frenético, y mantenerla a mano se
-  // desincronizaría con cada title update.
+  // Los niveles que tiene el monstruo los declara la API. Antes se deducían de
+  // si existía el archivo del icono, y eso escondía la fila de un nivel real
+  // cuando faltaba su imagen: Gogmazios tiene curtido y no se podía registrar.
+  const declared = new Set(monster.variants);
+  const available = MONSTER_VARIANTS.filter((v) => v === 'normal' || declared.has(v));
+
+  // La tira de iconos sí depende de los archivos: se oculta el que no cargue.
   const [missing, setMissing] = useState<MonsterVariant[]>([]);
-  const available = MONSTER_VARIANTS.filter((v) => v === 'normal' || !missing.includes(v));
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
@@ -365,6 +370,7 @@ function MonsterDialog(props: {
         <div class="mb-3 flex items-start gap-3">
           <VariantStrip
             monster={monster}
+            variants={available}
             missing={missing}
             onMissing={(variant) => setMissing((current) =>
               current.includes(variant) ? current : [...current, variant])}

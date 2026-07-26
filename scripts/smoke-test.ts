@@ -442,6 +442,46 @@ try {
   const noSuchHunter = await fetch(`${BASE}/cazador/no-existe`, { headers: auth });
   check('cazador inexistente da 404', noSuchHunter.status === 404, `${noSuchHunter.status}`);
 
+  console.log('\n--- Monstruos ---');
+  const first = catalog.monsters[0];
+  check('el catálogo trae debilidades con nivel',
+    catalog.monsters.every((m: any) => Array.isArray(m.weaknesses)) &&
+    catalog.monsters.some((m: any) => m.weaknesses.some((w: any) => w.level > 0)));
+  check('trae zonas de impacto con multiplicadores',
+    catalog.monsters.every((m: any) => m.parts.length > 0) &&
+    catalog.monsters.every((m: any) => m.parts.every((p: any) => Object.keys(p.multipliers).length > 0)));
+  check('los nombres de parte están traducidos',
+    catalog.monsters.every((m: any) => m.parts.every((p: any) => p.name !== p.kind)),
+    catalog.monsters.flatMap((m: any) => m.parts).filter((p: any) => p.name === p.kind).slice(0, 3)
+      .map((p: any) => p.kind).join(', '));
+  check('trae recompensas y salud base',
+    catalog.monsters.every((m: any) => m.rewards.length > 0 && m.baseHealth > 0));
+  check('trae las variantes que declara la API',
+    catalog.monsters.some((m: any) => m.variants.includes('tempered')));
+
+  const listPage = await (await fetch(`${BASE}/monstruos`, { headers: auth })).text();
+  check('la lista muestra monstruos', listPage.includes(first.name));
+  check('la lista pagina', listPage.includes('?p=2'));
+
+  const searched = await (await fetch(`${BASE}/monstruos?q=${encodeURIComponent(first.name)}`, {
+    headers: auth,
+  })).text();
+  check('la búsqueda filtra', searched.includes(first.name));
+
+  const detail = await (await fetch(`${BASE}/monstruos/${first.id}`, { headers: auth })).text();
+  check('el detalle abre', detail.includes(first.name));
+  check('muestra la tabla de zonas', detail.includes(first.parts[0].name));
+  check('muestra recompensas', detail.includes('%'));
+
+  const missingMonster = await fetch(`${BASE}/monstruos/999999`, { headers: auth });
+  check('un monstruo inexistente da 404', missingMonster.status === 404, `${missingMonster.status}`);
+
+  const anonList = await fetch(`${BASE}/monstruos`, { redirect: 'manual' });
+  check('la lista exige sesión', (anonList.headers.get('location') ?? '').startsWith('/entrar'));
+
+  const iconRes = await fetch(`${BASE}/iconos/${first.id}.webp`);
+  check('los iconos siguen sirviéndose', iconRes.ok, `${iconRes.status}`);
+
   console.log('\n--- Paginación ---');
   // 60 sets para que la lista tenga que partirse en varias páginas.
   for (let i = 0; i < 59; i++) {
@@ -500,7 +540,7 @@ try {
   check('una variante inválida cae a normal', (await badVariant.json()).variant === 'normal');
 
   const perfilConAvatar = await (await fetch(`${BASE}/cazador/${userId}`, { headers: auth })).text();
-  check('el perfil pinta el avatar elegido', perfilConAvatar.includes(`/monstruos/${monster.id}`));
+  check('el perfil pinta el avatar elegido', perfilConAvatar.includes(`/iconos/${monster.id}`));
 
   const quitar = await fetch(`${BASE}/api/avatar`, {
     method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },

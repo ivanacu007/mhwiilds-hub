@@ -6,7 +6,7 @@ import { LOCALE_COOKIE, isLocale, localeFromHeader, translatorFor } from './lib/
 /** Rutas que exigen sesión. El resto es público (landing, login, /set/<slug>). */
 const PROTECTED = [
   '/inventario', '/armador', '/mis-sets', '/cuenta',
-  '/coronas', '/cazadores', '/cazador', '/gremio',
+  '/coronas', '/cazadores', '/cazador', '/gremio', '/monstruos',
 ];
 
 export const onRequest = defineMiddleware(async (context, next) => {

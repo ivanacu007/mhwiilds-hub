@@ -1,5 +1,5 @@
 /**
- * Coloca en `public/monstruos/` los iconos que ya descargaste, renombrándolos al
+ * Coloca en `public/iconos/` los iconos que ya descargaste, renombrándolos al
  * id que usa la app.
  *
  *   npm run iconos:importar -- ~/Descargas/iconos
@@ -15,7 +15,7 @@ import { MONSTER_ICONS, variantSuffix, type MonsterVariant } from '../src/lib/ca
 // Sin argumento se usa assets/, que es donde se dejan los originales.
 const source = process.argv[2] ?? 'assets';
 const sourceDir = resolve(source.replace(/^~/, process.env.HOME ?? '~'));
-const targetDir = resolve('public/monstruos');
+const targetDir = resolve('public/iconos');
 
 /** Compara ignorando mayúsculas, acentos y todo lo que no sea letra o número. */
 function normalize(text: string): string {
@@ -101,7 +101,7 @@ for (const file of files) {
   found[variant].add(id);
 }
 
-console.log(`\nCopiados a public/monstruos/:`);
+console.log(`\nCopiados a public/iconos/:`);
 console.log(`  normales      ${found.normal.size} de ${MONSTER_ICONS.length}`);
 console.log(`  frenéticos    ${found.frenzied.size}`);
 console.log(`  templados     ${found.tempered.size}`);

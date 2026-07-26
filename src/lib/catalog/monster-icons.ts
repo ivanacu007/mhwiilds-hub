@@ -4,7 +4,7 @@
  *
  * Es solo una tabla de nombres: la app NO descarga ninguna imagen. Sirve para que
  * `npm run iconos:importar` sepa renombrar los archivos que tú ya obtuviste a
- * `public/monstruos/<id>.webp`, que es donde la app los busca.
+ * `public/iconos/<id>.webp`, que es donde la app los busca.
  *
  * Generada contra la Category:MHWilds_Monster_Icons; los 34 monstruos grandes
  * emparejan de forma exacta.
@@ -80,7 +80,7 @@ export function variantSuffix(variant: MonsterVariant): string {
 
 /** Ruta pública del icono, exista el archivo o no. */
 export function monsterIconPath(monsterId: number, variant: MonsterVariant = 'normal'): string {
-  return `/monstruos/${monsterId}${variantSuffix(variant)}.webp`;
+  return `/iconos/${monsterId}${variantSuffix(variant)}.webp`;
 }
 
 /** monsterId -> posición en el orden del juego. */

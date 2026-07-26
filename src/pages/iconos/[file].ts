@@ -6,7 +6,7 @@ import type { APIRoute } from 'astro';
 /**
  * Sirve los iconos de monstruo desde una carpeta fuera del build.
  *
- * Existe porque `public/monstruos/` está en .gitignore: si el VPS construye
+ * Existe porque `public/iconos/` está en .gitignore: si el VPS construye
  * desde el repo, esos archivos no viajan en la imagen. Apuntando
  * MONSTER_ICONS_DIR a un volumen de Dokploy se suben una vez y sobreviven a
  * cada deploy, sin meter los binarios en git.

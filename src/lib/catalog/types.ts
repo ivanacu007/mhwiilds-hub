@@ -135,14 +135,64 @@ export interface MonsterSize {
   gold: number;
 }
 
+/** Una debilidad o resistencia, con el nivel tipo estrellas cuando lo hay. */
+export interface MonsterAffinity {
+  /** 'element' | 'status' en debilidades; 'element' | 'effect' en resistencias. */
+  kind: string;
+  /** El elemento, estado o efecto concreto. */
+  what: string;
+  /** 1 a 3 en las debilidades; null en las resistencias. */
+  level: number | null;
+  /** Cuándo aplica, si es condicional (p. ej. solo enfurecido). */
+  condition: string | null;
+}
+
+/**
+ * Una parte del monstruo con sus multiplicadores de daño: es la tabla de zonas
+ * de impacto, lo que decide dónde conviene golpear.
+ */
+export interface MonsterPart {
+  kind: string;
+  /** Ya traducido al idioma del catálogo. */
+  name: string;
+  health: number | null;
+  /** Color del extracto para el insectoglaive. */
+  kinsectEssence: string | null;
+  multipliers: Record<string, number>;
+}
+
+export interface MonsterReward {
+  itemId: number;
+  conditions: {
+    kind: string;
+    rank: string | null;
+    quantity: number;
+    /** Probabilidad en porcentaje. */
+    chance: number | null;
+    part: string | null;
+  }[];
+}
+
 export interface Monster {
   id: number;
   name: string;
   species: string;
   size: MonsterSize | null;
   elements: string[];
-  weaknesses: string[];
-  locations: string[];
+  weaknesses: MonsterAffinity[];
+  resistances: MonsterAffinity[];
+  parts: MonsterPart[];
+  rewards: MonsterReward[];
+  locations: { name: string; zones: number | null }[];
+  /**
+   * Niveles que declara la API para este monstruo. Es la fuente buena: antes se
+   * deducía de si existía el archivo del icono, y eso hacía desaparecer la fila
+   * de un nivel que sí existe cuando falta su imagen.
+   */
+  variants: string[];
+  description: string | null;
+  tips: string | null;
+  baseHealth: number | null;
 }
 
 export interface Catalog {

@@ -8,8 +8,8 @@ dist/
 .DS_Store
 
 # Iconos de monstruos: contenido local, no se versiona
-public/monstruos/*
-!public/monstruos/README.md
+public/iconos/*
+!public/iconos/README.md
 
 # Originales de los iconos antes de importarlos
 assets/

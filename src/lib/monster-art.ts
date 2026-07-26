@@ -6,7 +6,7 @@
  * un fondo tipo pergamino, teñido de forma estable según el id. No pretende
  * parecerse al del juego; pretende que 34 monstruos se distingan de un vistazo.
  *
- * Si existe `public/monstruos/<id>.webp` se muestra ese archivo y esto queda
+ * Si existe `public/iconos/<id>.webp` se muestra ese archivo y esto queda
  * detrás como respaldo.
  */
 

@@ -1,0 +1,76 @@
+---
+import Base from '../../layouts/Base.astro';
+import MonsterIcon from '../../components/MonsterIcon.astro';
+import Pagination from '../../components/Pagination.astro';
+import { getCatalogIndex } from '../../lib/catalog/store.ts';
+import { paginate } from '../../lib/paginate.ts';
+import { affinityLabel } from '../../lib/monster-info.ts';
+
+const t = Astro.locals.t;
+const index = await getCatalogIndex(Astro.locals.locale);
+
+const query = (Astro.url.searchParams.get('q') ?? '').trim();
+const needle = query
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase();
+
+const matching = index.catalog.monsters.filter(
+  (m) => !needle || m.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(needle),
+);
+
+const info = paginate(matching.length, Number(Astro.url.searchParams.get('p') ?? 1), 24);
+const monsters = matching.slice(info.start, info.end);
+---
+
+<Base title={`${t('monsters.title')} · ${t('app.name')}`} noIndex>
+  <h1 class="mb-1 text-2xl font-semibold">{t('monsters.title')}</h1>
+  <p class="mb-5 text-sm text-base-500">{t('monsters.blurb')}</p>
+
+  {/* Búsqueda por GET: la página es de servidor y así el resultado se comparte. */}
+  <form method="get" class="mb-4 flex gap-2">
+    <input
+      name="q"
+      value={query}
+      placeholder={t('monsters.search')}
+      class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+    />
+    <button class="rounded border border-base-700 px-3 py-2 text-sm hover:bg-base-850">
+      {t('monsters.search').replace('…', '')}
+    </button>
+  </form>
+
+  <ul class="grid gap-2 sm:grid-cols-2">
+    {monsters.map((monster) => (
+      <li>
+        <a
+          href={`/monstruos/${monster.id}`}
+          class="flex items-center gap-3 rounded border border-base-800 bg-base-900 p-2 transition-colors hover:border-ember-500/50 hover:bg-base-850"
+        >
+          <MonsterIcon monster={monster} size={56} />
+          <div class="min-w-0 flex-1">
+            <p class="truncate font-medium">{monster.name}</p>
+            <p class="truncate text-xs text-base-500">
+              {t(`species.${monster.species}` as never)}
+            </p>
+            {monster.weaknesses.length > 0 && (
+              <p class="mt-0.5 truncate text-xs text-ember-300">
+                {t('monsters.weakTo')}{' '}
+                {monster.weaknesses
+                  .slice(0, 3)
+                  .map((w) => `${affinityLabel(t, w)}${'★'.repeat(w.level ?? 0)}`)
+                  .join(' · ')}
+              </p>
+            )}
+          </div>
+        </a>
+      </li>
+    ))}
+  </ul>
+
+  {matching.length === 0 && (
+    <p class="py-10 text-center text-sm text-base-500">{t('monsters.noneMatch')}</p>
+  )}
+
+  <Pagination info={info} label={t('monsters.monsters')} />
+</Base>
