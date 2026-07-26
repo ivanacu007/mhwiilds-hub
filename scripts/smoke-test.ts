@@ -481,6 +481,19 @@ try {
     elementosVisibles.length === primeraPagina.length,
     `${elementosVisibles.length} de ${primeraPagina.length}`);
 
+  // Los estados también llevan nivel: sin él no se sabe cuál conviene llevar.
+  const conEstados = catalog.monsters.slice(0, 24).filter(
+    (m: any) => splitAffinities(m.weaknesses).statuses.length > 0,
+  );
+  const estadosConEstrellas = conEstados.filter((m: any) =>
+    splitAffinities(m.weaknesses).statuses.every((st: any) => {
+      const label = st.what;
+      return (st.level ?? 0) > 0;
+    }),
+  );
+  check('los estados traen nivel en los datos',
+    conEstados.length > 0 && estadosConEstrellas.length === conEstados.length);
+
   // El nombre del elemento traducido tiene que aparecer, no solo las estrellas.
   const reyDau = catalog.monsters.find((m: any) => m.name.includes('Rey Dau'));
   const hielo = splitAffinities(reyDau.weaknesses).elements[0];

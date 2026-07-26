@@ -69,9 +69,11 @@ const monsters = matching.slice(info.start, info.end);
                 <span class="text-base-600">{t('monsters.noElemental')}</span>
               )}
             </p>
-            {weak.statuses.length > 0 && (
+            {[...weak.statuses, ...weak.effects].length > 0 && (
               <p class="truncate text-xs text-base-500">
-                {weak.statuses.map((w) => affinityLabel(t, w)).join(' · ')}
+                {[...weak.statuses, ...weak.effects]
+                  .map((w) => `${affinityLabel(t, w)} ${'★'.repeat(w.level ?? 0)}`)
+                  .join(' · ')}
               </p>
             )}
           </div>
