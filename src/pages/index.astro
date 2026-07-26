@@ -1,14 +1,47 @@
 ---
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
+import MaterialFinder from '../components/MaterialFinder.tsx';
 
-if (Astro.locals.user) return Astro.redirect('/armador');
+const user = Astro.locals.user;
 ---
 
 <Base
   title={`${t('app.name')} · ${t('app.tagline')}`}
   description={t('home.blurb')}
 >
+  {user ? (
+    <div class="mx-auto max-w-2xl py-6">
+      <h1 class="mb-1 text-2xl font-semibold">
+        {t('home.welcome', { name: user.hunterName ?? user.name })}
+      </h1>
+
+      <section class="mt-5 rounded border border-base-800 bg-base-900 p-4">
+        <h2 class="text-sm font-medium text-base-300">{t('finder.title')}</h2>
+        <p class="mb-3 text-xs text-base-500">{t('finder.blurb')}</p>
+        <MaterialFinder client:only="preact" locale={Astro.locals.locale} />
+      </section>
+
+      <h2 class="mb-2 mt-6 text-sm font-medium text-base-300">{t('home.quickLinks')}</h2>
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {[
+          { href: '/armador', label: t('builder.title') },
+          { href: '/inventario', label: t('nav.inventory') },
+          { href: '/monstruos', label: t('monsters.title') },
+          { href: '/coronas', label: t('nav.crowns') },
+          { href: '/mis-sets', label: t('nav.mySets') },
+          { href: '/cazadores', label: t('nav.hunters') },
+        ].map((link) => (
+          <a
+            href={link.href}
+            class="rounded border border-base-800 bg-base-900 px-3 py-2 text-sm hover:border-ember-500/50 hover:bg-base-850"
+          >
+            {link.label}
+          </a>
+        ))}
+      </div>
+    </div>
+  ) : (
   <section class="mx-auto max-w-2xl py-10 text-center">
     <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">
       {t('home.headline')} <span class="text-ember-400">{t('home.headlineAccent')}</span>
@@ -45,4 +78,5 @@ if (Astro.locals.user) return Astro.redirect('/armador');
       </div>
     </div>
   </section>
+  )}
 </Base>

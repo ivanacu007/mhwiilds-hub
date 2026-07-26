@@ -557,6 +557,33 @@ try {
   const iconRes = await fetch(`${BASE}/iconos/${first.id}.webp`);
   check('los iconos siguen sirviéndose', iconRes.ok, `${iconRes.status}`);
 
+  console.log('\n--- Recompensas y buscador ---');
+  const conRecompensas = catalog.monsters.find((m: any) => m.rewards.length > 3);
+  const detalleRec = await (await fetch(`${BASE}/monstruos/${conRecompensas.id}`, { headers: auth })).text();
+
+  // Cada material una tarjeta con sus orígenes dentro: en tabla, las filas de
+  // origen quedaban despegadas del nombre y no se sabía a cuál pertenecían.
+  const tarjetas = (detalleRec.match(/data-nombre="/g) ?? []).length;
+  const materialesDistintos = new Set(conRecompensas.rewards.map((r: any) => r.itemId)).size;
+  check('una tarjeta por material', tarjetas === materialesDistintos,
+    `${tarjetas} tarjetas para ${materialesDistintos} materiales`);
+  check('el detalle trae filtro de materiales', detalleRec.includes('filtro-materiales'));
+
+  // El origen más probable primero: es la vía que se busca al farmear.
+  const primero = conRecompensas.rewards.find((r: any) => r.conditions.length > 1);
+  if (primero) {
+    const orden = [...primero.conditions].sort((a: any, b: any) => (b.chance ?? 0) - (a.chance ?? 0));
+    check('los orígenes van de más a menos probable',
+      orden[0].chance >= orden[orden.length - 1].chance);
+  }
+
+  const home = await (await fetch(`${BASE}/`, { headers: auth, redirect: 'manual' })).text();
+  check('la home ya no redirige y trae el buscador',
+    home.includes('finder') || home.includes('Buscar un material'));
+
+  const homeAnon = await fetch(`${BASE}/`, { redirect: 'manual' });
+  check('sin sesión la home sigue siendo la portada', homeAnon.status === 200);
+
   console.log('\n--- Iconos de material ---');
   const { ICON_KIND_MAP, itemIconPath, itemIconColor, requiredIconSlugs } =
     await import('../src/lib/catalog/item-icons.ts');

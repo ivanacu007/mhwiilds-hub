@@ -33,10 +33,13 @@ const variants = MONSTER_VARIANTS.filter(
 
 // Las recompensas se agrupan por material: la API las lista por condición y el
 // mismo material sale de varias, así que sin agrupar se repite media tabla.
+// Una tarjeta por material con sus orígenes dentro: en tabla, las filas de
+// origen quedaban despegadas del nombre y no se sabía a cuál pertenecían.
 const rewards = monster.rewards
   .map((reward) => ({
     item: index.itemById.get(reward.itemId),
-    conditions: reward.conditions,
+    // De mayor a menor probabilidad: lo primero que se busca es la vía más fácil.
+    conditions: [...reward.conditions].sort((a, b) => (b.chance ?? 0) - (a.chance ?? 0)),
   }))
   .filter((r) => r.item);
 ---
@@ -167,42 +170,73 @@ const rewards = monster.rewards
 
   {rewards.length > 0 && (
     <section class="mt-4 rounded border border-base-800 bg-base-900 p-3">
-      <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.rewards')}</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[28rem] text-sm">
-          <thead>
-            <tr class="border-b border-base-800 text-xs text-base-500">
-              <th class="py-1 pr-2 text-left font-normal">{t('monsters.material')}</th>
-              <th class="px-2 py-1 text-left font-normal">{t('monsters.source')}</th>
-              <th class="px-1 py-1 text-right font-normal">{t('monsters.chance')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rewards.map(({ item, conditions }) =>
-              conditions.map((condition, i) => (
-                <tr class="border-b border-base-850/60 last:border-0">
-                  <td class="py-1 pr-2">
-                    {i === 0 && (
-                      <span class="flex items-center gap-1.5">
-                        <ItemIcon item={item!} />
-                        {item!.name}
-                      </span>
-                    )}
-                  </td>
-                  <td class="px-2 py-1 text-xs text-base-300">
-                    {t(`cd.${condition.kind}` as never)}
-                    {condition.rank && <span class="text-base-500"> · {t(`rk.${condition.rank}` as never)}</span>}
-                    {condition.quantity > 1 && <span class="text-base-500"> · ×{condition.quantity}</span>}
-                  </td>
-                  <td class="px-1 py-1 text-right tabular-nums text-xs">
-                    {condition.chance != null ? `${condition.chance}%` : '—'}
-                  </td>
-                </tr>
-              )),
-            )}
-          </tbody>
-        </table>
+      <div class="mb-3 flex flex-wrap items-center gap-2">
+        <h2 class="text-sm font-medium text-base-300">{t('monsters.rewards')}</h2>
+        <input
+          id="filtro-materiales"
+          type="search"
+          placeholder={t('monsters.searchMaterial')}
+          class="ml-auto w-full max-w-56 rounded border border-base-700 bg-base-950 px-2 py-1 text-sm outline-none focus:border-ember-500"
+        />
       </div>
+
+      <div id="materiales" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+        {rewards.map(({ item, conditions }) => (
+          <article
+            class="rounded border border-base-800 bg-base-950 p-2"
+            data-nombre={item!.name.toLowerCase()}
+          >
+            <h3 class="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
+              <ItemIcon item={item!} size={20} />
+              <span class="min-w-0 flex-1 truncate">{item!.name}</span>
+            </h3>
+            <ul class="space-y-0.5">
+              {conditions.map((condition) => (
+                <li class="flex items-baseline gap-2 text-xs">
+                  <span class="min-w-0 flex-1 text-base-300">
+                    {t(`cd.${condition.kind}` as never)}
+                    {condition.rank && (
+                      <span class="text-base-500"> · {t(`rk.${condition.rank}` as never)}</span>
+                    )}
+                    {condition.quantity > 1 && <span class="text-base-500"> · ×{condition.quantity}</span>}
+                  </span>
+                  <span
+                    class:list={[
+                      'shrink-0 tabular-nums',
+                      (condition.chance ?? 0) >= 50 ? 'text-jade-400' : 'text-base-300',
+                    ]}
+                  >
+                    {condition.chance != null ? `${condition.chance}%` : '—'}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ))}
+      </div>
+
+      <p id="sin-materiales" class="hidden py-6 text-center text-sm text-base-500">
+        {t('monsters.noMaterials')}
+      </p>
     </section>
   )}
 </Base>
+
+<script>
+  // Filtro en cliente: son ~15 tarjetas por monstruo, no hace falta ir al servidor.
+  const input = document.getElementById('filtro-materiales') as HTMLInputElement | null;
+  const grid = document.getElementById('materiales');
+  const vacio = document.getElementById('sin-materiales');
+
+  input?.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    let visibles = 0;
+    for (const card of grid?.children ?? []) {
+      const nombre = (card as HTMLElement).dataset.nombre ?? '';
+      const ok = !q || nombre.includes(q);
+      (card as HTMLElement).hidden = !ok;
+      if (ok) visibles++;
+    }
+    vacio?.classList.toggle('hidden', visibles > 0);
+  });
+</script>
