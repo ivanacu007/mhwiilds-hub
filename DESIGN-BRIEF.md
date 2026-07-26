@@ -18,7 +18,7 @@ Es de uso privado, por invitación. No hay marketing ni landing que convierta: l
 
 ## Restricciones que no se negocian
 
-- **Tema oscuro únicamente.** Se usa de noche, a menudo con el juego al lado o en el celular junto a la consola.
+- **Modo claro y modo oscuro, ambos de primera clase.** Hoy solo existe el oscuro y es el que más se usa —de noche, con el juego al lado o en el celular junto a la consola—, pero el claro tiene que servir igual de bien a plena luz. No quiero un claro que sea el oscuro invertido a la fuerza: cada uno con sus propios valores, y el sistema debe seguir el ajuste del sistema operativo además de permitir cambiarlo a mano.
 - **Bilingüe español latino / inglés**, con selector en la barra. Los textos en alemán o francés pueden ser un 30% más largos: nada de anchos fijos calculados sobre el español.
 - **Móvil y escritorio por igual.** El inventario se captura sentado en la compu; las coronas y los monstruos se consultan en el celular mientras juegas.
 - **Densidad alta.** No es una app de marketing: son tablas y listas largas que se escanean rápido. Prioriza legibilidad y densidad sobre aire y ornamento.
@@ -81,25 +81,32 @@ base   #0e0f13 #15171d #1c1f27 #242833 #333846 #6b7280 #b6bcc9 #e8eaf0
 verde  #3f9e78 #52b88f
 ```
 
-Funciona pero es genérico: no dice nada del juego. La guía de campo del juego es un **libro de pergamino con iconos bordados**, y esa es la referencia estética. **No copies ese estilo literalmente** — un fondo de pergamino claro pelearía con el tema oscuro y con la densidad. Busca una interpretación: textura sutil, tipografía con carácter en los títulos, tratamiento de "ficha de bestiario" en las tarjetas de monstruo, sin sacrificar el contraste.
+Funciona pero es genérico: no dice nada del juego. Y solo cubre el oscuro; el claro hay que diseñarlo entero. La guía de campo del juego es un **libro de pergamino con iconos bordados**, y esa es la referencia estética.
+
+**No la copies literalmente.** El pergamino es tentador para el modo claro, pero un fondo texturizado y cálido bajo tablas de números densas cansa la vista, y dejaría los dos modos sin parentesco: uno de libro antiguo y otro de terminal. Quiero que se reconozcan como la misma app. Busca una interpretación que funcione en ambos: textura sutil, tipografía con carácter en los títulos, tratamiento de "ficha de bestiario" en las tarjetas de monstruo, y el mismo lenguaje de forma en los dos modos aunque cambien los valores.
 
 Necesito además:
 
 - **Escala de colores semánticos** para cosas que hoy se codifican por color: coronas de plata y oro, niveles de ranura (1/2/3), rangos de multiplicador de daño (bueno/normal/malo), rareza (1–8), elementos (fuego, agua, rayo, hielo, draco) y estados (veneno, parálisis, sueño, nitro). Que se distingan **también sin color**: forma, posición o etiqueta.
+
+  **Esto es lo más difícil de los dos temas.** Un dorado que brilla sobre fondo oscuro se vuelve mostaza ilegible sobre blanco, y el verde de "buena zona de impacto" pierde toda su fuerza. Necesito cada color semántico resuelto en ambos modos, no una sola paleta reutilizada. Igual con los iconos de material, que son máscaras monocromas teñidas por dato: el tinte tiene que funcionar sobre los dos fondos.
 - **Estados vacíos, de carga y de error** para las listas largas.
 - **Densidad de tabla** definida: alto de fila, alineación numérica, tratamiento del scroll horizontal en móvil.
 - **Componente de icono teñido**: los iconos de material son máscaras monocromas que se colorean por dato.
 
 ## Accesibilidad
 
-- Contraste AA como mínimo en texto y en los indicadores de color.
+- Contraste AA como mínimo en texto y en los indicadores de color, **verificado en los dos modos**: es fácil que un tono pase en oscuro y falle en claro.
 - Nada que dependa solo del color: las coronas de plata y oro deben diferenciarse por forma además de por tono.
 - Objetivos táctiles usables en móvil, sobre todo los contadores +/− del inventario, que se pulsan cientos de veces.
-- Respetar `prefers-reduced-motion`.
+- Respetar `prefers-reduced-motion` y `prefers-color-scheme`.
 
 ## Qué quiero de vuelta
 
-1. Tokens (color, tipografía, espaciado, radios, sombras) como variables CSS listas para Tailwind 4.
-2. Los componentes recurrentes: fila de lista densa, tarjeta de monstruo, tarjeta de set, tarjeta de material con orígenes, tabla de zonas de impacto, selector navegable, paginador, contador +/−, indicador de corona, insignia de ranura, barra de navegación con selector de idioma.
-3. Maquetas de las cinco pantallas que cargan el sistema: **armador, inventario, detalle de monstruo, coronas y perfil de cazador**. Cada una en escritorio y móvil.
-4. Una explicación corta de las decisiones: por qué esa paleta, cómo se resuelve la densidad y cómo se distinguen los estados sin color.
+Lo va a implementar otra persona a partir de tu entrega, así que priorizo lo que se puede llevar a código sin interpretar. **Especificaciones antes que maquetas.**
+
+1. **Tokens** de color, tipografía, espaciado, radios y sombras, como variables CSS listas para Tailwind 4, **con su valor en claro y en oscuro**. Di explícitamente cómo se cambia de tema (atributo en la raíz, `prefers-color-scheme`, o ambos).
+2. **Los componentes recurrentes**, cada uno con sus estados (normal, hover, foco, activo, deshabilitado, cargando, vacío) y sus medidas concretas: fila de lista densa, tarjeta de monstruo, tarjeta de set, tarjeta de material con orígenes, tabla de zonas de impacto, selector navegable, paginador, contador +/−, indicador de corona, insignia de ranura, barra de navegación con selector de idioma.
+3. **Reglas de densidad y disposición**: alto de fila, escala tipográfica, alineación numérica, puntos de quiebre, y qué pasa con las tablas anchas en móvil.
+4. **Una explicación corta de las decisiones**: por qué esa paleta, cómo se resuelve la densidad, cómo se distinguen los estados sin color y qué cambia entre claro y oscuro más allá de invertir.
+5. **Solo dos maquetas**, para anclar el aire general: el **armador** y el **detalle de monstruo**, cada una en claro y oscuro. Son las que cargan más sistema. El resto de pantallas se resuelven aplicando los componentes, y prefiero tu criterio escrito a más imágenes.
