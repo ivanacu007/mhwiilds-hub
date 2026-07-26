@@ -22,6 +22,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   const [targets, setTargets] = useState<Target[]>([]);
   const [weaponId, setWeaponId] = useState<number | null>(null);
   const [weaponQuery, setWeaponQuery] = useState('');
+  const [weaponKind, setWeaponKind] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
   const [onlyOwnedArmor, setOnlyOwnedArmor] = useState(false);
   const [result, setResult] = useState<SolveResponse | null>(null);
@@ -110,11 +111,23 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
     setTargets((list) => (list.some((t) => t.skillId === skillId) ? list : [...list, { skillId, level: 1 }]));
   };
 
+  const weaponKinds = useMemo(() => {
+    const seen = new Set((catalog?.weapons ?? []).map((w) => w.kind));
+    return [...seen].sort();
+  }, [catalog]);
+
+  /**
+   * Igual que las habilidades: se puede navegar la lista, no solo buscar. Son
+   * 1188 armas, así que el tipo acota a unas 85 antes de filtrar por texto.
+   */
   const weaponMatches = useMemo(() => {
-    if (!catalog || weaponQuery.trim().length < 2) return [];
+    if (!catalog) return [];
     const needle = normalize(weaponQuery.trim());
-    return catalog.weapons.filter((w) => normalize(w.name).includes(needle)).slice(0, 8);
-  }, [catalog, weaponQuery]);
+    return catalog.weapons
+      .filter((w) => !weaponKind || w.kind === weaponKind)
+      .filter((w) => !needle || normalize(w.name).includes(needle))
+      .sort((a, b) => a.rarity - b.rarity || a.name.localeCompare(b.name));
+  }, [catalog, weaponQuery, weaponKind]);
 
   const run = async () => {
     if (!worker.current || targets.length === 0 || !inventory) return;
@@ -152,7 +165,12 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
   return (
     <div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
-      <aside class="space-y-4">
+      {/* Fijo al hacer scroll: la lista de resultados es larga y el panel tiene
+          que seguir a mano para cambiar una habilidad y volver a buscar.
+          `self-start` evita que la columna se estire a lo alto de la otra, que
+          es lo que impide que `sticky` haga nada. En móvil no aplica: ahí las
+          columnas van apiladas y fijarlo taparía media pantalla. */}
+      <aside class="space-y-4 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
         <section class="rounded border border-base-800 bg-base-900 p-3">
           <div class="mb-2 flex items-center gap-2">
             <h2 class="text-sm font-medium text-base-300">{t('builder.wantedSkills')}</h2>
@@ -263,28 +281,56 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
             </div>
           ) : (
             <>
+              <div class="flex gap-2">
+                <select
+                  value={weaponKind}
+                  onChange={(e) => setWeaponKind((e.target as HTMLSelectElement).value)}
+                  class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-2 py-2 text-sm outline-none focus:border-ember-500"
+                >
+                  <option value="">{t('builder.allWeaponKinds')}</option>
+                  {weaponKinds.map((kind) => (
+                    <option key={kind} value={kind}>{t(`wk.${kind}` as never)}</option>
+                  ))}
+                </select>
+              </div>
+
               <input
                 value={weaponQuery}
                 onInput={(e) => setWeaponQuery((e.target as HTMLInputElement).value)}
-                placeholder={t('builder.searchWeapon')}
-                class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+                onKeyDown={(e) => {
+                  if (e.key !== 'Enter') return;
+                  e.preventDefault();
+                  const first = weaponMatches[0];
+                  if (first) { setWeaponId(first.id); setWeaponQuery(''); }
+                }}
+                placeholder={t('builder.filterWeapons')}
+                class="mt-2 w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
               />
-              {weaponMatches.length > 0 && (
-                <ul class="mt-1 divide-y divide-base-850 rounded border border-base-800">
-                  {weaponMatches.map((w) => (
-                    <li key={w.id}>
-                      <button
-                        onClick={() => { setWeaponId(w.id); setWeaponQuery(''); }}
-                        class="flex w-full gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
-                      >
-                        <span class="min-w-0 flex-1 truncate">{w.name}</span>
-                        <span class="text-xs text-base-500">{w.slots.map((s) => `[${s}]`).join('')}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
 
+              <div class="mt-1 max-h-52 overflow-y-auto rounded border border-base-800">
+                {weaponMatches.length === 0 ? (
+                  <p class="px-2 py-3 text-center text-xs text-base-500">{t('builder.noWeaponMatch')}</p>
+                ) : (
+                  <ul class="divide-y divide-base-850">
+                    {weaponMatches.map((w) => (
+                      <li key={w.id}>
+                        <button
+                          onClick={() => { setWeaponId(w.id); setWeaponQuery(''); }}
+                          class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
+                        >
+                          <span class="min-w-0 flex-1 truncate">{w.name}</span>
+                          <span class="shrink-0 text-xs text-base-600">
+                            {w.slots.map((sl) => `[${sl}]`).join('') || '—'}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <p class="mt-1 text-right text-[11px] text-base-600">
+                {t('builder.weaponCount', { count: weaponMatches.length })}
+              </p>
             </>
           )}
         </section>

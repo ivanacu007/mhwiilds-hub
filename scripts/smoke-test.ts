@@ -570,6 +570,12 @@ try {
     armador.includes('Equipa un arma') || armador.includes('builder.weaponHelp') ||
     armador.includes('astro-island'));
 
+  const tipos = new Set(catalog.weapons.map((w: any) => w.kind));
+  check('el catálogo trae los 14 tipos de arma', tipos.size === 14, `${tipos.size}`);
+  const { es: dic } = await import('../src/lib/i18n/es.ts');
+  const sinNombre = [...tipos].filter((k: any) => !(`wk.${k}` in dic));
+  check('todos los tipos de arma tienen nombre', sinNombre.length === 0, sinNombre.join(', '));
+
   console.log('\n--- Recompensas y buscador ---');
   const conRecompensas = catalog.monsters.find((m: any) => m.rewards.length > 3);
   const detalleRec = await (await fetch(`${BASE}/monstruos/${conRecompensas.id}`, { headers: auth })).text();
