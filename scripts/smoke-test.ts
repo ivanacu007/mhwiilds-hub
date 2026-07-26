@@ -557,6 +557,32 @@ try {
   const iconRes = await fetch(`${BASE}/iconos/${first.id}.webp`);
   check('los iconos siguen sirviéndose', iconRes.ok, `${iconRes.status}`);
 
+  console.log('\n--- Iconos de material ---');
+  const { ICON_KIND_MAP, itemIconPath, itemIconColor, requiredIconSlugs } =
+    await import('../src/lib/catalog/item-icons.ts');
+
+  check('el catálogo trae el descriptor de icono',
+    catalog.items.every((i: any) => i.iconKind) ,
+    `${catalog.items.filter((i: any) => !i.iconKind).length} sin tipo`);
+
+  // Todo material debe resolver a un archivo: si aparece un tipo nuevo en un
+  // title update, la prueba lo caza en vez de dejar el hueco en silencio.
+  const sinRuta = catalog.items.filter((i: any) => !itemIconPath(i.iconKind));
+  check('todos los materiales resuelven a un icono', sinRuta.length === 0,
+    [...new Set(sinRuta.map((i: any) => i.iconKind))].slice(0, 5).join(', '));
+
+  const sinColor = catalog.items.filter(
+    (i: any) => itemIconColor(i.iconColor) === '#9aa3b0' && i.iconColor !== 'gray' && i.iconColor !== 'none',
+  );
+  check('todos los colores están mapeados', sinColor.length === 0,
+    [...new Set(sinColor.map((i: any) => i.iconColor))].slice(0, 5).join(', '));
+
+  check('la lista de archivos no tiene duplicados',
+    new Set(requiredIconSlugs().map((r: any) => r.slug)).size === requiredIconSlugs().length);
+  check('hacen falta menos archivos que combinaciones',
+    requiredIconSlugs().length < Object.keys(ICON_KIND_MAP).length + 5,
+    `${requiredIconSlugs().length} archivos para ${Object.keys(ICON_KIND_MAP).length} tipos`);
+
   console.log('\n--- Paginación ---');
   // 60 sets para que la lista tenga que partirse en varias páginas.
   for (let i = 0; i < 59; i++) {

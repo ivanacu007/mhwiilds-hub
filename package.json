@@ -13,7 +13,8 @@
     "test:smoke": "node scripts/smoke-test.ts",
     "sandbox": "node scripts/dev-sandbox.ts",
     "iconos:importar": "node scripts/import-monster-icons.ts",
-    "start:local": "node --env-file=.env dist/server/entry.mjs"
+    "start:local": "node --env-file=.env dist/server/entry.mjs",
+    "iconos:materiales": "node scripts/import-item-icons.ts"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",

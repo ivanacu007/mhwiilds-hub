@@ -118,6 +118,12 @@ export interface Item {
   id: number;
   name: string;
   rarity: number;
+  /**
+   * Descriptor del icono: la API no sirve imágenes, da la forma y el color para
+   * que el cliente lo dibuje. Ver src/lib/catalog/item-icons.ts.
+   */
+  iconKind: string | null;
+  iconColor: string | null;
 }
 
 /**

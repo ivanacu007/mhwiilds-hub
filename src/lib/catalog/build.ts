@@ -309,6 +309,8 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
     id: i.id,
     name: i.name,
     rarity: i.rarity ?? 1,
+    iconKind: i.icon?.kind ?? null,
+    iconColor: i.icon?.color ?? null,
   }));
 
   // Solo los grandes: los pequeños no tienen coronas ni entran en el registro.

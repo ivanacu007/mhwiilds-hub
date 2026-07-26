@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import Pagination from './Pagination.tsx';
 import { paginate } from '../lib/paginate.ts';
+import { itemIconColor, itemIconPath } from '../lib/catalog/item-icons.ts';
 import { translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import type { Catalog } from '../lib/catalog/types.ts';
 
@@ -309,7 +310,12 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
         ))}
 
         {tab === 'materiales' && (visible as Catalog['items']).map((item) => (
-          <Row key={item.id} title={item.name} subtitle={`${t('inventory.rarity')} ${item.rarity}`}>
+          <Row
+            key={item.id}
+            title={item.name}
+            subtitle={`${t('inventory.rarity')} ${item.rarity}`}
+            badge={<MaterialIcon item={item} />}
+          >
             <Stepper
               value={inventory.materials[String(item.id)] ?? 0}
               max={9999}
@@ -351,6 +357,43 @@ function Row(props: {
       </div>
       {props.children}
     </div>
+  );
+}
+
+/**
+ * El archivo del wiki es monocromo: se usa como máscara y el color lo pone la
+ * API, así 62 formas cubren los 773 materiales.
+ */
+function MaterialIcon({ item }: { item: Catalog['items'][number] }) {
+  const path = itemIconPath(item.iconKind ?? undefined);
+  const color = itemIconColor(item.iconColor ?? undefined);
+
+  if (!path) {
+    return (
+      <span
+        class="ml-1 w-8 shrink-0"
+        style={{ display: 'inline-block' }}
+      >
+        <span
+          style={{ display: 'block', width: 18, height: 18, borderRadius: 9, background: color, opacity: 0.45 }}
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span class="ml-1 w-8 shrink-0" style={{ display: 'inline-block' }}>
+      <span
+        style={{
+          display: 'block',
+          width: 18,
+          height: 18,
+          backgroundColor: color,
+          WebkitMask: `url("${path}") center/contain no-repeat`,
+          mask: `url("${path}") center/contain no-repeat`,
+        }}
+      />
+    </span>
   );
 }
 

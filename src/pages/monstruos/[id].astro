@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import MonsterWeaknesses from '../../components/MonsterWeaknesses.astro';
+import ItemIcon from '../../components/ItemIcon.astro';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { MONSTER_VARIANTS, type MonsterVariant } from '../../lib/catalog/monster-icons.ts';
 import {
@@ -180,7 +181,14 @@ const rewards = monster.rewards
             {rewards.map(({ item, conditions }) =>
               conditions.map((condition, i) => (
                 <tr class="border-b border-base-850/60 last:border-0">
-                  <td class="py-1 pr-2">{i === 0 ? item!.name : ''}</td>
+                  <td class="py-1 pr-2">
+                    {i === 0 && (
+                      <span class="flex items-center gap-1.5">
+                        <ItemIcon item={item!} />
+                        {item!.name}
+                      </span>
+                    )}
+                  </td>
                   <td class="px-2 py-1 text-xs text-base-300">
                     {t(`cd.${condition.kind}` as never)}
                     {condition.rank && <span class="text-base-500"> · {t(`rk.${condition.rank}` as never)}</span>}

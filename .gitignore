@@ -14,3 +14,6 @@ public/iconos/*
 # Originales de los iconos antes de importarlos
 assets/
 .mongo-data/
+
+# Iconos de material antes de importarlos
+assets/materiales/

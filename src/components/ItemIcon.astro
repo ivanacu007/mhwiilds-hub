@@ -1,0 +1,41 @@
+---
+import { itemIconColor, itemIconPath } from '../lib/catalog/item-icons.ts';
+
+interface Props {
+  item: { name: string; iconKind: string | null; iconColor: string | null };
+  size?: number;
+  class?: string;
+}
+
+const { item, size = 18, class: className } = Astro.props;
+
+/**
+ * El archivo del wiki es monocromo, así que se usa como máscara CSS y el color
+ * lo pone la API. Eso evita necesitar un archivo por cada combinación de tipo y
+ * color: con 62 formas se cubren los 773 materiales.
+ *
+ * Si el archivo no está, la máscara no recorta nada y quedaría un cuadro de
+ * color; por eso el fondo va sobre un elemento con `mask-size: 0` inicial que
+ * solo crece cuando la imagen existe... lo cual no se puede saber en CSS. Se
+ * asume que están todos: el importador avisa de los que falten.
+ */
+const path = itemIconPath(item.iconKind ?? undefined);
+const color = itemIconColor(item.iconColor ?? undefined);
+---
+
+{path ? (
+  <span
+    class:list={['inline-block shrink-0 align-text-bottom', className]}
+    style={`width:${size}px;height:${size}px;background-color:${color};` +
+      `-webkit-mask:url("${path}") center/contain no-repeat;` +
+      `mask:url("${path}") center/contain no-repeat`}
+    title={item.name}
+    aria-hidden="true"
+  ></span>
+) : (
+  <span
+    class:list={['inline-block shrink-0 rounded-full align-text-bottom', className]}
+    style={`width:${size}px;height:${size}px;background-color:${color};opacity:.45`}
+    aria-hidden="true"
+  ></span>
+)}
