@@ -73,7 +73,21 @@ Resuélvelos en el diseño; son reales, salidos de usarla:
 
 ## Sistema visual
 
-Hoy es un oscuro neutro azulado con un ámbar de acento y un verde para lo positivo:
+**Quiero que se parezca a la interfaz de Monster Hunter Wilds.** Ese es el objetivo, no una inspiración lejana: cuando alguien del grupo la abra, debería sentir que es una extensión del juego.
+
+El juego usa dos registros visuales distintos y conviene aprovechar los dos:
+
+**Los menús y el HUD** — paneles oscuros translúcidos sobre el fondo, con desenfoque suave detrás. Bordes finos y claros, esquinas con un pequeño bisel o remate ornamental en vez de radios redondos y blandos. El acento es un **ámbar cálido, casi dorado**, que marca lo seleccionado y lo accionable. La fila activa se resalta con un borde brillante amarillo-verdoso, no con un relleno plano. Los encabezados de sección van sobre una barra angular con una línea fina debajo. Mucho icono y poco texto: cada cosa lleva su símbolo.
+
+**La guía de campo** — pergamino, tipografía con serifa, iconos bordados sobre baldosas de tela, coronas y estrellas como marcas de progreso. Es más ornamental y más cálido.
+
+Cómo repartirlos, aunque tienes libertad para proponer otra cosa:
+
+- El **armazón general** —barra de navegación, paneles, formularios, tablas— sigue el registro de menús: oscuro translúcido, ámbar, bordes finos, remates angulares.
+- Las pantallas de **monstruos y coronas** pueden acercarse a la guía de campo, que es literalmente lo que replican: baldosas, serifa en los títulos, las coronas como en el juego.
+- El **modo claro no existe en el juego**, así que ahí hay que inventar. La guía de campo es la pista más cercana: pergamino cálido, tinta oscura, el mismo ámbar. Que se reconozca como la misma app y no como un tema aparte.
+
+Hoy la app usa un oscuro neutro azulado con ámbar y verde. Sirve de punto de partida pero es genérico y frío comparado con el juego:
 
 ```
 base   #0e0f13 #15171d #1c1f27 #242833 #333846 #6b7280 #b6bcc9 #e8eaf0
@@ -81,13 +95,18 @@ base   #0e0f13 #15171d #1c1f27 #242833 #333846 #6b7280 #b6bcc9 #e8eaf0
 verde  #3f9e78 #52b88f
 ```
 
-Funciona pero es genérico: no dice nada del juego. Y solo cubre el oscuro; el claro hay que diseñarlo entero. La guía de campo del juego es un **libro de pergamino con iconos bordados**, y esa es la referencia estética.
+### Dónde parar
 
-**No la copies literalmente.** El pergamino es tentador para el modo claro, pero un fondo texturizado y cálido bajo tablas de números densas cansa la vista, y dejaría los dos modos sin parentesco: uno de libro antiguo y otro de terminal. Quiero que se reconozcan como la misma app. Busca una interpretación que funcione en ambos: textura sutil, tipografía con carácter en los títulos, tratamiento de "ficha de bestiario" en las tarjetas de monstruo, y el mismo lenguaje de forma en los dos modos aunque cambien los valores.
+El parecido no puede costar legibilidad, y aquí es donde hay que traducir en vez de copiar:
+
+- La interfaz del juego se ve **en una tele, a distancia y con mando**. Ésta se usa **de cerca, con ratón o pulgar**, y muestra tablas de 10 filas por 9 columnas. Los elementos del juego son enormes para lo que necesito: conserva el lenguaje visual, no las proporciones.
+- **La textura va debajo del texto denso, nunca detrás de él.** Un pergamino con grano bajo una tabla de números cansa a los tres minutos. Úsala en cabeceras, tarjetas y fondos amplios; deja limpias las zonas de datos.
+- La translucidez con desenfoque es cara si se apila. Defínela para paneles grandes, no para cada fila.
+- El ornamento debe sobrevivir a que un texto mida el doble en alemán: nada de marcos decorativos que dependan de un ancho fijo.
 
 Necesito además:
 
-- **Escala de colores semánticos** para cosas que hoy se codifican por color: coronas de plata y oro, niveles de ranura (1/2/3), rangos de multiplicador de daño (bueno/normal/malo), rareza (1–8), elementos (fuego, agua, rayo, hielo, draco) y estados (veneno, parálisis, sueño, nitro). Que se distingan **también sin color**: forma, posición o etiqueta.
+- **Escala de colores semánticos** para cosas que hoy se codifican por color: coronas de plata y oro, niveles de ranura (1/2/3), rangos de multiplicador de daño (bueno/normal/malo), rareza (1–8), elementos (fuego, agua, rayo, hielo, draco) y estados (veneno, parálisis, sueño, nitro). Donde el juego ya tenga un color para eso, úsalo. Que se distingan **también sin color**: forma, posición o etiqueta.
 
   **Esto es lo más difícil de los dos temas.** Un dorado que brilla sobre fondo oscuro se vuelve mostaza ilegible sobre blanco, y el verde de "buena zona de impacto" pierde toda su fuerza. Necesito cada color semántico resuelto en ambos modos, no una sola paleta reutilizada. Igual con los iconos de material, que son máscaras monocromas teñidas por dato: el tinte tiene que funcionar sobre los dos fondos.
 - **Estados vacíos, de carga y de error** para las listas largas.
@@ -109,4 +128,6 @@ Lo va a implementar otra persona a partir de tu entrega, así que priorizo lo qu
 2. **Los componentes recurrentes**, cada uno con sus estados (normal, hover, foco, activo, deshabilitado, cargando, vacío) y sus medidas concretas: fila de lista densa, tarjeta de monstruo, tarjeta de set, tarjeta de material con orígenes, tabla de zonas de impacto, selector navegable, paginador, contador +/−, indicador de corona, insignia de ranura, barra de navegación con selector de idioma.
 3. **Reglas de densidad y disposición**: alto de fila, escala tipográfica, alineación numérica, puntos de quiebre, y qué pasa con las tablas anchas en móvil.
 4. **Una explicación corta de las decisiones**: por qué esa paleta, cómo se resuelve la densidad, cómo se distinguen los estados sin color y qué cambia entre claro y oscuro más allá de invertir.
-5. **Solo dos maquetas**, para anclar el aire general: el **armador** y el **detalle de monstruo**, cada una en claro y oscuro. Son las que cargan más sistema. El resto de pantallas se resuelven aplicando los componentes, y prefiero tu criterio escrito a más imágenes.
+5. **Solo dos maquetas**, para anclar el aire general: el **armador** y el **detalle de monstruo**, cada una en claro y oscuro. Son las que cargan más sistema. El resto se resuelve aplicando los componentes, y prefiero tu criterio escrito a más imágenes.
+
+Si conoces la interfaz de Wilds, apóyate en ella directamente. Si no, búscala: las pantallas de equipo, la guía de campo del monstruo y la caja de objetos son las tres referencias que más se parecen a lo que hace esta app.
