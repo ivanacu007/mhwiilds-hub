@@ -1,16 +1,10 @@
 import type { Monster } from './catalog/types.ts';
-import { MONSTER_VARIANTS, isMonsterVariant, type MonsterVariant } from './catalog/monster-icons.ts';
+import { MONSTER_VARIANTS, isMonsterVariant } from './catalog/monster-icons.ts';
 import type { MonsterProgress, VariantCounts } from './models.ts';
 
 export type CrownKind = 'mini' | 'silver' | 'gold';
 
 export const CROWN_KINDS: CrownKind[] = ['mini', 'silver', 'gold'];
-
-export const CROWN_LABEL: Record<CrownKind, string> = {
-  mini: 'Pequeña',
-  silver: 'Plata',
-  gold: 'Oro',
-};
 
 export function emptyCounts(): VariantCounts {
   return { normal: 0, frenzied: 0, tempered: 0, 'arch-tempered': 0 };

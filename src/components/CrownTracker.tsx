@@ -7,7 +7,7 @@ import {
 } from '../lib/crowns.ts';
 import { monsterArtDataUri, SPECIES_LABEL } from '../lib/monster-art.ts';
 import { MONSTER_VARIANTS, VARIANT_LABEL, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
-import type { MonsterProgress, VariantCounts } from '../lib/models.ts';
+import type { MonsterProgress } from '../lib/models.ts';
 
 type Progress = Record<string, MonsterProgress>;
 
