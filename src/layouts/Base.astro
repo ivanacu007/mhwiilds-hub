@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import HunterAvatar from '../components/HunterAvatar.astro';
+import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 
 interface Props {
   title: string;
@@ -13,19 +14,20 @@ interface Props {
 
 const { title, description, ogTitle, ogDescription, noIndex } = Astro.props;
 const user = Astro.locals.user;
+const t = Astro.locals.t;
 const path = Astro.url.pathname;
 
 const nav = [
-  { href: '/inventario', label: 'Inventario' },
-  { href: '/armador', label: 'Armador' },
-  { href: '/mis-sets', label: 'Mis sets' },
-  { href: '/coronas', label: 'Coronas' },
-  { href: '/cazadores', label: 'Cazadores' },
+  { href: '/inventario', label: t('nav.inventory') },
+  { href: '/armador', label: t('nav.builder') },
+  { href: '/mis-sets', label: t('nav.mySets') },
+  { href: '/coronas', label: t('nav.crowns') },
+  { href: '/cazadores', label: t('nav.hunters') },
 ];
 ---
 
 <!doctype html>
-<html lang="es">
+<html lang={Astro.locals.locale}>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -36,13 +38,13 @@ const nav = [
     <meta property="og:title" content={ogTitle ?? title} />
     <meta property="og:description" content={ogDescription ?? description ?? ''} />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Sets de Wilds" />
+    <meta property="og:site_name" content={t('app.name')} />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="min-h-screen flex flex-col">
     <header class="border-b border-base-800 bg-base-900">
       <div class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <a href="/" class="font-semibold tracking-tight text-ember-400">Sets de Wilds</a>
+        <a href="/" class="font-semibold tracking-tight text-ember-400">{t('app.name')}</a>
 
         {user && (
           <nav class="flex gap-1 text-sm">
@@ -63,6 +65,7 @@ const nav = [
         )}
 
         <div class="ml-auto flex items-center gap-3 text-sm">
+          <LanguageSwitcher />
           {user ? (
             <>
               <a href="/cuenta" class="flex items-center gap-2 text-base-300 hover:text-base-100">
@@ -70,13 +73,12 @@ const nav = [
                 <span class="hidden sm:inline">{user.hunterName ?? user.name}</span>
               </a>
               <form method="post" action="/api/auth/logout">
-                <button class="rounded px-2 py-1 text-base-300 hover:text-base-100">Salir</button>
+                <button class="rounded px-2 py-1 text-base-300 hover:text-base-100">{t('nav.signOut')}</button>
               </form>
             </>
           ) : (
             <a href="/entrar" class="rounded bg-ember-500 px-3 py-1.5 font-medium text-base-950 hover:bg-ember-400">
-              Entrar
-            </a>
+{t('nav.signIn')}</a>
           )}
         </div>
       </div>
@@ -87,9 +89,9 @@ const nav = [
     </main>
 
     <footer class="border-t border-base-800 px-4 py-4 text-center text-xs text-base-500">
-      Datos del juego vía
+      {t('footer.dataFrom')}
       <a href="https://docs.wilds.mhdb.io/" class="underline hover:text-base-300" rel="noopener">wilds.mhdb.io</a>.
-      Proyecto personal, sin relación con Capcom.
+      {t('footer.disclaimer')}
     </footer>
   </body>
 </html>

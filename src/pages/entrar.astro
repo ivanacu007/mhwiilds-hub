@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import { googleConfigured } from '../lib/auth/google.ts';
 import { emailConfigured } from '../lib/auth/email.ts';
@@ -11,9 +12,9 @@ const email = Astro.url.searchParams.get('email') ?? '';
 const siguiente = Astro.url.searchParams.get('siguiente') ?? '';
 ---
 
-<Base title="Entrar · Sets de Wilds" noIndex>
+<Base title={`${t('auth.signIn')} · ${t('app.name')}`} noIndex>
   <div class="mx-auto max-w-sm">
-    <h1 class="mb-6 text-2xl font-semibold">Entrar</h1>
+    <h1 class="mb-6 text-2xl font-semibold">{t('auth.signIn')}</h1>
 
     {error && (
       <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
@@ -28,10 +29,9 @@ const siguiente = Astro.url.searchParams.get('siguiente') ?? '';
           href="/api/auth/google"
           class="mb-4 flex w-full items-center justify-center gap-2 rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800"
         >
-          Continuar con Google
-        </a>
+{t('auth.continueGoogle')}</a>
         <div class="mb-4 flex items-center gap-3 text-xs text-base-500">
-          <span class="h-px flex-1 bg-base-800"></span>o con tu correo<span class="h-px flex-1 bg-base-800"></span>
+          <span class="h-px flex-1 bg-base-800"></span>{t('auth.orEmail')}<span class="h-px flex-1 bg-base-800"></span>
         </div>
       </>
     )}
@@ -39,39 +39,38 @@ const siguiente = Astro.url.searchParams.get('siguiente') ?? '';
     <form method="post" action="/api/auth/login" class="space-y-3">
       <input type="hidden" name="siguiente" value={siguiente} />
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Correo</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.email')}</span>
         <input
           type="email" name="email" value={email} required autocomplete="email"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Contraseña</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.password')}</span>
         <input
           type="password" name="password" required autocomplete="current-password"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
       <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
-        Entrar
-      </button>
+{t('auth.signIn')}</button>
     </form>
 
     {emailConfigured() && (
       <details class="mt-4">
-        <summary class="cursor-pointer text-sm text-base-500 hover:text-base-300">Olvidé mi contraseña</summary>
+        <summary class="cursor-pointer text-sm text-base-500 hover:text-base-300">{t('auth.forgot')}</summary>
         <form method="post" action="/api/auth/forgot" class="mt-2 flex gap-2">
           <input
             type="email" name="email" placeholder="tu@correo.com" required
             class="flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
           />
-          <button class="rounded border border-base-700 px-3 py-2 text-sm hover:bg-base-850">Enviar</button>
+          <button class="rounded border border-base-700 px-3 py-2 text-sm hover:bg-base-850">{t('auth.send')}</button>
         </form>
       </details>
     )}
 
     <p class="mt-6 text-center text-sm text-base-500">
-      ¿Tienes un código de invitación? <a href="/registro" class="text-ember-400 underline">Crea tu cuenta</a>
+      {t('auth.haveInviteQ')} <a href="/registro" class="text-ember-400 underline">{t('auth.createYours')}</a>
     </p>
   </div>
 </Base>

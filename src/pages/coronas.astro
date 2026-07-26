@@ -1,17 +1,16 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import CrownTracker from '../components/CrownTracker.tsx';
 
 const user = Astro.locals.user!;
 ---
 
-<Base title="Coronas · Sets de Wilds" noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">Coronas</h1>
+<Base title={`${t('crowns.title')} · ${t('app.name')}`} noIndex>
+  <h1 class="mb-1 text-2xl font-semibold">{t('crowns.title')}</h1>
   <p class="mb-5 text-sm text-base-500">
-    Anota el tamaño más pequeño y el más grande que te ha salido de cada monstruo —los que
-    te muestra el juego en la guía de campo— y las coronas se calculan solas. Si prefieres
-    solo palomear, cada corona tiene su casilla.
+    {t('crowns.blurb')}
   </p>
 
-  <CrownTracker client:only="preact" favorites={user.favoriteMonsters} />
+  <CrownTracker client:only="preact" favorites={user.favoriteMonsters} locale={Astro.locals.locale} />
 </Base>

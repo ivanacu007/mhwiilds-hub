@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import Pagination from './Pagination.tsx';
 import { paginate } from '../lib/paginate.ts';
+import { translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import type { Catalog } from '../lib/catalog/types.ts';
 
 type Tab = 'adornos' | 'talismanes' | 'armaduras' | 'materiales';
@@ -22,7 +23,8 @@ function normalize(text: string): string {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-export default function InventoryEditor() {
+export default function InventoryEditor({ locale }: { locale: Locale }) {
+  const t = translatorFor(locale);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [inventory, setInventory] = useState<Inventory>(EMPTY);
   const [tab, setTab] = useState<Tab>('adornos');
@@ -168,7 +170,7 @@ export default function InventoryEditor() {
   const visible = rows.slice(pageInfo.start, pageInfo.end);
 
   if (status === 'cargando') {
-    return <p class="py-10 text-center text-base-500">Cargando catálogo…</p>;
+    return <p class="py-10 text-center text-base-500">{t('common.loadingCatalog')}</p>;
   }
   if (status === 'error' && !catalog) {
     return <p class="py-10 text-center text-red-300">{errorText}</p>;
@@ -177,10 +179,10 @@ export default function InventoryEditor() {
   const ownedDecoCount = Object.values(inventory.decorations).reduce((a, b) => a + b, 0);
 
   const tabs: [Tab, string, number][] = [
-    ['adornos', 'Adornos', Object.keys(inventory.decorations).length],
-    ['talismanes', 'Talismanes', Object.keys(inventory.charms).length],
-    ['armaduras', 'Armaduras', inventory.armor.length],
-    ['materiales', 'Materiales', Object.keys(inventory.materials).length],
+    ['adornos', t('inventory.decorations'), Object.keys(inventory.decorations).length],
+    ['talismanes', t('inventory.charms'), Object.keys(inventory.charms).length],
+    ['armaduras', t('inventory.armor'), inventory.armor.length],
+    ['materiales', t('inventory.materials'), Object.keys(inventory.materials).length],
   ];
 
   return (
@@ -200,8 +202,8 @@ export default function InventoryEditor() {
         ))}
 
         <span class="ml-auto text-xs text-base-500">
-          {status === 'guardando' && 'Guardando…'}
-          {status === 'guardado' && 'Guardado'}
+          {status === 'guardando' && t('builder.saving')}
+          {status === 'guardado' && t('builder.saved')}
           {status === 'error' && <span class="text-red-300">{errorText}</span>}
         </span>
       </div>
@@ -210,7 +212,7 @@ export default function InventoryEditor() {
         <input
           value={query}
           onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
-          placeholder={tab === 'adornos' ? 'Busca por nombre o habilidad…' : 'Buscar…'}
+          placeholder={tab === 'adornos' ? t('inventory.searchDecorations') : t('inventory.search')}
           class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
         <label class="flex items-center gap-2 rounded border border-base-700 px-3 text-sm text-base-300">
@@ -219,19 +221,19 @@ export default function InventoryEditor() {
             checked={onlyOwned}
             onChange={(e) => { setOnlyOwned((e.target as HTMLInputElement).checked); setPage(1); }}
           />
-          Solo lo que tengo
+          {t('inventory.onlyOwned')}
         </label>
       </div>
 
       {tab === 'adornos' && (
         <p class="mb-3 text-xs text-base-500">
-          {ownedDecoCount} adornos registrados. Los de arma solo entran en ranuras de arma.
+          {t('inventory.decoCount', { count: ownedDecoCount })}
         </p>
       )}
 
       <div class="divide-y divide-base-850 rounded border border-base-800">
         {rows.length === 0 && (
-          <p class="px-3 py-6 text-center text-sm text-base-500">Nada coincide con la búsqueda.</p>
+          <p class="px-3 py-6 text-center text-sm text-base-500">{t('inventory.nothingMatches')}</p>
         )}
 
         {tab === 'adornos' && (visible as Catalog['decorations']).map((deco) => (
@@ -239,12 +241,13 @@ export default function InventoryEditor() {
             key={deco.id}
             title={deco.name}
             subtitle={deco.skills.map((s) => `${skillName.get(s.skillId)} ${s.level}`).join(' · ')}
-            badge={<SlotBadge size={deco.slot} kind={deco.kind} />}
+            badge={<SlotBadge size={deco.slot} kind={deco.kind} t={t} />}
           >
             <Stepper
               value={inventory.decorations[String(deco.id)] ?? 0}
               max={99}
               onChange={(v) => setCount('decorations', deco.id, v)}
+              t={t}
             />
           </Row>
         ))}
@@ -266,7 +269,7 @@ export default function InventoryEditor() {
                   onClick={() => setCount('charms', charm.id, 0)}
                   class={`rounded px-2 py-1 text-xs ${owned === 0 ? 'bg-base-700 text-base-100' : 'bg-base-850 text-base-500 hover:bg-base-800'}`}
                 >
-                  no
+                  {t('inventory.no')}
                 </button>
                 {charm.ranks.map((rank) => (
                   <button
@@ -279,7 +282,7 @@ export default function InventoryEditor() {
                     {rank.level}
                   </button>
                 ))}
-                {maxRank > 1 && <span class="self-center pl-1 text-xs text-base-500">rango</span>}
+                {maxRank > 1 && <span class="self-center pl-1 text-xs text-base-500">{t('inventory.rank')}</span>}
               </div>
             </Row>
           );
@@ -290,7 +293,7 @@ export default function InventoryEditor() {
             key={piece.id}
             title={piece.name}
             subtitle={`${piece.kind} · def ${piece.defense} · ${
-              piece.skills.map((s) => `${skillName.get(s.skillId)} ${s.level}`).join(', ') || 'sin habilidades'
+              piece.skills.map((s) => `${skillName.get(s.skillId)} ${s.level}`).join(', ') || t('inventory.noSkills')
             }`}
             badge={<span class="text-xs text-base-500">{piece.slots.map((s) => `[${s}]`).join('') || '—'}</span>}
           >
@@ -300,17 +303,18 @@ export default function InventoryEditor() {
                 checked={inventory.armor.includes(piece.id)}
                 onChange={() => toggleArmor(piece.id)}
               />
-              la tengo
+              {t('inventory.iHaveIt')}
             </label>
           </Row>
         ))}
 
         {tab === 'materiales' && (visible as Catalog['items']).map((item) => (
-          <Row key={item.id} title={item.name} subtitle={`rareza ${item.rarity}`}>
+          <Row key={item.id} title={item.name} subtitle={`${t('inventory.rarity')} ${item.rarity}`}>
             <Stepper
               value={inventory.materials[String(item.id)] ?? 0}
               max={9999}
               onChange={(v) => setCount('materials', item.id, v)}
+              t={t}
             />
           </Row>
         ))}
@@ -320,12 +324,13 @@ export default function InventoryEditor() {
         info={pageInfo}
         onPage={setPage}
         onPageSize={(size) => { setPageSize(size); setPage(1); }}
-        label={
-          tab === 'adornos' ? 'adornos'
-          : tab === 'talismanes' ? 'talismanes'
-          : tab === 'armaduras' ? 'piezas'
-          : 'materiales'
-        }
+        t={t}
+        label={(
+          tab === 'adornos' ? t('inventory.decorations')
+          : tab === 'talismanes' ? t('inventory.charms')
+          : tab === 'armaduras' ? t('inventory.pieces')
+          : t('inventory.materials')
+        ).toLowerCase()}
       />
     </div>
   );
@@ -349,25 +354,25 @@ function Row(props: {
   );
 }
 
-function SlotBadge({ size, kind }: { size: number; kind: 'armor' | 'weapon' }) {
+function SlotBadge({ size, kind, t }: { size: number; kind: 'armor' | 'weapon'; t: Translator }) {
   return (
     <span
       class={`slot-${size} w-10 shrink-0 text-center text-xs font-semibold`}
-      title={kind === 'weapon' ? 'Adorno de arma' : 'Adorno de armadura'}
+      title={kind === 'weapon' ? t('inventory.weaponDeco') : t('inventory.armorDeco')}
     >
       [{size}]{kind === 'weapon' ? '⚔' : ''}
     </span>
   );
 }
 
-function Stepper({ value, max, onChange }: { value: number; max: number; onChange: (v: number) => void }) {
+function Stepper({ value, max, onChange, t }: { value: number; max: number; onChange: (v: number) => void; t: Translator }) {
   return (
     <div class="flex items-center gap-1">
       <button
         onClick={() => onChange(Math.max(0, value - 1))}
         disabled={value === 0}
         class="h-7 w-7 rounded bg-base-850 text-base-300 hover:bg-base-800 disabled:opacity-30"
-        aria-label="Quitar uno"
+        aria-label={t('inventory.removeOne')}
       >
         −
       </button>
@@ -387,7 +392,7 @@ function Stepper({ value, max, onChange }: { value: number; max: number; onChang
       <button
         onClick={() => onChange(Math.min(max, value + 1))}
         class="h-7 w-7 rounded bg-base-850 text-base-300 hover:bg-base-800"
-        aria-label="Agregar uno"
+        aria-label={t('inventory.addOne')}
       >
         +
       </button>

@@ -196,8 +196,3 @@ export function indexCatalog(catalog: Catalog): CatalogIndex {
     armorByKind,
   };
 }
-
-/** Nivel máximo que puede alcanzar una habilidad. */
-export function maxSkillLevel(skill: Skill): number {
-  return skill.ranks.reduce((max, r) => Math.max(max, r.level), 0);
-}

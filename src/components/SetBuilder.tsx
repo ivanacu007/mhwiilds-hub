@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
-import { ARMOR_KINDS, type ArmorKind, type Catalog } from '../lib/catalog/types.ts';
+import { ARMOR_KINDS, type Catalog } from '../lib/catalog/types.ts';
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
+import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 
-const KIND_LABEL: Record<ArmorKind, string> = {
-  head: 'Cabeza',
-  chest: 'Torso',
-  arms: 'Brazos',
-  waist: 'Cintura',
-  legs: 'Piernas',
-};
+const KIND_KEY = {
+  head: 'piece.head', chest: 'piece.chest', arms: 'piece.arms',
+  waist: 'piece.waist', legs: 'piece.legs',
+} as const;
 
 interface Target { skillId: number; level: number; }
 
@@ -17,7 +15,8 @@ function normalize(text: string): string {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-export default function SetBuilder() {
+export default function SetBuilder({ locale }: { locale: Locale }) {
+  const t = translatorFor(locale);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [inventory, setInventory] = useState<any>(null);
   const [targets, setTargets] = useState<Target[]>([]);
@@ -133,7 +132,7 @@ export default function SetBuilder() {
   };
 
   if (loadError && !catalog) return <p class="py-10 text-center text-red-300">{loadError}</p>;
-  if (!catalog || !inventory) return <p class="py-10 text-center text-base-500">Cargando…</p>;
+  if (!catalog || !inventory) return <p class="py-10 text-center text-base-500">{t('common.loading')}</p>;
 
   const weapon = weaponId ? catalog.weapons.find((w) => w.id === weaponId) : null;
 
@@ -141,7 +140,7 @@ export default function SetBuilder() {
     <div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
       <aside class="space-y-4">
         <section class="rounded border border-base-800 bg-base-900 p-3">
-          <h2 class="mb-2 text-sm font-medium text-base-300">Habilidades que quieres</h2>
+          <h2 class="mb-2 text-sm font-medium text-base-300">{t('builder.wantedSkills')}</h2>
 
           <div class="space-y-2">
             {targets.map((target) => {
@@ -168,7 +167,7 @@ export default function SetBuilder() {
                   <button
                     onClick={() => setTargets((list) => list.filter((t) => t.skillId !== target.skillId))}
                     class="text-base-500 hover:text-red-300"
-                    aria-label="Quitar"
+                    aria-label={t('builder.remove')}
                   >
                     ×
                   </button>
@@ -176,14 +175,14 @@ export default function SetBuilder() {
               );
             })}
             {targets.length === 0 && (
-              <p class="py-2 text-center text-xs text-base-500">Agrega al menos una habilidad.</p>
+              <p class="py-2 text-center text-xs text-base-500">{t('builder.addSkillHint')}</p>
             )}
           </div>
 
           <input
             value={skillQuery}
             onInput={(e) => setSkillQuery((e.target as HTMLInputElement).value)}
-            placeholder="Buscar habilidad…"
+            placeholder={t('builder.searchSkill')}
             class="mt-2 w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
           />
           {skillMatches.length > 0 && (
@@ -198,7 +197,7 @@ export default function SetBuilder() {
                     class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
                   >
                     <span class="flex-1">{skill.name}</span>
-                    {skill.kind === 'weapon' && <span class="text-xs text-ember-300">⚔ arma</span>}
+                    {skill.kind === 'weapon' && <span class="text-xs text-ember-300">{t('builder.weaponSkillTag')}</span>}
                   </button>
                 </li>
               ))}
@@ -207,11 +206,11 @@ export default function SetBuilder() {
         </section>
 
         <section class="rounded border border-base-800 bg-base-900 p-3">
-          <h2 class="mb-2 text-sm font-medium text-base-300">Arma (opcional)</h2>
+          <h2 class="mb-2 text-sm font-medium text-base-300">{t('builder.weaponOptional')}</h2>
           {weapon ? (
             <div class="flex items-center gap-2 rounded bg-base-850 px-2 py-1.5 text-sm">
               <span class="min-w-0 flex-1 truncate">{weapon.name}</span>
-              <span class="text-xs text-base-500">{weapon.slots.map((s) => `[${s}]`).join('') || 'sin ranuras'}</span>
+              <span class="text-xs text-base-500">{weapon.slots.map((s) => `[${s}]`).join('') || t('builder.noSlots')}</span>
               <button onClick={() => setWeaponId(null)} class="text-base-500 hover:text-red-300">×</button>
             </div>
           ) : (
@@ -219,7 +218,7 @@ export default function SetBuilder() {
               <input
                 value={weaponQuery}
                 onInput={(e) => setWeaponQuery((e.target as HTMLInputElement).value)}
-                placeholder="Buscar arma…"
+                placeholder={t('builder.searchWeapon')}
                 class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
               />
               {weaponMatches.length > 0 && (
@@ -238,7 +237,7 @@ export default function SetBuilder() {
                 </ul>
               )}
               <p class="mt-1 text-xs text-base-500">
-                Las habilidades de arma (⚔) solo salen del arma y sus adornos.
+                {t('builder.weaponSkillNote')}
               </p>
             </>
           )}
@@ -250,7 +249,7 @@ export default function SetBuilder() {
             checked={onlyOwnedArmor}
             onChange={(e) => setOnlyOwnedArmor((e.target as HTMLInputElement).checked)}
           />
-          Solo piezas que ya forjé
+          {t('builder.onlyForged')}
         </label>
 
         <button
@@ -258,39 +257,39 @@ export default function SetBuilder() {
           disabled={busy || targets.length === 0}
           class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400 disabled:opacity-40"
         >
-          {busy ? 'Buscando…' : 'Buscar sets'}
+          {busy ? t('builder.searching') : t('builder.search')}
         </button>
       </aside>
 
       <section>
         {!result && !busy && (
           <p class="py-16 text-center text-base-500">
-            Elige habilidades y pulsa «Buscar sets».
+            {t('builder.pickAndSearch')}
           </p>
         )}
 
         {result && !result.ok && result.reason === 'falta-arma' && (
           <div class="rounded border border-ember-500/40 bg-ember-500/5 p-4">
-            <h2 class="mb-1 font-medium text-ember-300">Necesitas elegir un arma</h2>
+            <h2 class="mb-1 font-medium text-ember-300">{t('builder.needWeapon')}</h2>
             <p class="text-sm text-base-300">
               {result.weaponSkills.map((t) => skillById.get(t.skillId)?.name).join(', ')}
-              {result.weaponSkills.length === 1 ? ' es una habilidad de arma' : ' son habilidades de arma'}:
-              ninguna pieza de armadura las da. Selecciona un arma y se resolverán con sus ranuras.
+              {' '}{result.weaponSkills.length === 1 ? t('builder.needWeaponOne') : t('builder.needWeaponMany')}:{' '}
+              {t('builder.needWeaponBody')}
             </p>
           </div>
         )}
 
         {result && !result.ok && result.reason === 'sin-solucion' && (
           <div class="rounded border border-base-800 bg-base-900 p-4">
-            <h2 class="mb-1 font-medium">No hay ningún set posible con lo que tienes</h2>
+            <h2 class="mb-1 font-medium">{t('builder.noSolution')}</h2>
             {result.unreachable.length > 0 && (
               <p class="mb-3 text-sm text-base-300">
-                Se quedó corto en: {result.unreachable.map((t) => `${skillById.get(t.skillId)?.name} ${t.level}`).join(', ')}.
+                {t('builder.shortOn', { skills: result.unreachable.map((x) => `${skillById.get(x.skillId)?.name} ${x.level}`).join(', ') })}
               </p>
             )}
             {result.missingDecorations.length > 0 && (
               <>
-                <h3 class="mb-1 text-sm font-medium text-base-300">Te faltarían</h3>
+                <h3 class="mb-1 text-sm font-medium text-base-300">{t('builder.youWouldNeed')}</h3>
                 <ul class="space-y-1 text-sm">
                   {result.missingDecorations.map((m) => (
                     <li key={m.decorationId} class="flex gap-2">
@@ -307,12 +306,15 @@ export default function SetBuilder() {
         {result && result.ok && (
           <>
             <p class="mb-3 text-xs text-base-500">
-              {result.solutions.length} sets · {result.searched.toLocaleString('es-MX')} combinaciones evaluadas
-              en {result.elapsedMs} ms
-              {result.truncated && ' · búsqueda cortada por tiempo'}
+              {t('builder.stats', {
+                count: result.solutions.length,
+                searched: result.searched.toLocaleString(INTL_LOCALE[locale]),
+                ms: result.elapsedMs,
+              })}
+              {result.truncated && t('builder.truncated')}
             </p>
             {result.solutions.length === 0 && (
-              <p class="py-10 text-center text-base-500">Ningún set cumple esos objetivos.</p>
+              <p class="py-10 text-center text-base-500">{t('builder.noneMatch')}</p>
             )}
             <div class="space-y-4">
               {result.solutions.map((solution, i) => (
@@ -324,6 +326,7 @@ export default function SetBuilder() {
                   charmById={charmById}
                   skillById={skillById}
                   targets={targets}
+                  t={t}
                 />
               ))}
             </div>
@@ -341,8 +344,9 @@ function SolutionCard(props: {
   charmById: Map<number, Catalog['charms'][number]>;
   skillById: Map<number, Catalog['skills'][number]>;
   targets: Target[];
+  t: Translator;
 }) {
-  const { solution, armorById, decoById, charmById, skillById, targets } = props;
+  const { solution, armorById, decoById, charmById, skillById, targets, t } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
@@ -384,20 +388,20 @@ function SolutionCard(props: {
   return (
     <article class="rounded border border-base-800 bg-base-900 p-3">
       <div class="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-base-500">
-        <span>Defensa <strong class="text-base-100">{solution.defense}</strong></span>
+        <span>{t('builder.defense')} <strong class="text-base-100">{solution.defense}</strong></span>
         {solution.freeArmorSlots.length > 0 && (
-          <span>Ranuras libres {solution.freeArmorSlots.map((s) => `[${s}]`).join('')}</span>
+          <span>{t('builder.freeSlots')} {solution.freeArmorSlots.map((s) => `[${s}]`).join('')}</span>
         )}
         <div class="ml-auto flex items-center gap-2">
           {slug && (
-            <a href={`/set/${slug}`} class="text-ember-400 underline">Ver enlace</a>
+            <a href={`/set/${slug}`} class="text-ember-400 underline">{t('builder.viewLink')}</a>
           )}
           <button
             onClick={save}
             disabled={saving === 'guardando' || saving === 'guardado'}
             class="rounded border border-base-700 px-2 py-1 hover:bg-base-850 disabled:opacity-40"
           >
-            {saving === 'guardado' ? 'Guardado' : saving === 'guardando' ? 'Guardando…' : 'Guardar'}
+            {saving === 'guardado' ? t('builder.saved') : saving === 'guardando' ? t('builder.saving') : t('builder.save')}
           </button>
         </div>
       </div>
@@ -409,7 +413,7 @@ function SolutionCard(props: {
           return (
             <div key={kind} class="rounded bg-base-850 px-2 py-1.5 text-sm">
               <div class="flex gap-2">
-                <span class="w-14 shrink-0 text-xs text-base-500">{KIND_LABEL[kind]}</span>
+                <span class="w-14 shrink-0 text-xs text-base-500">{t(KIND_KEY[kind])}</span>
                 <span class="min-w-0 flex-1 truncate">{piece.name}</span>
               </div>
               {solution.pieces[kind].decorations.length > 0 && (
@@ -427,7 +431,7 @@ function SolutionCard(props: {
         {solution.charmId && (
           <div class="rounded bg-base-850 px-2 py-1.5 text-sm">
             <div class="flex gap-2">
-              <span class="w-14 shrink-0 text-xs text-base-500">Amuleto</span>
+              <span class="w-14 shrink-0 text-xs text-base-500">{t('piece.charm')}</span>
               <span class="min-w-0 flex-1 truncate">
                 {charmById.get(solution.charmId)?.name} {solution.charmLevel}
               </span>

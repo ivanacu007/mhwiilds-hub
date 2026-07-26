@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../../layouts/Base.astro';
 import { savedSets } from '../../lib/db.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
@@ -12,13 +13,14 @@ const set = await collection.findOne({ slug: slug! });
 
 // Un set privado solo existe para su dueño; para el resto es un 404 sin pistas.
 if (!set || (!set.isPublic && set.ownerId !== user?.id)) {
-  return new Response('Set no encontrado', { status: 404 });
+  return new Response(Astro.locals.t('sets.notFound'), { status: 404 });
 }
 
 const index = await getCatalogIndex();
 
 const KIND_LABEL: Record<ArmorKind, string> = {
-  head: 'Cabeza', chest: 'Torso', arms: 'Brazos', waist: 'Cintura', legs: 'Piernas',
+  head: t('piece.head'), chest: t('piece.chest'), arms: t('piece.arms'),
+  waist: t('piece.waist'), legs: t('piece.legs'),
 };
 
 /** Suma en servidor todo lo que aporta el set, para mostrarlo sin JS. */
@@ -82,7 +84,7 @@ const skills = [...skillTotals.entries()]
     const max = skill?.ranks.reduce((m, r) => Math.max(m, r.level), 0) ?? level;
     return { name: skill?.name ?? `#${skillId}`, level: Math.min(level, max) };
   })
-  .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name, 'es'));
+  .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
 
 const summary = skills.slice(0, 6).map((s) => `${s.name} ${s.level}`).join(' · ');
 const isOwner = user?.id === set.ownerId;
@@ -91,18 +93,18 @@ const author = set.ownerHunterName || set.ownerName;
 ---
 
 <Base
-  title={`${set.name} · Sets de Wilds`}
+  title={`${set.name} · ${t('app.name')}`}
   description={summary}
-  ogTitle={`${set.name} — set de Monster Hunter Wilds`}
-  ogDescription={`Por ${author}. ${summary}`}
+  ogTitle={`${set.name} — Monster Hunter Wilds`}
+  ogDescription={`${t('sets.sharedBy', { name: author })}. ${summary}`}
   noIndex={!set.isPublic}
 >
   <article class="mx-auto max-w-3xl">
     <header class="mb-5">
       <h1 class="text-2xl font-semibold">{set.name}</h1>
       <p class="mt-1 text-sm text-base-500">
-        Compartido por {author} · Defensa {defense}
-        {!set.isPublic && <span class="ml-2 rounded bg-base-800 px-1.5 py-0.5 text-xs">privado</span>}
+        {t('sets.sharedBy', { name: author })} · {t('builder.defense')} {defense}
+        {!set.isPublic && <span class="ml-2 rounded bg-base-800 px-1.5 py-0.5 text-xs">{t('sets.private')}</span>}
       </p>
       {set.notes && <p class="mt-2 text-sm text-base-300">{set.notes}</p>}
     </header>
@@ -119,7 +121,7 @@ const author = set.ownerHunterName || set.ownerName;
       {weapon && (
         <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-base-500">Arma</span>
+            <span class="w-16 shrink-0 text-xs text-base-500">{t('piece.weapon')}</span>
             <span class="font-medium">{weapon.name}</span>
             <span class="text-xs text-base-500">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
           </div>
@@ -147,7 +149,7 @@ const author = set.ownerHunterName || set.ownerName;
       {charm && (
         <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-base-500">Amuleto</span>
+            <span class="w-16 shrink-0 text-xs text-base-500">{t('piece.charm')}</span>
             <span class="font-medium">{charm.name} {set.charmLevel}</span>
           </div>
         </div>
@@ -159,17 +161,17 @@ const author = set.ownerHunterName || set.ownerName;
         <button
           id="clonar"
           data-slug={set.slug}
+          data-copying={t('sets.copying')}
+          data-failed={t('sets.copyFailed')}
           class="rounded bg-ember-500 px-4 py-2 font-medium text-base-950 hover:bg-ember-400"
         >
-          Copiar a mis sets
-        </button>
+{t('sets.copyToMine')}</button>
       )}
       {!user && (
         <a href="/entrar" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">
-          Entra para copiarlo
-        </a>
+{t('sets.signInToCopy')}</a>
       )}
-      {isOwner && <a href="/mis-sets" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">Mis sets</a>}
+      {isOwner && <a href="/mis-sets" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">{t('sets.mySets')}</a>}
     </div>
   </article>
 </Base>
@@ -178,7 +180,7 @@ const author = set.ownerHunterName || set.ownerName;
   const button = document.getElementById('clonar');
   button?.addEventListener('click', async () => {
     button.setAttribute('disabled', 'true');
-    button.textContent = 'Copiando…';
+    button.textContent = button.dataset.copying!;
     const res = await fetch('/api/sets/clone', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -188,7 +190,7 @@ const author = set.ownerHunterName || set.ownerName;
       const data = await res.json();
       window.location.href = `/set/${data.slug}`;
     } else {
-      button.textContent = 'No se pudo copiar';
+      button.textContent = button.dataset.failed!;
     }
   });
 </script>

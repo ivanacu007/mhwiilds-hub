@@ -1,13 +1,14 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import SetBuilder from '../components/SetBuilder.tsx';
 ---
 
-<Base title="Armador · Sets de Wilds" noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">Armador</h1>
+<Base title={`${t('builder.title')} · ${t('app.name')}`} noIndex>
+  <h1 class="mb-1 text-2xl font-semibold">{t('builder.title')}</h1>
   <p class="mb-5 text-sm text-base-500">
-    La búsqueda corre en tu navegador, así que es instantánea y no depende del servidor.
+    {t('builder.blurb')}
   </p>
 
-  <SetBuilder client:only="preact" />
+  <SetBuilder client:only="preact" locale={Astro.locals.locale} />
 </Base>

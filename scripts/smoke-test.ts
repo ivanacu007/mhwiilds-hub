@@ -81,15 +81,77 @@ try {
   }
   if (!up) throw new Error('El servidor no respondió a tiempo.');
 
+  console.log('\n--- Idiomas ---');
+  const { es } = await import('../src/lib/i18n/es.ts');
+  const { en } = await import('../src/lib/i18n/en.ts');
+  const esKeys = Object.keys(es).sort();
+  const enKeys = Object.keys(en).sort();
+  const soloEs = esKeys.filter((k) => !enKeys.includes(k));
+  const soloEn = enKeys.filter((k) => !esKeys.includes(k));
+  check('los diccionarios cubren las mismas claves',
+    soloEs.length === 0 && soloEn.length === 0,
+    `solo es: ${soloEs.join(', ')} | solo en: ${soloEn.join(', ')}`);
+  check('ningún texto quedó vacío',
+    esKeys.every((k) => (es as any)[k].trim()) && enKeys.every((k) => (en as any)[k].trim()));
+  // Un texto idéntico en ambos suele ser una traducción olvidada; algunos son
+  // legítimos (Normal, HR, Google), así que solo se acota el total.
+  const iguales = esKeys.filter((k) => (es as any)[k] === (en as any)[k]);
+  check('casi todo está realmente traducido', iguales.length < 20,
+    `${iguales.length} iguales: ${iguales.slice(0, 8).join(', ')}`);
+
+  const esPage = await (await fetch(`${BASE}/entrar`, { headers: { 'accept-language': 'es-MX' } })).text();
+  check('sirve español por Accept-Language', esPage.includes('lang="es"') && esPage.includes('Entrar'));
+
+  const enPage = await (await fetch(`${BASE}/entrar`, { headers: { 'accept-language': 'en-US' } })).text();
+  check('sirve inglés por Accept-Language', enPage.includes('lang="en"') && enPage.includes('Sign in'));
+
+  const switched = await fetch(`${BASE}/api/language`, {
+    method: 'POST', redirect: 'manual',
+    body: new URLSearchParams({ lang: 'en', back: '/entrar' }),
+  });
+  const langCookie = (switched.headers.get('set-cookie') ?? '').split(';')[0];
+  check('el cambio de idioma deja cookie', langCookie.startsWith('mhw_lang=en'));
+  check('y devuelve a donde estabas', switched.headers.get('location') === '/entrar');
+
+  const withCookie = await (await fetch(`${BASE}/entrar`, {
+    headers: { cookie: langCookie, 'accept-language': 'es-MX' },
+  })).text();
+  check('la cookie manda sobre el navegador', withCookie.includes('Sign in'));
+
+  const evil = await fetch(`${BASE}/api/language`, {
+    method: 'POST', redirect: 'manual',
+    body: new URLSearchParams({ lang: 'en', back: 'https://malo.example.com' }),
+  });
+  check('un destino externo no te saca del sitio', evil.headers.get('location') === '/');
+
+  const bogusLang = await fetch(`${BASE}/api/language`, {
+    method: 'POST', redirect: 'manual',
+    body: new URLSearchParams({ lang: 'klingon', back: '/entrar' }),
+  });
+  check('un idioma inventado se ignora', !(bogusLang.headers.get('set-cookie') ?? '').includes('klingon'));
+
   console.log('\n--- Catálogo ---');
-  const catalogRes = await fetch(`${BASE}/api/catalog.json`);
+  const catalogRes = await fetch(`${BASE}/api/catalog.json`, { headers: { cookie: 'mhw_lang=es' } });
   const catalog = await catalogRes.json();
   check('sirve el catálogo', catalogRes.ok);
   check('trae armaduras', catalog.armor?.length > 100, `${catalog.armor?.length}`);
   check('trae adornos', catalog.decorations?.length > 100, `${catalog.decorations?.length}`);
   const etag = catalogRes.headers.get('etag');
-  const notModified = await fetch(`${BASE}/api/catalog.json`, { headers: { 'if-none-match': etag! } });
+  const notModified = await fetch(`${BASE}/api/catalog.json`, {
+    headers: { 'if-none-match': etag!, cookie: 'mhw_lang=es' },
+  });
   check('responde 304 con ETag', notModified.status === 304, `dio ${notModified.status}`);
+
+  // El ETag lleva el idioma: en inglés no debe devolver 304 con el ETag español.
+  const enCatalogRes = await fetch(`${BASE}/api/catalog.json`, {
+    headers: { 'if-none-match': etag!, cookie: 'mhw_lang=en' },
+  });
+  check('el catálogo inglés no reusa el ETag español', enCatalogRes.status === 200, `${enCatalogRes.status}`);
+  const enCatalog = await enCatalogRes.json();
+  check('los nombres vienen en inglés',
+    enCatalog.monsters.length === catalog.monsters.length &&
+    enCatalog.decorations[0].name !== catalog.decorations[0].name,
+    `${enCatalog.decorations[0].name} vs ${catalog.decorations[0].name}`);
 
   console.log('\n--- Registro sin invitación ---');
   const noInvite = await fetch(`${BASE}/api/auth/register`, {

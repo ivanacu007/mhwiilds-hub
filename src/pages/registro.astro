@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import { googleConfigured } from '../lib/auth/google.ts';
 
@@ -13,11 +14,11 @@ const hunterName = params.get('hunterName') ?? '';
 const googleReady = googleConfigured();
 ---
 
-<Base title="Crear cuenta · Sets de Wilds" noIndex>
+<Base title={`${t('auth.createAccount')} · ${t('app.name')}`} noIndex>
   <div class="mx-auto max-w-sm">
-    <h1 class="mb-2 text-2xl font-semibold">Crear cuenta</h1>
+    <h1 class="mb-2 text-2xl font-semibold">{t('auth.createAccount')}</h1>
     <p class="mb-6 text-sm text-base-500">
-      El registro es por invitación. Si no tienes código, pídeselo a quien te pasó el enlace.
+      {t('auth.inviteOnly')}
     </p>
 
     {error && (
@@ -29,32 +30,31 @@ const googleReady = googleConfigured();
         {/* El código va en la URL: Google no puede pedirlo en su propia pantalla. */}
         <form method="get" action="/api/auth/google" class="space-y-2">
           <input
-            name="invite" value={invite} required placeholder="Código de invitación"
+            name="invite" value={invite} required placeholder={t('auth.inviteCode')}
             class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
           />
           <button class="flex w-full items-center justify-center gap-2 rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800">
-            Crear cuenta con Google
-          </button>
+{t('auth.createGoogle')}</button>
         </form>
         <p class="mt-2 text-xs text-base-500">
-          Con Google podrás poner tu nombre de cazador después, desde tu cuenta.
+          {t('auth.googleAfterHint')}
         </p>
         <div class="my-4 flex items-center gap-3 text-xs text-base-500">
-          <span class="h-px flex-1 bg-base-800"></span>o con tu correo<span class="h-px flex-1 bg-base-800"></span>
+          <span class="h-px flex-1 bg-base-800"></span>{t('auth.orEmail')}<span class="h-px flex-1 bg-base-800"></span>
         </div>
       </>
     )}
 
     <form method="post" action="/api/auth/register" class="space-y-3">
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Código de invitación</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.inviteCode')}</span>
         <input
           name="invite" value={invite} required placeholder="XXXX-XXXX-XXXX"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Cómo te llamas</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.yourName')}</span>
         <input
           name="name" value={name} required minlength="2" maxlength="40" autocomplete="nickname"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
@@ -62,44 +62,43 @@ const googleReady = googleConfigured();
       </label>
       <label class="block">
         <span class="mb-1 block text-sm text-base-300">
-          Nombre de cazador <span class="text-base-500">(opcional)</span>
+          {t('account.hunterName')} <span class="text-base-500">{t('account.optional')}</span>
         </span>
         <input
-          name="hunterName" value={hunterName} maxlength="40" placeholder="Como te llamas en Wilds"
+          name="hunterName" value={hunterName} maxlength="40" placeholder={t('account.hunterNamePlaceholder')}
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
         <span class="mt-1 block text-xs text-base-500">
-          Es el que ven tus amigos en los sets que compartas. Lo puedes poner después.
+          {t('account.noHunterName')}
         </span>
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Correo</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.email')}</span>
         <input
           type="email" name="email" value={email} required autocomplete="email"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Contraseña</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.password')}</span>
         <input
           type="password" name="password" required minlength="10" autocomplete="new-password"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
-        <span class="mt-1 block text-xs text-base-500">Mínimo 10 caracteres.</span>
+        <span class="mt-1 block text-xs text-base-500">{t('auth.passwordHint')}</span>
       </label>
       <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
-        Crear cuenta
-      </button>
+{t('auth.createAccount')}</button>
     </form>
 
     {!googleReady && (
       <p class="mt-4 rounded border border-base-800 bg-base-900 px-3 py-2 text-xs text-base-500">
-        El acceso con Google no está configurado en este servidor.
+        {t('auth.googleNotConfigured')}
       </p>
     )}
 
     <p class="mt-6 text-center text-sm text-base-500">
-      ¿Ya tienes cuenta? <a href="/entrar" class="text-ember-400 underline">Entra aquí</a>
+      {t('auth.haveAccountQ')} <a href="/entrar" class="text-ember-400 underline">{t('auth.signInHere')}</a>
     </p>
   </div>
 </Base>

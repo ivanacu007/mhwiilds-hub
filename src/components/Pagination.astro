@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import { pageNumbers, type PageInfo } from '../lib/paginate.ts';
 
 interface Props {
@@ -8,7 +9,7 @@ interface Props {
   label?: string;
 }
 
-const { info, param = 'p', label = 'elementos' } = Astro.props;
+const { info, param = 'p', label = Astro.locals.t('common.items') } = Astro.props;
 
 /**
  * Enlaces en vez de botones: así la paginación funciona sin JavaScript y las
@@ -26,8 +27,8 @@ function linkClass(isCurrent: boolean): string {
 
 function summary(info: PageInfo, label: string): string {
   return info.totalPages <= 1
-    ? `${info.total} ${label}`
-    : `${info.from}–${info.to} de ${info.total} ${label}`;
+    ? t('pagination.only', { total: info.total, label })
+    : t('pagination.of', { from: info.from, to: info.to, total: info.total, label });
 }
 
 function hrefFor(page: number): string {
@@ -44,13 +45,12 @@ function hrefFor(page: number): string {
     <span class="text-xs text-base-500">{summary(info, label)}</span>
 
     {info.totalPages > 1 && (
-      <nav class="ml-auto flex flex-wrap items-center gap-1" aria-label="Paginación">
+      <nav class="ml-auto flex flex-wrap items-center gap-1" aria-label={t('pagination.label')}>
         {info.hasPrev ? (
           <a href={hrefFor(info.page - 1)} class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850">
-            Anterior
-          </a>
+{t('pagination.previous')}</a>
         ) : (
-          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">Anterior</span>
+          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">{t('pagination.previous')}</span>
         )}
 
         {pageNumbers(info.page, info.totalPages).map((entry) =>
@@ -63,10 +63,9 @@ function hrefFor(page: number): string {
 
         {info.hasNext ? (
           <a href={hrefFor(info.page + 1)} class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850">
-            Siguiente
-          </a>
+{t('pagination.next')}</a>
         ) : (
-          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">Siguiente</span>
+          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">{t('pagination.next')}</span>
         )}
       </nav>
     )}

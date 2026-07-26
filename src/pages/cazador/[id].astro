@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../../layouts/Base.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import HunterAvatar from '../../components/HunterAvatar.astro';
@@ -8,11 +9,10 @@ import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
 import { CROWN_INFO, CROWN_KEYS, crownsOf, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
-import { MONSTER_VARIANTS, VARIANT_LABEL } from '../../lib/catalog/monster-icons.ts';
-import { SPECIES_LABEL } from '../../lib/monster-art.ts';
+import { MONSTER_VARIANTS } from '../../lib/catalog/monster-icons.ts';
 
 const member = await getMember(Astro.params.id!);
-if (!member) return new Response('Cazador no encontrado', { status: 404 });
+if (!member) return new Response(Astro.locals.t('profile.notFound'), { status: 404 });
 
 const index = await getCatalogIndex();
 const monsters = index.catalog.monsters;
@@ -55,15 +55,15 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
     <div>
     <h1 class="text-2xl font-semibold">{displayName(member)}</h1>
     <p class="mt-1 text-sm text-base-500">
-      {member.hr ? `Hunter Rank ${member.hr}` : 'Sin HR registrado'}
+      {member.hr ? t('profile.hunterRank', { hr: member.hr }) : t('profile.noHr')}
       {member.hunterId && <> · Hunter ID <code class="text-base-300">{member.hunterId}</code></>}
       {member.hunterName && member.hunterName !== member.name && <> · {member.name}</>}
     </p>
     {isMe && (
       <p class="mt-2 text-sm">
-        <a href="/cuenta" class="text-ember-400 underline">Editar mi perfil</a>
+        <a href="/cuenta" class="text-ember-400 underline">{t('account.editProfileShort')}</a>
         <span class="text-base-700"> · </span>
-        <a href="/coronas" class="text-ember-400 underline">Registrar coronas</a>
+        <a href="/coronas" class="text-ember-400 underline">{t('profile.recordCrowns')}</a>
       </p>
     )}
     </div>
@@ -72,14 +72,14 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
   <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
     {CROWN_KEYS.map((key) => (
       <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
-        <p class="text-xs text-base-500">{CROWN_INFO[key].label}</p>
+        <p class="text-xs text-base-500">{t(`crowns.${key}` as any)}</p>
         <p class="text-lg font-semibold" style={`color:${TIER_COLOR[CROWN_INFO[key].tier]}`}>
           {crowns[key]} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
         </p>
       </div>
     ))}
     <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
-      <p class="text-xs text-base-500">Completos</p>
+      <p class="text-xs text-base-500">{t('profile.completeCrowns')}</p>
       <p class="text-lg font-semibold">
         {crowns.complete} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
       </p>
@@ -88,22 +88,22 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
 
   {hunts.totalHunted + hunts.totalCaptured > 0 && (
     <section class="mb-6">
-      <h2 class="mb-2 text-sm font-medium text-base-300">Cacerías</h2>
+      <h2 class="mb-2 text-sm font-medium text-base-300">{t('profile.hunts')}</h2>
       <div class="overflow-hidden rounded border border-base-800 bg-base-900">
         <div class="flex items-center gap-2 border-b border-base-800 px-3 py-1.5 text-xs text-base-500">
-          <span class="flex-1">Nivel</span>
-          <span class="w-20 text-right">Cazados</span>
-          <span class="w-20 text-right">Capturados</span>
+          <span class="flex-1">{t('crowns.level')}</span>
+          <span class="w-20 text-right">{t('crowns.hunted')}</span>
+          <span class="w-20 text-right">{t('crowns.captured')}</span>
         </div>
         {MONSTER_VARIANTS.filter((v) => hunts.hunted[v] + hunts.captured[v] > 0).map((variant) => (
           <div class="flex items-center gap-2 px-3 py-1.5 text-sm">
-            <span class="flex-1">{VARIANT_LABEL[variant]}</span>
+            <span class="flex-1">{t(`variant.${variant}` as any)}</span>
             <span class="w-20 text-right">{hunts.hunted[variant]}</span>
             <span class="w-20 text-right">{hunts.captured[variant]}</span>
           </div>
         ))}
         <div class="flex items-center gap-2 border-t border-base-800 px-3 py-1.5 text-sm">
-          <span class="flex-1 text-base-500">Total</span>
+          <span class="flex-1 text-base-500">{t('crowns.total')}</span>
           <strong class="w-20 text-right">{hunts.totalHunted}</strong>
           <strong class="w-20 text-right">{hunts.totalCaptured}</strong>
         </div>
@@ -113,7 +113,7 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
 
   {favorites.length > 0 && (
     <section class="mb-6">
-      <h2 class="mb-2 text-sm font-medium text-base-300">Monstruos favoritos</h2>
+      <h2 class="mb-2 text-sm font-medium text-base-300">{t('profile.favorites')}</h2>
       <div class="flex flex-wrap gap-2">
         {favorites.map((monster) => (
           <div class="flex w-24 flex-col items-center gap-1 text-center">
@@ -127,13 +127,13 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
 
   <section class="mb-6">
     <h2 class="mb-2 text-sm font-medium text-base-300">
-      Coronas conseguidas
+      {t('profile.crownsEarned')}
       {allWithCrowns.length > 0 && <span class="text-base-500"> ({allWithCrowns.length})</span>}
     </h2>
 
     {allWithCrowns.length === 0 ? (
       <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
-        Todavía no registra ninguna corona.
+        {t('profile.noCrowns')}
       </p>
     ) : (
       <div class="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-2">
@@ -144,17 +144,17 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
               <MonsterIcon monster={monster} size={44} />
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm">{monster.name}</p>
-                <p class="text-[11px] text-base-500">{SPECIES_LABEL[monster.species] ?? monster.species}</p>
+                <p class="text-[11px] text-base-500">{t(`species.${monster.species}` as any)}</p>
                 <div class="mt-0.5 flex gap-1">
                   {CROWN_KEYS.map((key) => (
                     <span
                       class="text-xs"
                       style={`color:${TIER_COLOR[CROWN_INFO[key].tier]};opacity:${state[key] ? 1 : 0.2}`}
-                      title={CROWN_INFO[key].label}
+                      title={t(`crowns.${key}` as any)}
                     >{CROWN_INFO[key].slot === 'small' ? '♙' : '♔'}</span>
                   ))}
                   {sumCounts(p?.hunted) > 0 && (
-                    <span class="ml-1 text-[11px] text-base-500">· {sumCounts(p?.hunted)} cazados</span>
+                    <span class="ml-1 text-[11px] text-base-500">· {sumCounts(p?.hunted)} {t('crowns.hunted').toLowerCase()}</span>
                   )}
                 </div>
               </div>
@@ -164,14 +164,14 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
       </div>
     )}
 
-    <Pagination info={crownsInfo} param="c" label="monstruos" />
+    <Pagination info={crownsInfo} param="c" label={t('crowns.monsters')} />
   </section>
 
   <section>
-    <h2 class="mb-2 text-sm font-medium text-base-300">Sets compartidos</h2>
+    <h2 class="mb-2 text-sm font-medium text-base-300">{t('profile.sharedSets')}</h2>
     {setsTotal === 0 ? (
       <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
-        No tiene sets públicos.
+        {t('profile.noPublicSets')}
       </p>
     ) : (
       <ul class="space-y-1">
@@ -188,6 +188,6 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
       </ul>
     )}
 
-    <Pagination info={setsInfo} param="s" label="sets" />
+    <Pagination info={setsInfo} param="s" label={t('sets.sets')} />
   </section>
 </Base>

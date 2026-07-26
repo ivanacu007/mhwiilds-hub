@@ -156,7 +156,8 @@ export interface GuildDoc {
 }
 
 export interface CatalogDoc {
-  _id: 'current';
+  /** El locale de la API: hay un catálogo por idioma. */
+  _id: string;
   version: string;
   locale: string;
   data: Catalog;

@@ -1,14 +1,14 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import InventoryEditor from '../components/InventoryEditor.tsx';
 ---
 
-<Base title="Inventario · Sets de Wilds" noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">Tu inventario</h1>
+<Base title={`${t('nav.inventory')} · ${t('app.name')}`} noIndex>
+  <h1 class="mb-1 text-2xl font-semibold">{t('inventory.title')}</h1>
   <p class="mb-5 text-sm text-base-500">
-    Se guarda solo, unos segundos después de cada cambio. Lo más importante son los adornos:
-    es lo que el armador usa para no proponerte joyas que no tienes.
+    {t('inventory.blurb')}
   </p>
 
-  <InventoryEditor client:only="preact" />
+  <InventoryEditor client:only="preact" locale={Astro.locals.locale} />
 </Base>

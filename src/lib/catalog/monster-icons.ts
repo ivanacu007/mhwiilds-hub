@@ -72,13 +72,6 @@ export const MONSTER_VARIANTS: MonsterVariant[] = [
   'arch-tempered',
 ];
 
-/** Nombres del doblaje latino, que es el que usa el juego aquí. */
-export const VARIANT_LABEL: Record<MonsterVariant, string> = {
-  normal: 'Normal',
-  frenzied: 'Frenético',
-  tempered: 'Curtido',
-  'arch-tempered': 'Archicurtido',
-};
 
 /** Sufijo del archivo. El normal no lleva ninguno. */
 export function variantSuffix(variant: MonsterVariant): string {

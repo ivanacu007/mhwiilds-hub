@@ -1,4 +1,5 @@
 import { PAGE_SIZES, pageNumbers, type PageInfo } from '../lib/paginate.ts';
+import type { Translator } from '../lib/i18n/index.ts';
 
 interface Props {
   info: PageInfo;
@@ -6,9 +7,11 @@ interface Props {
   onPageSize?: (size: number) => void;
   /** Cómo llamar a lo que se lista, para el resumen. */
   label?: string;
+  t: Translator;
 }
 
-export default function Pagination({ info, onPage, onPageSize, label = 'elementos' }: Props) {
+export default function Pagination({ info, onPage, onPageSize, label, t }: Props) {
+  const what = label ?? t('common.items');
   // Con todo cabiendo en una página, los botones solo estorban.
   if (info.total === 0) return null;
   const single = info.totalPages <= 1;
@@ -16,12 +19,14 @@ export default function Pagination({ info, onPage, onPageSize, label = 'elemento
   return (
     <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
       <span class="text-xs text-base-500">
-        {single ? `${info.total} ${label}` : `${info.from}–${info.to} de ${info.total} ${label}`}
+        {single
+          ? t('pagination.only', { total: info.total, label: what })
+          : t('pagination.of', { from: info.from, to: info.to, total: info.total, label: what })}
       </span>
 
       {onPageSize && (
         <label class="flex items-center gap-1 text-xs text-base-500">
-          por página
+          {t('pagination.perPage')}
           <select
             value={String(info.pageSize)}
             onChange={(e) => onPageSize(Number((e.target as HTMLSelectElement).value))}
@@ -41,7 +46,7 @@ export default function Pagination({ info, onPage, onPageSize, label = 'elemento
             disabled={!info.hasPrev}
             class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850 disabled:opacity-30"
           >
-            Anterior
+            {t('pagination.previous')}
           </button>
 
           {pageNumbers(info.page, info.totalPages).map((entry, i) =>
@@ -68,7 +73,7 @@ export default function Pagination({ info, onPage, onPageSize, label = 'elemento
             disabled={!info.hasNext}
             class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850 disabled:opacity-30"
           >
-            Siguiente
+            {t('pagination.next')}
           </button>
         </div>
       )}

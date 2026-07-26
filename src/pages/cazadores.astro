@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import HunterAvatar from '../components/HunterAvatar.astro';
 import Pagination from '../components/Pagination.astro';
@@ -42,9 +43,9 @@ const info = paginate(allRows.length, Number(Astro.url.searchParams.get('p') ?? 
 const rows = allRows.slice(info.start, info.end);
 ---
 
-<Base title={`Cazadores · ${guild.name}`} noIndex>
+<Base title={`${t('hunters.title')} · ${guild.name}`} noIndex>
   <div class="mb-5 flex flex-wrap items-baseline gap-x-3">
-    <h1 class="text-2xl font-semibold">Cazadores</h1>
+    <h1 class="text-2xl font-semibold">{t('hunters.title')}</h1>
     <a href="/gremio" class="text-sm text-base-500 hover:text-ember-400">{guild.name}</a>
   </div>
 
@@ -77,8 +78,8 @@ const rows = allRows.slice(info.start, info.end);
   </ul>
 
   {allRows.length === 0 && (
-    <p class="py-10 text-center text-sm text-base-500">Todavía no hay nadie registrado.</p>
+    <p class="py-10 text-center text-sm text-base-500">{t('hunters.empty')}</p>
   )}
 
-  <Pagination info={info} label="cazadores" />
+  <Pagination info={info} label={t('hunters.hunters')} />
 </Base>

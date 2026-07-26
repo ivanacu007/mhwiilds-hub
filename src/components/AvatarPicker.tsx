@@ -4,9 +4,9 @@ import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import { monsterArtDataUri } from '../lib/monster-art.ts';
 import Pagination from './Pagination.tsx';
 import { paginate } from '../lib/paginate.ts';
+import { translatorFor, type Locale } from '../lib/i18n/index.ts';
 import {
   MONSTER_VARIANTS,
-  VARIANT_LABEL,
   monsterIconPath,
   type MonsterVariant,
 } from '../lib/catalog/monster-icons.ts';
@@ -18,9 +18,11 @@ function normalize(text: string): string {
 interface Props {
   monsterId: number | null;
   variant: MonsterVariant;
+  locale: Locale;
 }
 
-export default function AvatarPicker({ monsterId, variant }: Props) {
+export default function AvatarPicker({ monsterId, variant, locale }: Props) {
+  const t = translatorFor(locale);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [selected, setSelected] = useState<number | null>(monsterId);
   const [selectedVariant, setSelectedVariant] = useState<MonsterVariant>(variant);
@@ -89,7 +91,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
             onClick={() => setOpen((v) => !v)}
             class="rounded border border-base-700 px-3 py-1.5 text-sm hover:bg-base-850"
           >
-            {current ? 'Cambiar' : 'Elegir un monstruo'}
+            {current ? t('account.change') : t('account.pickMonster')}
           </button>
           {current && (
             <button
@@ -97,16 +99,16 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
               onClick={() => { save(null, 'normal'); setOpen(false); }}
               class="ml-2 text-sm text-base-500 hover:text-red-300"
             >
-              Quitar
+              {t('account.remove')}
             </button>
           )}
           <p class="mt-1 text-xs text-base-500">
             {current
-              ? `${current.name}${effectiveVariant === 'normal' ? '' : ` · ${VARIANT_LABEL[effectiveVariant]}`}`
-              : 'Se usa tu inicial o tu foto de Google.'}
-            {status === 'guardando' && ' · guardando…'}
-            {status === 'guardado' && ' · guardado'}
-            {status === 'error' && <span class="text-red-300"> · no se pudo guardar</span>}
+              ? `${current.name}${effectiveVariant === 'normal' ? '' : ` · ${t(`variant.${effectiveVariant}` as never)}`}`
+              : t('account.avatarFallback')}
+            {status === 'guardando' && t('crowns.saving')}
+            {status === 'guardado' && t('crowns.saved')}
+            {status === 'error' && <span class="text-red-300">{t('crowns.saveError')}</span>}
           </p>
         </div>
       </div>
@@ -131,7 +133,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
                 round={false}
                 onMissing={() => setMissing((cur) => (cur.includes(v) ? cur : [...cur, v]))}
               />
-              {VARIANT_LABEL[v]}
+              {t(`variant.${v}` as never)}
             </button>
           ))}
         </div>
@@ -142,7 +144,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
           <input
             value={query}
             onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
-            placeholder="Buscar monstruo…"
+            placeholder={t('crowns.searchMonster')}
             class="mb-2 w-full rounded border border-base-700 bg-base-900 px-3 py-1.5 text-sm outline-none focus:border-ember-500"
           />
           <div class="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(4rem,1fr))] gap-1 overflow-y-auto">
@@ -162,7 +164,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
             ))}
           </div>
 
-          <Pagination info={pageInfo} onPage={setPage} label="monstruos" />
+          <Pagination info={pageInfo} onPage={setPage} label={t('crowns.monsters')} t={t} />
         </div>
       )}
     </div>

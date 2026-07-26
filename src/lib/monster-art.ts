@@ -28,22 +28,6 @@ const SPECIES_HUE: Record<string, number> = {
   unknown: 220,
 };
 
-export const SPECIES_LABEL: Record<string, string> = {
-  'flying-wyvern': 'Wyvern volador',
-  'brute-wyvern': 'Wyvern bruto',
-  'bird-wyvern': 'Wyvern pájaro',
-  'fanged-beast': 'Bestia colmilluda',
-  'piscine-wyvern': 'Wyvern pez',
-  leviathan: 'Leviatán',
-  temnoceran: 'Temnoceran',
-  amphibian: 'Anfibio',
-  cephalopod: 'Cefalópodo',
-  construct: 'Constructo',
-  machine: 'Máquina',
-  'elder-dragon': 'Dragón anciano',
-  'demi-elder': 'Semianciano',
-  unknown: 'Desconocido',
-};
 
 /**
  * Glifos por especie, en una caja de 100×100. Son formas abstractas: alas para

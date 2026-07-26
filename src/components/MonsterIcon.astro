@@ -1,6 +1,6 @@
 ---
 import { monsterArtDataUri } from '../lib/monster-art.ts';
-import { monsterIconPath, VARIANT_LABEL, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
+import { monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
 
 interface Props {
   monster: { id: number; name: string; species: string };
@@ -10,7 +10,10 @@ interface Props {
 }
 
 const { monster, variant = 'normal', size = 72, class: className } = Astro.props;
-const label = variant === 'normal' ? monster.name : `${monster.name} ${VARIANT_LABEL[variant]}`;
+const t = Astro.locals.t;
+const label = variant === 'normal'
+  ? monster.name
+  : `${monster.name} ${t(`variant.${variant}` as never)}`;
 
 /**
  * El emblema generado va de fondo y la imagen local encima. Si el archivo no

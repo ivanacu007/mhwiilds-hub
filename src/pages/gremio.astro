@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import { getGuild, listMembers, displayName } from '../lib/guild.ts';
 
@@ -28,29 +29,27 @@ const editor = guild.updatedBy ? members.find((m) => m.id === guild.updatedBy) :
 
     <form method="post" action="/api/guild" class="space-y-3">
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Nombre del gremio</span>
+        <span class="mb-1 block text-sm text-base-300">{t('guild.name')}</span>
         <input
           name="name" value={guild.name} required minlength="2" maxlength="50"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Lema <span class="text-base-500">(opcional)</span></span>
+        <span class="mb-1 block text-sm text-base-300">{t('guild.motto')} <span class="text-base-500">{t('account.optional')}</span></span>
         <input
           name="motto" value={guild.motto ?? ''} maxlength="140"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
       <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
-        Guardar
-      </button>
+{t('account.save')}</button>
       <p class="text-xs text-base-500">
-        Cualquier miembro puede cambiarlo. Queda registrado quién fue el último.
+        {t('guild.anyoneCanEdit')}
       </p>
     </form>
 
     <a href="/cazadores" class="mt-6 block text-center text-sm text-ember-400 underline">
-      Ver a los cazadores
-    </a>
+{t('guild.viewHunters')}</a>
   </div>
 </Base>

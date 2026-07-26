@@ -2,22 +2,31 @@ import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import Pagination from './Pagination.tsx';
 import { paginate } from '../lib/paginate.ts';
+import { translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import {
   CROWN_INFO, CROWN_KEYS, crownsOf, emptyCounts, emptyCrowns, emptyProgress, sumCounts, tallyCrowns,
   type CrownKey, type CrownTier,
 } from '../lib/crowns.ts';
-import { monsterArtDataUri, SPECIES_LABEL } from '../lib/monster-art.ts';
-import { MONSTER_VARIANTS, VARIANT_LABEL, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
+import { monsterArtDataUri } from '../lib/monster-art.ts';
+import { MONSTER_VARIANTS, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
 import type { MonsterProgress } from '../lib/models.ts';
 
 type Progress = Record<string, MonsterProgress>;
+
+const FILTER_KEY = {
+  todos: 'crowns.filterAll',
+  faltantes: 'crowns.filterMissing',
+  completos: 'crowns.filterComplete',
+  favoritos: 'crowns.filterFavorites',
+} as const;
 
 function normalize(text: string): string {
   return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-export default function CrownTracker({ favorites }: { favorites: number[] }) {
+export default function CrownTracker({ favorites, locale }: { favorites: number[]; locale: Locale }) {
+  const t = translatorFor(locale);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [progress, setProgress] = useState<Progress>({});
   const [favs, setFavs] = useState<number[]>(favorites);
@@ -101,8 +110,8 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
   const pageInfo = paginate(matching.length, page, pageSize);
   const visible = matching.slice(pageInfo.start, pageInfo.end);
 
-  if (status === 'cargando') return <p class="py-10 text-center text-base-500">Cargando…</p>;
-  if (!catalog) return <p class="py-10 text-center text-red-300">No se pudo cargar el catálogo.</p>;
+  if (status === 'cargando') return <p class="py-10 text-center text-base-500">{t('common.loading')}</p>;
+  if (!catalog) return <p class="py-10 text-center text-red-300">{t('common.catalogError')}</p>;
 
   const tally = tallyCrowns(monsters, progress);
 
@@ -110,13 +119,13 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
     <div>
       <div class="mb-4 flex flex-wrap items-center gap-3 rounded border border-base-800 bg-base-900 px-3 py-2">
         {CROWN_KEYS.map((key) => (
-          <Stat key={key} label={CROWN_INFO[key].label} value={tally[key]} total={tally.total} crown={key} />
+          <Stat key={key} label={t(`crowns.${key}` as never)} value={tally[key]} total={tally.total} crown={key} t={t} />
         ))}
         <span class="ml-auto text-xs text-base-500">
-          {tally.complete} de {tally.total} completos
-          {status === 'guardando' && ' · guardando…'}
-          {status === 'guardado' && ' · guardado'}
-          {status === 'error' && <span class="text-red-300"> · error al guardar</span>}
+          {t('crowns.complete', { done: tally.complete, total: tally.total })}
+          {status === 'guardando' && t('crowns.saving')}
+          {status === 'guardado' && t('crowns.saved')}
+          {status === 'error' && <span class="text-red-300">{t('crowns.saveError')}</span>}
         </span>
       </div>
 
@@ -124,7 +133,7 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
         <input
           value={query}
           onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
-          placeholder="Buscar monstruo…"
+          placeholder={t('crowns.searchMonster')}
           class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
         />
         {(['todos', 'faltantes', 'completos', 'favoritos'] as const).map((f) => (
@@ -135,7 +144,7 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
               filter === f ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
             }`}
           >
-            {f}
+            {t(FILTER_KEY[f])}
           </button>
         ))}
       </div>
@@ -148,19 +157,21 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
             progress={progress[String(monster.id)]}
             isFavorite={favs.includes(monster.id)}
             onOpen={() => setOpen(monster.id)}
+            t={t}
           />
         ))}
       </div>
 
       {matching.length === 0 && (
-        <p class="py-10 text-center text-sm text-base-500">Ningún monstruo coincide.</p>
+        <p class="py-10 text-center text-sm text-base-500">{t('crowns.noneMatch')}</p>
       )}
 
       <Pagination
         info={pageInfo}
         onPage={setPage}
         onPageSize={(size) => { setPageSize(size); setPage(1); }}
-        label="monstruos"
+        label={t('crowns.monsters')}
+        t={t}
       />
 
       {open != null && (
@@ -171,16 +182,19 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
           onToggleFavorite={() => toggleFavorite(open)}
           onChange={(change) => patch(open, change)}
           onClose={() => setOpen(null)}
+          t={t}
         />
       )}
     </div>
   );
 }
 
-function Stat({ label, value, total, crown }: { label: string; value: number; total: number; crown: CrownKey }) {
+function Stat({ label, value, total, crown, t }: {
+  label: string; value: number; total: number; crown: CrownKey; t: Translator;
+}) {
   return (
     <span class="flex items-center gap-1.5 text-sm">
-      <Crown crown={crown} earned />
+      <Crown crown={crown} earned t={t} />
       <span class="text-base-300">{label}</span>
       <strong>{value}</strong>
       <span class="text-base-500">/{total}</span>
@@ -197,8 +211,11 @@ const TIER_COLOR: Record<CrownTier, string> = {
  * El color dice el tipo (plata u oro) y el alto dice la ranura: la corona
  * pequeña se dibuja achatada y la grande estirada, como en el juego.
  */
-function Crown({ crown, earned, dim }: { crown: CrownKey; earned: boolean; dim?: boolean }) {
-  const { slot, tier, label } = CROWN_INFO[crown];
+function Crown({ crown, earned, dim, t }: {
+  crown: CrownKey; earned: boolean; dim?: boolean; t: Translator;
+}) {
+  const { slot, tier } = CROWN_INFO[crown];
+  const label = t(`crowns.${crown}` as never);
   const small = slot === 'small';
   const color = earned ? TIER_COLOR[tier] : '#6b7280';
 
@@ -234,10 +251,12 @@ function VariantStrip({
   monster,
   missing,
   onMissing,
+  t,
 }: {
   monster: Monster;
   missing: MonsterVariant[];
   onMissing: (variant: MonsterVariant) => void;
+  t: Translator;
 }) {
   return (
     <div class="flex shrink-0 flex-wrap gap-1">
@@ -245,7 +264,7 @@ function VariantStrip({
         <figure key={variant} class="text-center">
           <img
             src={monsterIconPath(monster.id, variant)}
-            alt={`${monster.name} ${VARIANT_LABEL[variant]}`}
+            alt={`${monster.name} ${t(`variant.${variant}` as never)}`}
             width="56"
             height="56"
             class="h-14 w-14 rounded-lg object-contain"
@@ -258,7 +277,7 @@ function VariantStrip({
           />
           {variant !== 'normal' && (
             <figcaption class="mt-0.5 text-[10px] leading-none text-base-500">
-              {VARIANT_LABEL[variant]}
+              {t(`variant.${variant}` as never)}
             </figcaption>
           )}
         </figure>
@@ -272,8 +291,9 @@ function MonsterTile(props: {
   progress: MonsterProgress | undefined;
   isFavorite: boolean;
   onOpen: () => void;
+  t: Translator;
 }) {
-  const { monster, progress, isFavorite, onOpen } = props;
+  const { monster, progress, isFavorite, onOpen, t } = props;
   const crowns = crownsOf(progress);
 
   return (
@@ -293,7 +313,7 @@ function MonsterTile(props: {
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
         />
         {isFavorite && (
-          <span class="absolute -right-1 -top-1 text-xs text-ember-400" title="Favorito">★</span>
+          <span class="absolute -right-1 -top-1 text-xs text-ember-400" title={t('crowns.favorite')}>★</span>
         )}
       </span>
 
@@ -303,7 +323,7 @@ function MonsterTile(props: {
 
       <span class="flex gap-0.5">
         {CROWN_KEYS.map((key) => (
-          <Crown key={key} crown={key} earned={crowns[key]} />
+          <Crown key={key} crown={key} earned={crowns[key]} t={t} />
         ))}
       </span>
     </button>
@@ -317,8 +337,9 @@ function MonsterDialog(props: {
   onToggleFavorite: () => void;
   onChange: (change: Partial<MonsterProgress>) => void;
   onClose: () => void;
+  t: Translator;
 }) {
-  const { monster, progress, isFavorite, onToggleFavorite, onChange, onClose } = props;
+  const { monster, progress, isFavorite, onToggleFavorite, onChange, onClose, t } = props;
   const p = { ...emptyProgress(), ...progress };
   const hunted = { ...emptyCounts(), ...p.hunted };
   const captured = { ...emptyCounts(), ...p.captured };
@@ -347,17 +368,18 @@ function MonsterDialog(props: {
             missing={missing}
             onMissing={(variant) => setMissing((current) =>
               current.includes(variant) ? current : [...current, variant])}
+            t={t}
           />
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-semibold">{monster.name}</h2>
             <p class="text-xs text-base-500">
-              {SPECIES_LABEL[monster.species] ?? monster.species}
+              {t(`species.${monster.species}` as never)}
             </p>
           </div>
-          <button onClick={onToggleFavorite} class="text-lg" title="Favorito">
+          <button onClick={onToggleFavorite} class="text-lg" title={t('crowns.favorite')}>
             <span class={isFavorite ? 'text-ember-400' : 'text-base-700'}>★</span>
           </button>
-          <button onClick={onClose} class="text-base-500 hover:text-base-100" aria-label="Cerrar">×</button>
+          <button onClick={onClose} class="text-base-500 hover:text-base-100" aria-label={t('crowns.close')}>×</button>
         </div>
 
         <div class="mb-3 grid grid-cols-2 gap-1.5">
@@ -377,22 +399,22 @@ function MonsterDialog(props: {
                   crowns: { ...crowns, [key]: (e.target as HTMLInputElement).checked },
                 })}
               />
-              <Crown crown={key} earned={crowns[key]} />
-              <span class={crowns[key] ? '' : 'text-base-500'}>{CROWN_INFO[key].label}</span>
+              <Crown crown={key} earned={crowns[key]} t={t} />
+              <span class={crowns[key] ? '' : 'text-base-500'}>{t(`crowns.${key}` as never)}</span>
             </label>
           ))}
         </div>
 
         <div class="rounded border border-base-800">
           <div class="flex items-center gap-2 border-b border-base-800 px-2 py-1.5 text-[11px] text-base-500">
-            <span class="flex-1">Nivel</span>
-            <span class="w-16 text-center">Cazados</span>
-            <span class="w-16 text-center">Capturados</span>
+            <span class="flex-1">{t('crowns.level')}</span>
+            <span class="w-16 text-center">{t('crowns.hunted')}</span>
+            <span class="w-16 text-center">{t('crowns.captured')}</span>
           </div>
 
           {available.map((variant) => (
             <div key={variant} class="flex items-center gap-2 px-2 py-1.5">
-              <span class="flex-1 text-sm">{VARIANT_LABEL[variant]}</span>
+              <span class="flex-1 text-sm">{t(`variant.${variant}` as never)}</span>
               <input
                 type="number" min="0" value={hunted[variant] || ''}
                 placeholder="0"
@@ -414,7 +436,7 @@ function MonsterDialog(props: {
 
           {(sumCounts(hunted) > 0 || sumCounts(captured) > 0) && (
             <div class="flex items-center gap-2 border-t border-base-800 px-2 py-1.5 text-sm">
-              <span class="flex-1 text-base-500">Total</span>
+              <span class="flex-1 text-base-500">{t('crowns.total')}</span>
               <strong class="w-16 text-center">{sumCounts(hunted)}</strong>
               <strong class="w-16 text-center">{sumCounts(captured)}</strong>
             </div>

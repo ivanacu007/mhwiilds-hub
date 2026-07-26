@@ -1,7 +1,9 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import Pagination from '../components/Pagination.astro';
 import { paginate } from '../lib/paginate.ts';
+import { INTL_LOCALE } from '../lib/i18n/index.ts';
 import { savedSets } from '../lib/db.ts';
 
 const user = Astro.locals.user!;
@@ -21,23 +23,27 @@ const sets = await collection
 const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/, '');
 ---
 
-<Base title="Mis sets · Sets de Wilds" noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">Mis sets</h1>
+<Base title={`${t('sets.title')} · ${t('app.name')}`} noIndex>
+  <h1 class="mb-1 text-2xl font-semibold">{t('sets.title')}</h1>
   <p class="mb-5 text-sm text-base-500">
     {total === 0
-      ? 'Todavía no guardas ninguno. Ve al armador y guarda el primero.'
-      : `${total} ${total === 1 ? 'set guardado' : 'sets guardados'}.`}
+      ? t('sets.empty')
+      : total === 1 ? t('sets.countOne') : t('sets.count', { count: total })}
   </p>
 
-  <ul class="space-y-2">
+  <ul
+    class="space-y-2"
+    data-copied={t('sets.copied')}
+    data-error={t('common.error')}
+  >
     {sets.map((set) => (
       <li class="flex flex-wrap items-center gap-3 rounded border border-base-800 bg-base-900 px-3 py-2.5">
         <div class="min-w-0 flex-1">
           <a href={`/set/${set.slug}`} class="font-medium hover:text-ember-300">{set.name}</a>
           <p class="text-xs text-base-500">
-            {new Date(set.updatedAt).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
-            {!set.isPublic && ' · privado'}
-            {set.clonedFrom && ' · copiado'}
+            {new Date(set.updatedAt).toLocaleDateString(INTL_LOCALE[Astro.locals.locale], { day: 'numeric', month: 'short', year: 'numeric' })}
+            {!set.isPublic && ` · ${t('sets.private')}`}
+            {set.clonedFrom && ` · ${t('sets.cloned')}`}
           </p>
         </div>
 
@@ -45,20 +51,18 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
           class="copiar-enlace rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850"
           data-url={`${site}/set/${set.slug}`}
         >
-          Copiar enlace
-        </button>
+{t('sets.copyLink')}</button>
         <button
           class="borrar rounded border border-base-700 px-2 py-1 text-xs text-base-300 hover:bg-red-950 hover:text-red-200"
           data-id={set._id}
-          data-name={set.name}
+          data-confirm={t('sets.confirmDelete', { name: set.name })}
         >
-          Borrar
-        </button>
+{t('sets.delete')}</button>
       </li>
     ))}
   </ul>
 
-  <Pagination info={info} label="sets" />
+  <Pagination info={info} label={t('sets.sets')} />
 </Base>
 
 <script>
@@ -66,7 +70,7 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
     button.addEventListener('click', async () => {
       await navigator.clipboard.writeText(button.dataset.url!);
       const original = button.textContent;
-      button.textContent = '¡Copiado!';
+      button.textContent = button.closest('ul')?.dataset.copied ?? 'OK';
       setTimeout(() => { button.textContent = original; }, 1500);
     });
   }
@@ -74,10 +78,10 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
   for (const button of document.querySelectorAll<HTMLButtonElement>('.borrar')) {
     button.addEventListener('click', async () => {
       // confirm() bloquea el hilo pero aquí es lo correcto: borrar no se deshace.
-      if (!confirm(`¿Borrar "${button.dataset.name}"? No se puede deshacer.`)) return;
+      if (!confirm(button.dataset.confirm!)) return;
       const res = await fetch(`/api/sets/${button.dataset.id}`, { method: 'DELETE' });
       if (res.ok) button.closest('li')?.remove();
-      else button.textContent = 'Error';
+      else button.textContent = button.closest('ul')?.dataset.error ?? 'Error';
     });
   }
 </script>

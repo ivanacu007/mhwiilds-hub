@@ -1,4 +1,5 @@
 ---
+const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import AvatarPicker from '../components/AvatarPicker.tsx';
 
@@ -7,9 +8,9 @@ const error = Astro.url.searchParams.get('error');
 const aviso = Astro.url.searchParams.get('aviso');
 ---
 
-<Base title="Mi cuenta · Sets de Wilds" noIndex>
+<Base title={`${t('account.title')} · ${t('app.name')}`} noIndex>
   <div class="mx-auto max-w-sm">
-    <h1 class="mb-6 text-2xl font-semibold">Mi cuenta</h1>
+    <h1 class="mb-6 text-2xl font-semibold">{t('account.title')}</h1>
 
     {error && (
       <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
@@ -20,22 +21,23 @@ const aviso = Astro.url.searchParams.get('aviso');
 
     {!user.hunterName && (
       <p class="mb-4 rounded border border-ember-500/40 bg-ember-500/5 px-3 py-2 text-sm text-base-300">
-        Todavía no pones tu Hunter Name. Es el que ven tus amigos en tu perfil y en los sets que compartas.
+        {t('account.noHunterName')}
       </p>
     )}
 
     <section class="mb-5 rounded border border-base-800 bg-base-900 p-3">
-      <h2 class="mb-2 text-sm font-medium text-base-300">Foto de perfil</h2>
+      <h2 class="mb-2 text-sm font-medium text-base-300">{t('account.avatar')}</h2>
       <AvatarPicker
         client:only="preact"
         monsterId={user.avatarMonsterId}
         variant={user.avatarVariant}
+        locale={Astro.locals.locale}
       />
     </section>
 
     <form method="post" action="/api/auth/profile" class="space-y-3">
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">Cómo te llamas</span>
+        <span class="mb-1 block text-sm text-base-300">{t('auth.yourName')}</span>
         <input
           name="name" value={user.name} required minlength="2" maxlength="40"
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
@@ -44,11 +46,11 @@ const aviso = Astro.url.searchParams.get('aviso');
 
       <label class="block">
         <span class="mb-1 block text-sm text-base-300">
-          Hunter Name <span class="text-base-500">(opcional)</span>
+          {t('account.hunterName')} <span class="text-base-500">{t('account.optional')}</span>
         </span>
         <input
           name="hunterName" value={user.hunterName ?? ''} maxlength="40"
-          placeholder="Tu nombre dentro de Wilds"
+          placeholder={t('account.hunterNamePlaceholder')}
           class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
       </label>
@@ -56,16 +58,16 @@ const aviso = Astro.url.searchParams.get('aviso');
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
           <span class="mb-1 block text-sm text-base-300">
-            Hunter ID <span class="text-base-500">(opcional)</span>
+            {t('account.hunterId')} <span class="text-base-500">{t('account.optional')}</span>
           </span>
           <input
-            name="hunterId" value={user.hunterId ?? ''} maxlength="30" placeholder="Tu código"
+            name="hunterId" value={user.hunterId ?? ''} maxlength="30" placeholder={t('account.hunterIdPlaceholder')}
             class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono text-sm outline-none focus:border-ember-500"
           />
         </label>
         <label class="block">
           <span class="mb-1 block text-sm text-base-300">
-            HR <span class="text-base-500">(opcional)</span>
+            {t('account.hr')} <span class="text-base-500">{t('account.optional')}</span>
           </span>
           <input
             type="number" name="hr" value={user.hr ?? ''} min="1" max="999" placeholder="—"
@@ -75,23 +77,22 @@ const aviso = Astro.url.searchParams.get('aviso');
       </div>
 
       <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
-        Guardar
-      </button>
+{t('account.save')}</button>
     </form>
 
     <p class="mt-4 text-center text-sm">
-      <a href={`/cazador/${user.id}`} class="text-ember-400 underline">Ver mi perfil público</a>
+      <a href={`/cazador/${user.id}`} class="text-ember-400 underline">{t('account.viewProfile')}</a>
     </p>
 
     <dl class="mt-8 space-y-2 border-t border-base-800 pt-6 text-sm">
       <div class="flex justify-between gap-4">
-        <dt class="text-base-500">Correo</dt>
+        <dt class="text-base-500">{t('auth.email')}</dt>
         <dd class="truncate">{user.email}</dd>
       </div>
       <div class="flex justify-between gap-4">
-        <dt class="text-base-500">Acceso</dt>
+        <dt class="text-base-500">{t('account.access')}</dt>
         <dd>
-          {user.hasPassword ? 'Correo y contraseña' : 'Google'}
+          {user.hasPassword ? t('account.accessPassword') : t('account.accessGoogle')}
         </dd>
       </div>
     </dl>
