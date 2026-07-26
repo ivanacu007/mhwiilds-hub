@@ -18,6 +18,10 @@ export const en: Record<keyof typeof es, string> = {
   'nav.hunters': 'Hunters',
   'nav.signIn': 'Sign in',
   'nav.signOut': 'Sign out',
+  'nav.theme': 'Theme',
+  'theme.light': 'Light',
+  'theme.dark': 'Dark',
+  'theme.system': 'System',
   'nav.language': 'Language',
 
   'footer.dataFrom': 'Game data via',

@@ -1,0 +1,54 @@
+---
+const t = Astro.locals.t;
+---
+
+{/*
+  Ciclo de tres —claro, oscuro, sistema— y no un interruptor de dos: hay que
+  poder volver a "seguir al sistema" después de haber elegido a mano.
+  El estado real lo pinta el script, porque en servidor no se sabe cuál es.
+*/}
+<button
+  id="theme-toggle"
+  type="button"
+  class="flex h-7 w-7 items-center justify-center rounded-[3px] text-base-500 transition-colors hover:bg-base-850 hover:text-base-100"
+  title={t('nav.theme')}
+  aria-label={t('nav.theme')}
+  data-label-light={t('theme.light')}
+  data-label-dark={t('theme.dark')}
+  data-label-system={t('theme.system')}
+>
+  <span id="theme-icon" aria-hidden="true">◐</span>
+</button>
+
+<script>
+  const ORDER = ['system', 'light', 'dark'] as const;
+  const GLYPH = { system: '◐', light: '☀', dark: '☾' } as const;
+  type Theme = (typeof ORDER)[number];
+
+  const button = document.getElementById('theme-toggle');
+  const icon = document.getElementById('theme-icon');
+
+  function current(): Theme {
+    const saved = localStorage.getItem('theme');
+    return saved === 'light' || saved === 'dark' ? saved : 'system';
+  }
+
+  function paint(theme: Theme) {
+    if (icon) icon.textContent = GLYPH[theme];
+    button?.setAttribute('title', button.dataset[`label${theme[0].toUpperCase()}${theme.slice(1)}`] ?? '');
+  }
+
+  function apply(theme: Theme) {
+    // "system" quita el atributo y deja mandar a prefers-color-scheme.
+    if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+    paint(theme);
+  }
+
+  paint(current());
+  button?.addEventListener('click', () => {
+    const next = ORDER[(ORDER.indexOf(current()) + 1) % ORDER.length];
+    apply(next);
+  });
+</script>

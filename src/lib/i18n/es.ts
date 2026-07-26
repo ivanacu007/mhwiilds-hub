@@ -16,6 +16,10 @@ export const es = {
   'nav.hunters': 'Cazadores',
   'nav.signIn': 'Entrar',
   'nav.signOut': 'Salir',
+  'nav.theme': 'Tema',
+  'theme.light': 'Claro',
+  'theme.dark': 'Oscuro',
+  'theme.system': 'Sistema',
   'nav.language': 'Idioma',
 
   'footer.dataFrom': 'Datos del juego vía',
