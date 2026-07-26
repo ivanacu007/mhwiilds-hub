@@ -477,16 +477,28 @@ try {
 
   // La lista debe traer TODAS las debilidades, agrupadas igual que el detalle:
   // antes iban en una línea con truncate y con 7.5 de media se cortaba casi todo.
+  // Se compara sobre el texto plano: atar la prueba al marcado exacto la rompe
+  // en cada retoque de la maqueta sin que nada esté realmente mal.
+  const listText = listPage.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const faltantes: string[] = [];
   for (const m of catalog.monsters.slice(0, 24)) {
     const s = splitAffinities(m.weaknesses);
     for (const w of [...s.elements, ...s.statuses, ...s.effects]) {
       const label = affinityLabelEs(w);
-      if (!listPage.includes(`>${label}</span>`)) faltantes.push(`${m.name}: ${label}`);
+      if (!listText.includes(label)) faltantes.push(`${m.name}: ${label}`);
     }
   }
   check('la lista trae todas las debilidades', faltantes.length === 0,
     faltantes.slice(0, 4).join(' | '));
+
+  // Las resistencias también, que antes solo estaban en el detalle.
+  const sinResistencias = catalog.monsters.slice(0, 24).filter((m: any) => {
+    const r = splitAffinities(m.resistances);
+    return [...r.elements, ...r.statuses, ...r.effects]
+      .some((x: any) => !listText.includes(affinityLabelEs(x)));
+  });
+  check('la lista trae las resistencias', sinResistencias.length === 0,
+    sinResistencias.slice(0, 3).map((m: any) => m.name).join(', '));
 
   check('la lista agrupa como el detalle',
     listPage.includes('Elemental') && listPage.includes('Estados') && listPage.includes('Efectos'));

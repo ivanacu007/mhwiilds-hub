@@ -40,7 +40,7 @@ const monsters = matching.slice(info.start, info.end);
     </button>
   </form>
 
-  <ul class="grid gap-2 sm:grid-cols-2">
+  <ul class="grid gap-2 xl:grid-cols-2">
     {monsters.map((monster) => (
       <li>
         <a
@@ -53,7 +53,7 @@ const monsters = matching.slice(info.start, info.end);
             <p class="truncate text-xs text-base-500">
               {t(`species.${monster.species}` as never)}
             </p>
-            <MonsterWeaknesses weaknesses={monster.weaknesses} dense />
+            <MonsterWeaknesses weaknesses={monster.weaknesses} resistances={monster.resistances} dense />
           </div>
         </a>
       </li>

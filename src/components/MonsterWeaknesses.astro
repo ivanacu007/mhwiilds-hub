@@ -4,52 +4,85 @@ import { affinityLabel, splitAffinities } from '../lib/monster-info.ts';
 
 interface Props {
   weaknesses: MonsterAffinity[];
-  /** Compacto para la lista; suelto para la ficha de detalle. */
+  resistances?: MonsterAffinity[];
+  /**
+   * Compacto: una línea por grupo, para que las ~8 debilidades de un monstruo
+   * quepan en la tarjeta de la lista sin robarle alto. Suelto: una por renglón,
+   * que es como se lee en la ficha de detalle.
+   */
   dense?: boolean;
 }
 
-const { weaknesses, dense = false } = Astro.props;
+const { weaknesses, resistances = [], dense = false } = Astro.props;
 const t = Astro.locals.t;
-const split = splitAffinities(weaknesses);
+
+const weak = splitAffinities(weaknesses);
+const resist = splitAffinities(resistances);
 
 /**
- * Un solo componente para la lista y el detalle: son la misma información y
- * separarlos ya provocó que la lista escondiera las debilidades elementales.
+ * Un solo componente para la lista y el detalle: es la misma información, y
+ * tenerla duplicada ya provocó que la lista escondiera las debilidades
+ * elementales mientras el detalle sí las mostraba.
  */
 const groups = [
-  { key: 'elemental', label: t('monsters.elemental'), list: split.elements, accent: true },
-  { key: 'status', label: t('monsters.statuses'), list: split.statuses, accent: false },
-  { key: 'effects', label: t('monsters.effects'), list: split.effects, accent: false },
+  { label: t('monsters.elemental'), list: weak.elements, accent: true },
+  { label: t('monsters.statuses'), list: weak.statuses, accent: false },
+  { label: t('monsters.effects'), list: weak.effects, accent: false },
 ].filter((g) => g.list.length > 0);
 
+const allResistances = [...resist.elements, ...resist.statuses, ...resist.effects];
 const MAX_STARS = 3;
 ---
 
-{split.elements.length === 0 && (
-  <p class:list={[dense ? 'text-xs' : 'text-sm', 'text-base-600']}>{t('monsters.noElemental')}</p>
-)}
+{dense ? (
+  <dl class="mt-1 space-y-0.5 text-xs">
+    {weak.elements.length === 0 && <div class="text-base-600">{t('monsters.noElemental')}</div>}
 
-{groups.map((group) => (
-  <div class={dense ? 'mt-1' : 'mb-3'}>
-    <h3
-      class:list={[
-        'uppercase tracking-wide text-base-600',
-        dense ? 'text-[10px]' : 'mb-1 text-xs',
-      ]}
-    >
-      {group.label}
-    </h3>
-    <ul class={dense ? 'space-y-0' : 'space-y-1'}>
-      {group.list.map((w) => (
-        <li class:list={['flex items-center gap-2', dense ? 'text-xs' : 'text-sm']}>
-          <span class:list={['shrink-0', dense ? 'w-24' : 'w-28']}>{affinityLabel(t, w)}</span>
-          <span class={group.accent ? 'text-ember-400' : 'text-base-300'}>
-            {'★'.repeat(w.level ?? 0)}
-            <span class="text-base-700">{'★'.repeat(MAX_STARS - (w.level ?? 0))}</span>
-          </span>
-          {w.condition && <span class="text-xs text-base-500">({w.condition})</span>}
-        </li>
-      ))}
-    </ul>
-  </div>
-))}
+    {groups.map((group) => (
+      <div class="flex gap-1.5">
+        <dt class="w-16 shrink-0 text-base-600">{group.label}</dt>
+        <dd class="flex flex-wrap gap-x-2 gap-y-0.5">
+          {group.list.map((w) => (
+            <span class={group.accent ? 'text-ember-300' : 'text-base-300'}>
+              {affinityLabel(t, w)}
+              <span class="ml-0.5 opacity-80">{'★'.repeat(w.level ?? 0)}</span>
+            </span>
+          ))}
+        </dd>
+      </div>
+    ))}
+
+    {allResistances.length > 0 && (
+      <div class="flex gap-1.5">
+        <dt class="w-16 shrink-0 text-base-600">{t('monsters.resistances')}</dt>
+        <dd class="flex flex-wrap gap-x-2 gap-y-0.5 text-base-500">
+          {allResistances.map((r) => <span>{affinityLabel(t, r)}</span>)}
+        </dd>
+      </div>
+    )}
+  </dl>
+) : (
+  <>
+    {weak.elements.length === 0 && (
+      <p class="mb-3 text-sm text-base-600">{t('monsters.noElemental')}</p>
+    )}
+
+    {groups.map((group) => (
+      <div class="mb-3">
+        <h3 class="mb-1 text-xs uppercase tracking-wide text-base-600">{group.label}</h3>
+        <ul class="space-y-1">
+          {group.list.map((w) => (
+            <li class="flex items-center gap-2 text-sm">
+              <span class="w-28 shrink-0">{affinityLabel(t, w)}</span>
+              <span class={group.accent ? 'text-ember-400' : 'text-base-300'}>
+                {'★'.repeat(w.level ?? 0)}
+                <span class="text-base-700">{'★'.repeat(MAX_STARS - (w.level ?? 0))}</span>
+              </span>
+              {w.condition && <span class="text-xs text-base-500">({w.condition})</span>}
+            </li>
+          ))}
+        </ul>
+      </div>
+    ))}
+  </>
+)}
