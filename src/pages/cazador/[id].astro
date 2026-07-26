@@ -7,7 +7,7 @@ import { paginate } from '../../lib/paginate.ts';
 import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
-import { CROWN_INFO, CROWN_KEYS, deriveCrowns, formatSize, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
+import { CROWN_INFO, CROWN_KEYS, crownsOf, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
 import { MONSTER_VARIANTS, VARIANT_LABEL } from '../../lib/catalog/monster-icons.ts';
 import { SPECIES_LABEL } from '../../lib/monster-art.ts';
 
@@ -38,8 +38,8 @@ const favorites = member.favoriteMonsters
 
 // Solo los que tienen alguna corona: la rejilla completa ya vive en /coronas.
 const allWithCrowns = monsters
-  .map((monster) => ({ monster, state: deriveCrowns(monster, progress[String(monster.id)]) }))
-  .filter((row) => CROWN_KEYS.some((key) => row.state[key].earned));
+  .map((monster) => ({ monster, state: crownsOf(progress[String(monster.id)]) }))
+  .filter((row) => CROWN_KEYS.some((key) => row.state[key]));
 
 const crownsInfo = paginate(allWithCrowns.length, Number(Astro.url.searchParams.get('c') ?? 1), 24);
 const withCrowns = allWithCrowns.slice(crownsInfo.start, crownsInfo.end);
@@ -149,13 +149,10 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
                   {CROWN_KEYS.map((key) => (
                     <span
                       class="text-xs"
-                      style={`color:${TIER_COLOR[CROWN_INFO[key].tier]};opacity:${state[key].earned ? 1 : 0.2}`}
-                      title={`${CROWN_INFO[key].label} · ${state[key].fromSize ? 'confirmada por tamaño' : 'marcada a mano'}`}
+                      style={`color:${TIER_COLOR[CROWN_INFO[key].tier]};opacity:${state[key] ? 1 : 0.2}`}
+                      title={CROWN_INFO[key].label}
                     >{CROWN_INFO[key].slot === 'small' ? '♙' : '♔'}</span>
                   ))}
-                  {p?.largest != null && (
-                    <span class="ml-1 text-[11px] text-base-500">máx {formatSize(p.largest)}</span>
-                  )}
                   {sumCounts(p?.hunted) > 0 && (
                     <span class="ml-1 text-[11px] text-base-500">· {sumCounts(p?.hunted)} cazados</span>
                   )}

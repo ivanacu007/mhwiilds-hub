@@ -265,8 +265,7 @@ try {
     body: JSON.stringify({
       monsters: {
         [monster.id]: {
-          smallest: monster.size.mini - 1,
-          largest: monster.size.gold + 1,
+          crowns: { smallSilver: true, smallGold: true, largeSilver: true, largeGold: true },
           hunted: { normal: 12, tempered: 4, 'arch-tempered': 1 },
           captured: { normal: 3 },
         },
@@ -285,45 +284,32 @@ try {
     JSON.stringify(counts?.hunted));
   check('suma el total de cacerías', sumCounts(counts?.hunted) === 17, `${sumCounts(counts?.hunted)}`);
 
-  const { deriveCrowns, emptyProgress, CROWN_KEYS } = await import('../src/lib/crowns.ts');
-  const derived = deriveCrowns(monster, savedProgress[String(monster.id)]);
-  // Un ejemplar bajo el umbral mini y otro sobre el de oro dan las CUATRO.
-  check('las cuatro coronas se deducen del tamaño',
-    CROWN_KEYS.every((k) => derived[k].earned && derived[k].fromSize),
-    JSON.stringify(CROWN_KEYS.map((k) => [k, derived[k].earned])));
+  const { crownsOf, CROWN_KEYS, countCrowns } = await import('../src/lib/crowns.ts');
+  const saved = crownsOf(savedProgress[String(monster.id)]);
+  check('guarda las cuatro coronas marcadas', CROWN_KEYS.every((k) => saved[k]),
+    JSON.stringify(saved));
+  check('las cuenta bien', countCrowns(saved) === 4);
 
-  // Un ejemplar de tamaño normal no debe dar ninguna.
-  const none = deriveCrowns(monster, {
-    ...emptyProgress(), smallest: monster.size.base, largest: monster.size.base,
-  });
-  check('no regala coronas con tamaño normal', CROWN_KEYS.every((k) => !none[k].earned));
-  check('la meta grande se persigue cazando mayor',
-    none.nextGoal?.direction === 'mayor' && none.nextGoal.needed > 0);
-
-  // Solo un ejemplar pequeño: pequeñas sí, grandes no.
-  const onlySmall = deriveCrowns(monster, {
-    ...emptyProgress(), smallest: monster.size.mini - 1, largest: monster.size.mini - 1,
-  });
-  check('un ejemplar chico da las pequeñas y no las grandes',
-    onlySmall.smallGold.earned && onlySmall.smallSilver.earned &&
-    !onlySmall.largeSilver.earned && !onlySmall.largeGold.earned);
-
-  // Plata sí, oro no: tamaño entre ambos umbrales.
-  const silverOnly = deriveCrowns(monster, {
-    ...emptyProgress(), largest: (monster.size.silver + monster.size.gold) / 2,
-  });
-  check('plata grande sin oro grande',
-    silverOnly.largeSilver.earned && !silverOnly.largeGold.earned);
-
-  // Si llegan invertidos, se ordenan en vez de perder el dato.
+  // Marcar solo una y comprobar que las otras no se activan solas.
   await fetch(`${BASE}/api/progress`, {
     method: 'PUT',
     headers: { ...auth, 'content-type': 'application/json' },
-    body: JSON.stringify({ monsters: { [monster.id]: { smallest: 900, largest: 100 } } }),
+    body: JSON.stringify({ monsters: { [monster.id]: { crowns: { largeGold: true } } } }),
   });
-  const swapped = (await (await fetch(`${BASE}/api/progress`, { headers: auth })).json())
-    .monsters[String(monster.id)];
-  check('ordena un rango invertido', swapped.smallest === 100 && swapped.largest === 900);
+  const onlyOne = crownsOf(
+    (await (await fetch(`${BASE}/api/progress`, { headers: auth })).json()).monsters[String(monster.id)],
+  );
+  check('marcar una no activa las demás',
+    onlyOne.largeGold && !onlyOne.smallGold && !onlyOne.largeSilver && !onlyOne.smallSilver);
+
+  // Orden por defecto del juego: Chatacabra primero, Gogmazios último.
+  const { MONSTER_SORT_ORDER } = await import('../src/lib/catalog/monster-icons.ts');
+  check('el catálogo viene en el orden del juego',
+    catalog.monsters[0].name === 'Chatacabra' &&
+    catalog.monsters.at(-1).name === 'Gogmazios',
+    `${catalog.monsters[0].name} … ${catalog.monsters.at(-1).name}`);
+  check('los 34 tienen posición asignada',
+    catalog.monsters.every((m: any) => MONSTER_SORT_ORDER.has(m.id)));
 
   // Los documentos anteriores a las variantes guardaban un número suelto.
   // Se escribe uno a mano en Mongo para comprobar que no se pierde al leerlo.
@@ -340,11 +326,11 @@ try {
   const { cleanProgress: cp } = await import('../src/lib/crowns.ts');
   const oldManual = cp({ manualMini: true, manualSilver: true, manualGold: true });
   check('traduce las coronas manuales del modelo viejo',
-    oldManual?.manual.smallGold === true &&
-    oldManual?.manual.largeSilver === true &&
-    oldManual?.manual.largeGold === true &&
-    oldManual?.manual.smallSilver === false,
-    JSON.stringify(oldManual?.manual));
+    oldManual?.crowns.smallGold === true &&
+    oldManual?.crowns.largeSilver === true &&
+    oldManual?.crowns.largeGold === true &&
+    oldManual?.crowns.smallSilver === false,
+    JSON.stringify(oldManual?.crowns));
 
   check('migra un contador viejo a la variante normal',
     migrated?.hunted.normal === 7 && migrated?.captured.normal === 2,

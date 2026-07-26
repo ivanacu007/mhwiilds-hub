@@ -125,18 +125,14 @@ export interface SavedSetDoc {
 export type VariantCounts = Record<MonsterVariant, number>;
 
 export interface MonsterProgress {
-  /**
-   * El ejemplar más pequeño que ha cazado. Las coronas son del monstruo, no de
-   * su nivel: un templado gigante da la misma corona de oro que uno normal, así
-   * que el tamaño se guarda una sola vez y no por variante.
-   */
-  smallest: number | null;
-  /** El más grande. */
-  largest: number | null;
   hunted: VariantCounts;
   captured: VariantCounts;
-  /** Coronas marcadas a mano, sin respaldo de tamaño. */
-  manual: Record<CrownKey, boolean>;
+  /**
+   * Coronas marcadas a mano. No se guardan tamaños: deducirlas exigía un umbral
+   * que la API no trae, y el juego ya te dice cuáles tienes, así que copiarlas
+   * es más fiable que calcularlas.
+   */
+  crowns: Record<CrownKey, boolean>;
 }
 
 export interface ProgressDoc {

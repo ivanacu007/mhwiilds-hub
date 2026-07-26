@@ -21,6 +21,8 @@ import type {
   Weapon,
 } from './types.ts';
 
+import { compareByGameOrder } from './monster-icons.ts';
+
 const API_BASE = 'https://wilds.mhdb.io';
 
 /** Lo que devuelve la API es más ancho que esto; solo declaramos lo que leemos. */
@@ -226,7 +228,8 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
           .filter((l: unknown): l is string => typeof l === 'string'),
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    // El orden por defecto de la guía de campo, no el alfabético.
+    .sort(compareByGameOrder);
 
   return {
     version: new Date().toISOString(),

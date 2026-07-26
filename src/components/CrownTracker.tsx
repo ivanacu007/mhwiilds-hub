@@ -4,8 +4,7 @@ import Pagination from './Pagination.tsx';
 import { paginate } from '../lib/paginate.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import {
-  CROWN_INFO, CROWN_KEYS, crownThresholds, deriveCrowns, emptyCounts, emptyManual, emptyProgress,
-  formatSize, sumCounts, tallyCrowns,
+  CROWN_INFO, CROWN_KEYS, crownsOf, emptyCounts, emptyCrowns, emptyProgress, sumCounts, tallyCrowns,
   type CrownKey, type CrownTier,
 } from '../lib/crowns.ts';
 import { monsterArtDataUri, SPECIES_LABEL } from '../lib/monster-art.ts';
@@ -90,8 +89,8 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
     const needle = normalize(query.trim());
     return monsters.filter((m) => {
       if (needle && !normalize(m.name).includes(needle)) return false;
-      const c = deriveCrowns(m, progress[String(m.id)]);
-      const all = CROWN_KEYS.every((key) => c[key].earned);
+      const c = crownsOf(progress[String(m.id)]);
+      const all = CROWN_KEYS.every((key) => c[key]);
       if (filter === 'faltantes' && all) return false;
       if (filter === 'completos' && !all) return false;
       if (filter === 'favoritos' && !favs.includes(m.id)) return false;
@@ -275,7 +274,7 @@ function MonsterTile(props: {
   onOpen: () => void;
 }) {
   const { monster, progress, isFavorite, onOpen } = props;
-  const crowns = deriveCrowns(monster, progress);
+  const crowns = crownsOf(progress);
 
   return (
     <button
@@ -304,7 +303,7 @@ function MonsterTile(props: {
 
       <span class="flex gap-0.5">
         {CROWN_KEYS.map((key) => (
-          <Crown key={key} crown={key} earned={crowns[key].earned} dim={!crowns[key].fromSize} />
+          <Crown key={key} crown={key} earned={crowns[key]} />
         ))}
       </span>
     </button>
@@ -323,45 +322,18 @@ function MonsterDialog(props: {
   const p = { ...emptyProgress(), ...progress };
   const hunted = { ...emptyCounts(), ...p.hunted };
   const captured = { ...emptyCounts(), ...p.captured };
+  const crowns = { ...emptyCrowns(), ...p.crowns };
 
   // Qué niveles tiene este monstruo se deduce de qué iconos existen: no hay
   // lista de cuáles tienen templado o frenético, y mantenerla a mano se
   // desincronizaría con cada title update.
   const [missing, setMissing] = useState<MonsterVariant[]>([]);
   const available = MONSTER_VARIANTS.filter((v) => v === 'normal' || !missing.includes(v));
-  const crowns = deriveCrowns(monster, p);
-  const manual = { ...emptyManual(), ...p.manual };
-  const thresholds = crownThresholds(monster);
-  const size = monster.size;
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
-
-  const numberField = (
-    label: string,
-    value: number | null,
-    hint: string,
-    onInput: (v: number | null) => void,
-  ) => (
-    <label class="block">
-      <span class="mb-1 block text-xs text-base-300">{label}</span>
-      <input
-        type="number"
-        step="0.01"
-        value={value ?? ''}
-        placeholder="—"
-        onInput={(e) => {
-          const raw = (e.target as HTMLInputElement).value.trim();
-          onInput(raw === '' ? null : Number(raw));
-        }}
-        class="w-full rounded border border-base-700 bg-base-950 px-2 py-1.5 text-sm outline-none focus:border-ember-500"
-      />
-      <span class="mt-0.5 block text-[11px] text-base-500">{hint}</span>
-    </label>
-  );
 
   return (
     <div
@@ -380,7 +352,6 @@ function MonsterDialog(props: {
             <h2 class="text-lg font-semibold">{monster.name}</h2>
             <p class="text-xs text-base-500">
               {SPECIES_LABEL[monster.species] ?? monster.species}
-              {size && ` · tamaño base ${formatSize(size.base)}`}
             </p>
           </div>
           <button onClick={onToggleFavorite} class="text-lg" title="Favorito">
@@ -389,60 +360,28 @@ function MonsterDialog(props: {
           <button onClick={onClose} class="text-base-500 hover:text-base-100" aria-label="Cerrar">×</button>
         </div>
 
-        {size ? (
-          <>
-            <div class="mb-3 grid grid-cols-2 gap-2">
-              {numberField('Tu más pequeño', p.smallest,
-                `Oro pequeña con ${formatSize(thresholds!.smallGold)} o menos`,
-                (v) => onChange({ smallest: v }))}
-              {numberField('Tu más grande', p.largest,
-                `Oro grande con ${formatSize(thresholds!.largeGold)} o más`,
-                (v) => onChange({ largest: v }))}
-            </div>
-
-            <div class="mb-3 space-y-1.5">
-              {CROWN_KEYS.map((key) => {
-                const state = crowns[key];
-                const { slot, label } = CROWN_INFO[key];
-                return (
-                  <div key={key} class="flex items-center gap-2 rounded bg-base-850 px-2 py-1.5 text-sm">
-                    <Crown crown={key} earned={state.earned} />
-                    <span class="flex-1">
-                      {label}
-                      <span class="ml-1 text-xs text-base-500">
-                        {slot === 'small' ? '≤' : '≥'} {formatSize(state.threshold)}
-                      </span>
-                    </span>
-                    {state.fromSize ? (
-                      <span class="text-xs text-jade-400">por tamaño</span>
-                    ) : (
-                      <label class="flex cursor-pointer items-center gap-1 text-xs text-base-500">
-                        <input
-                          type="checkbox"
-                          checked={manual[key]}
-                          onChange={(e) => onChange({
-                            manual: { ...manual, [key]: (e.target as HTMLInputElement).checked },
-                          })}
-                        />
-                        marcar
-                      </label>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {crowns.nextGoal && (
-              <p class="mb-3 rounded border border-ember-500/30 bg-ember-500/5 px-2 py-1.5 text-xs text-ember-300">
-                Te faltan {formatSize(crowns.nextGoal.needed)} para la corona{' '}
-                {CROWN_INFO[crowns.nextGoal.key].label.toLowerCase()}, cazando uno{' '}
-                {crowns.nextGoal.direction}.
-              </p>
-            )}
-          </>
-        ) : (
-          <p class="mb-3 text-sm text-base-500">Este monstruo no tiene umbrales de corona.</p>
-        )}
+        <div class="mb-3 grid grid-cols-2 gap-1.5">
+          {CROWN_KEYS.map((key) => (
+            <label
+              key={key}
+              class={`flex cursor-pointer items-center gap-2 rounded border px-2 py-2 text-sm transition-colors ${
+                crowns[key]
+                  ? 'border-ember-500/50 bg-ember-500/10'
+                  : 'border-base-800 bg-base-850 hover:bg-base-800'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={crowns[key]}
+                onChange={(e) => onChange({
+                  crowns: { ...crowns, [key]: (e.target as HTMLInputElement).checked },
+                })}
+              />
+              <Crown crown={key} earned={crowns[key]} />
+              <span class={crowns[key] ? '' : 'text-base-500'}>{CROWN_INFO[key].label}</span>
+            </label>
+          ))}
+        </div>
 
         <div class="rounded border border-base-800">
           <div class="flex items-center gap-2 border-b border-base-800 px-2 py-1.5 text-[11px] text-base-500">
