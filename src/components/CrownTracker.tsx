@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
-import { CROWN_KINDS, deriveCrowns, emptyProgress, formatSize, tallyCrowns, type CrownKind } from '../lib/crowns.ts';
+import {
+  CROWN_KINDS, deriveCrowns, emptyCounts, emptyProgress, formatSize, sumCounts, tallyCrowns,
+  type CrownKind,
+} from '../lib/crowns.ts';
 import { monsterArtDataUri, SPECIES_LABEL } from '../lib/monster-art.ts';
 import { MONSTER_VARIANTS, VARIANT_LABEL, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
-import type { MonsterProgress } from '../lib/models.ts';
+import type { MonsterProgress, VariantCounts } from '../lib/models.ts';
 
 type Progress = Record<string, MonsterProgress>;
 
@@ -206,11 +209,17 @@ function Crown({ kind, earned, dim }: { kind: CrownKind; earned: boolean; dim?: 
  * arcotemplados no existen para todos, y no hay lista de cuáles: si el archivo
  * falta, la imagen se quita sola y solo queda la normal.
  */
-function VariantStrip({ monster }: { monster: Monster }) {
-  const [missing, setMissing] = useState<MonsterVariant[]>([]);
-
+function VariantStrip({
+  monster,
+  missing,
+  onMissing,
+}: {
+  monster: Monster;
+  missing: MonsterVariant[];
+  onMissing: (variant: MonsterVariant) => void;
+}) {
   return (
-    <div class="flex shrink-0 gap-1">
+    <div class="flex shrink-0 flex-wrap gap-1">
       {MONSTER_VARIANTS.filter((v) => !missing.includes(v)).map((variant) => (
         <figure key={variant} class="text-center">
           <img
@@ -224,7 +233,7 @@ function VariantStrip({ monster }: { monster: Monster }) {
                 ? { backgroundImage: `url("${monsterArtDataUri(monster, 56)}")`, backgroundSize: 'cover' }
                 : undefined
             }
-            onError={() => setMissing((current) => [...current, variant])}
+            onError={() => onMissing(variant)}
           />
           {variant !== 'normal' && (
             <figcaption class="mt-0.5 text-[10px] leading-none text-base-500">
@@ -290,6 +299,14 @@ function MonsterDialog(props: {
 }) {
   const { monster, progress, isFavorite, onToggleFavorite, onChange, onClose } = props;
   const p = { ...emptyProgress(), ...progress };
+  const hunted = { ...emptyCounts(), ...p.hunted };
+  const captured = { ...emptyCounts(), ...p.captured };
+
+  // Qué niveles tiene este monstruo se deduce de qué iconos existen: no hay
+  // lista de cuáles tienen templado o frenético, y mantenerla a mano se
+  // desincronizaría con cada title update.
+  const [missing, setMissing] = useState<MonsterVariant[]>([]);
+  const available = MONSTER_VARIANTS.filter((v) => v === 'normal' || !missing.includes(v));
   const crowns = deriveCrowns(monster, p);
   const size = monster.size;
 
@@ -329,7 +346,12 @@ function MonsterDialog(props: {
     >
       <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-base-700 bg-base-900 p-4">
         <div class="mb-3 flex items-start gap-3">
-          <VariantStrip monster={monster} />
+          <VariantStrip
+            monster={monster}
+            missing={missing}
+            onMissing={(variant) => setMissing((current) =>
+              current.includes(variant) ? current : [...current, variant])}
+          />
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-semibold">{monster.name}</h2>
             <p class="text-xs text-base-500">
@@ -402,24 +424,44 @@ function MonsterDialog(props: {
           <p class="mb-3 text-sm text-base-500">Este monstruo no tiene umbrales de corona.</p>
         )}
 
-        <div class="grid grid-cols-2 gap-2">
-          <label class="block">
-            <span class="mb-1 block text-xs text-base-300">Cazados</span>
-            <input
-              type="number" min="0" value={p.hunted}
-              onInput={(e) => onChange({ hunted: Number((e.target as HTMLInputElement).value) || 0 })}
-              class="w-full rounded border border-base-700 bg-base-950 px-2 py-1.5 text-sm outline-none focus:border-ember-500"
-            />
-          </label>
-          <label class="block">
-            <span class="mb-1 block text-xs text-base-300">Capturados</span>
-            <input
-              type="number" min="0" value={p.captured}
-              onInput={(e) => onChange({ captured: Number((e.target as HTMLInputElement).value) || 0 })}
-              class="w-full rounded border border-base-700 bg-base-950 px-2 py-1.5 text-sm outline-none focus:border-ember-500"
-            />
-          </label>
+        <div class="rounded border border-base-800">
+          <div class="flex items-center gap-2 border-b border-base-800 px-2 py-1.5 text-[11px] text-base-500">
+            <span class="flex-1">Nivel</span>
+            <span class="w-16 text-center">Cazados</span>
+            <span class="w-16 text-center">Capturados</span>
+          </div>
+
+          {available.map((variant) => (
+            <div key={variant} class="flex items-center gap-2 px-2 py-1.5">
+              <span class="flex-1 text-sm">{VARIANT_LABEL[variant]}</span>
+              <input
+                type="number" min="0" value={hunted[variant] || ''}
+                placeholder="0"
+                onInput={(e) => onChange({
+                  hunted: { ...hunted, [variant]: Number((e.target as HTMLInputElement).value) || 0 },
+                })}
+                class="w-16 rounded border border-base-700 bg-base-950 px-1.5 py-1 text-center text-sm outline-none focus:border-ember-500"
+              />
+              <input
+                type="number" min="0" value={captured[variant] || ''}
+                placeholder="0"
+                onInput={(e) => onChange({
+                  captured: { ...captured, [variant]: Number((e.target as HTMLInputElement).value) || 0 },
+                })}
+                class="w-16 rounded border border-base-700 bg-base-950 px-1.5 py-1 text-center text-sm outline-none focus:border-ember-500"
+              />
+            </div>
+          ))}
+
+          {(sumCounts(hunted) > 0 || sumCounts(captured) > 0) && (
+            <div class="flex items-center gap-2 border-t border-base-800 px-2 py-1.5 text-sm">
+              <span class="flex-1 text-base-500">Total</span>
+              <strong class="w-16 text-center">{sumCounts(hunted)}</strong>
+              <strong class="w-16 text-center">{sumCounts(captured)}</strong>
+            </div>
+          )}
         </div>
+
       </div>
     </div>
   );

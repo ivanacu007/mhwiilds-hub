@@ -10,6 +10,7 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { sumCounts } from '../src/lib/crowns.ts';
 
 let failures = 0;
 function check(label: string, condition: boolean, detail = ''): void {
@@ -266,7 +267,8 @@ try {
         [monster.id]: {
           smallest: monster.size.mini - 1,
           largest: monster.size.gold + 1,
-          hunted: 12, captured: 3,
+          hunted: { normal: 12, tempered: 4, 'arch-tempered': 1 },
+          captured: { normal: 3 },
         },
         // Entrada vacía: no debe guardarse.
         999999: { smallest: null, largest: null, hunted: 0, captured: 0 },
@@ -277,7 +279,11 @@ try {
 
   const savedProgress = (await (await fetch(`${BASE}/api/progress`, { headers: auth })).json()).monsters;
   check('descarta las entradas vacías', !('999999' in savedProgress));
-  check('conserva cazados y capturados', savedProgress[String(monster.id)]?.hunted === 12);
+  const counts = savedProgress[String(monster.id)];
+  check('guarda cacerías por variante',
+    counts?.hunted?.normal === 12 && counts?.hunted?.tempered === 4 && counts?.hunted?.['arch-tempered'] === 1,
+    JSON.stringify(counts?.hunted));
+  check('suma el total de cacerías', sumCounts(counts?.hunted) === 17, `${sumCounts(counts?.hunted)}`);
 
   const { deriveCrowns } = await import('../src/lib/crowns.ts');
   const derived = deriveCrowns(monster, savedProgress[String(monster.id)]);
@@ -287,7 +293,9 @@ try {
   // Al revés: un ejemplar dentro del rango normal no debe dar ninguna corona.
   const none = deriveCrowns(monster, {
     smallest: monster.size.base, largest: monster.size.base,
-    hunted: 1, captured: 0, manualMini: false, manualSilver: false, manualGold: false,
+    hunted: { normal: 1, frenzied: 0, tempered: 0, 'arch-tempered': 0 },
+    captured: { normal: 0, frenzied: 0, tempered: 0, 'arch-tempered': 0 },
+    manualMini: false, manualSilver: false, manualGold: false,
   });
   check('no regala coronas con tamaño normal', !none.mini.earned && !none.gold.earned);
   check('dice cuánto falta para la siguiente', none.nextGoal != null && none.nextGoal.needed > 0);
@@ -301,6 +309,21 @@ try {
   const swapped = (await (await fetch(`${BASE}/api/progress`, { headers: auth })).json())
     .monsters[String(monster.id)];
   check('ordena un rango invertido', swapped.smallest === 100 && swapped.largest === 900);
+
+  // Los documentos anteriores a las variantes guardaban un número suelto.
+  // Se escribe uno a mano en Mongo para comprobar que no se pierde al leerlo.
+  const { progress: progressCol } = await import('../src/lib/db.ts');
+  await (await progressCol()).updateOne(
+    { _id: userId },
+    { $set: { [`monsters.${monster.id}.hunted`]: 7, [`monsters.${monster.id}.captured`]: 2 } },
+  );
+  const legacyRead = await (await fetch(`${BASE}/api/progress`, { headers: auth })).json();
+  const legacy = legacyRead.monsters[String(monster.id)];
+  const { cleanProgress } = await import('../src/lib/crowns.ts');
+  const migrated = cleanProgress(legacy);
+  check('migra un contador viejo a la variante normal',
+    migrated?.hunted.normal === 7 && migrated?.captured.normal === 2,
+    JSON.stringify(migrated?.hunted));
 
   console.log('\n--- Perfil, gremio y favoritos ---');
   const perfil = await fetch(`${BASE}/api/auth/profile`, {

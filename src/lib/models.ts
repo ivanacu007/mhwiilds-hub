@@ -120,13 +120,20 @@ export interface SavedSetDoc {
  * falta para la siguiente. Las banderas manuales existen para quien prefiera
  * palomear sin teclear números.
  */
+/** Cuenta por nivel del monstruo. Los que no existen se quedan en cero. */
+export type VariantCounts = Record<MonsterVariant, number>;
+
 export interface MonsterProgress {
-  /** El ejemplar más pequeño que ha cazado. */
+  /**
+   * El ejemplar más pequeño que ha cazado. Las coronas son del monstruo, no de
+   * su nivel: un templado gigante da la misma corona de oro que uno normal, así
+   * que el tamaño se guarda una sola vez y no por variante.
+   */
   smallest: number | null;
   /** El más grande. */
   largest: number | null;
-  hunted: number;
-  captured: number;
+  hunted: VariantCounts;
+  captured: VariantCounts;
   /** Coronas marcadas a mano, sin respaldo de tamaño. */
   manualMini: boolean;
   manualSilver: boolean;

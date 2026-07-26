@@ -1,5 +1,6 @@
 import type { Monster } from './catalog/types.ts';
-import type { MonsterProgress } from './models.ts';
+import { MONSTER_VARIANTS, isMonsterVariant, type MonsterVariant } from './catalog/monster-icons.ts';
+import type { MonsterProgress, VariantCounts } from './models.ts';
 
 export type CrownKind = 'mini' | 'silver' | 'gold';
 
@@ -11,16 +12,25 @@ export const CROWN_LABEL: Record<CrownKind, string> = {
   gold: 'Oro',
 };
 
+export function emptyCounts(): VariantCounts {
+  return { normal: 0, frenzied: 0, tempered: 0, 'arch-tempered': 0 };
+}
+
 export function emptyProgress(): MonsterProgress {
   return {
     smallest: null,
     largest: null,
-    hunted: 0,
-    captured: 0,
+    hunted: emptyCounts(),
+    captured: emptyCounts(),
     manualMini: false,
     manualSilver: false,
     manualGold: false,
   };
+}
+
+export function sumCounts(counts: VariantCounts | undefined): number {
+  if (!counts) return 0;
+  return MONSTER_VARIANTS.reduce((total, variant) => total + (counts[variant] ?? 0), 0);
 }
 
 export interface CrownState {
@@ -84,6 +94,31 @@ export function deriveCrowns(monster: Monster, raw: MonsterProgress | undefined)
   return { ...crowns, nextGoal };
 }
 
+/** Totales de caza de un cazador, por nivel de monstruo. */
+export function tallyHunts(progress: Record<string, MonsterProgress>): {
+  hunted: VariantCounts;
+  captured: VariantCounts;
+  totalHunted: number;
+  totalCaptured: number;
+} {
+  const hunted = emptyCounts();
+  const captured = emptyCounts();
+
+  for (const entry of Object.values(progress)) {
+    for (const variant of MONSTER_VARIANTS) {
+      hunted[variant] += entry.hunted?.[variant] ?? 0;
+      captured[variant] += entry.captured?.[variant] ?? 0;
+    }
+  }
+
+  return {
+    hunted,
+    captured,
+    totalHunted: sumCounts(hunted),
+    totalCaptured: sumCounts(captured),
+  };
+}
+
 export interface CrownTally {
   mini: number;
   silver: number;
@@ -127,10 +162,29 @@ export function cleanProgress(raw: unknown): MonsterProgress | null {
     return Math.round(n * 100) / 100;
   };
 
-  const count = (value: unknown): number => {
+  const one = (value: unknown): number => {
     const n = Number(value);
     if (!Number.isFinite(n) || n < 0) return 0;
     return Math.min(Math.floor(n), 99999);
+  };
+
+  /**
+   * Antes de que existieran las variantes esto era un solo número. Los
+   * documentos viejos siguen en la base, así que un número suelto se interpreta
+   * como cacerías del monstruo normal en vez de perderse.
+   */
+  const counts = (value: unknown): VariantCounts => {
+    const out = emptyCounts();
+    if (typeof value === 'number') {
+      out.normal = one(value);
+      return out;
+    }
+    if (value && typeof value === 'object') {
+      for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+        if (isMonsterVariant(key)) out[key] = one(raw);
+      }
+    }
+    return out;
   };
 
   let smallest = size(r.smallest);
@@ -143,8 +197,8 @@ export function cleanProgress(raw: unknown): MonsterProgress | null {
   const progress: MonsterProgress = {
     smallest,
     largest,
-    hunted: count(r.hunted),
-    captured: count(r.captured),
+    hunted: counts(r.hunted),
+    captured: counts(r.captured),
     manualMini: r.manualMini === true,
     manualSilver: r.manualSilver === true,
     manualGold: r.manualGold === true,
@@ -152,7 +206,7 @@ export function cleanProgress(raw: unknown): MonsterProgress | null {
 
   const isEmpty =
     progress.smallest == null && progress.largest == null &&
-    progress.hunted === 0 && progress.captured === 0 &&
+    sumCounts(progress.hunted) === 0 && sumCounts(progress.captured) === 0 &&
     !progress.manualMini && !progress.manualSilver && !progress.manualGold;
 
   // Guardar entradas vacías solo engordaría el documento.

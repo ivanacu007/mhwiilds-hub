@@ -5,7 +5,8 @@ import HunterAvatar from '../../components/HunterAvatar.astro';
 import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
-import { CROWN_KINDS, deriveCrowns, formatSize, tallyCrowns } from '../../lib/crowns.ts';
+import { CROWN_KINDS, deriveCrowns, formatSize, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
+import { MONSTER_VARIANTS, VARIANT_LABEL } from '../../lib/catalog/monster-icons.ts';
 import { SPECIES_LABEL } from '../../lib/monster-art.ts';
 
 const member = await getMember(Astro.params.id!);
@@ -17,6 +18,7 @@ const monsters = index.catalog.monsters;
 const doc = await (await progressCollection()).findOne({ _id: member.id });
 const progress = doc?.monsters ?? {};
 const crowns = tallyCrowns(monsters, progress);
+const hunts = tallyHunts(progress);
 
 const sets = await (await savedSets())
   .find({ ownerId: member.id, isPublic: true })
@@ -76,6 +78,31 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
     </div>
   </section>
 
+  {hunts.totalHunted + hunts.totalCaptured > 0 && (
+    <section class="mb-6">
+      <h2 class="mb-2 text-sm font-medium text-base-300">Cacerías</h2>
+      <div class="overflow-hidden rounded border border-base-800 bg-base-900">
+        <div class="flex items-center gap-2 border-b border-base-800 px-3 py-1.5 text-xs text-base-500">
+          <span class="flex-1">Nivel</span>
+          <span class="w-20 text-right">Cazados</span>
+          <span class="w-20 text-right">Capturados</span>
+        </div>
+        {MONSTER_VARIANTS.filter((v) => hunts.hunted[v] + hunts.captured[v] > 0).map((variant) => (
+          <div class="flex items-center gap-2 px-3 py-1.5 text-sm">
+            <span class="flex-1">{VARIANT_LABEL[variant]}</span>
+            <span class="w-20 text-right">{hunts.hunted[variant]}</span>
+            <span class="w-20 text-right">{hunts.captured[variant]}</span>
+          </div>
+        ))}
+        <div class="flex items-center gap-2 border-t border-base-800 px-3 py-1.5 text-sm">
+          <span class="flex-1 text-base-500">Total</span>
+          <strong class="w-20 text-right">{hunts.totalHunted}</strong>
+          <strong class="w-20 text-right">{hunts.totalCaptured}</strong>
+        </div>
+      </div>
+    </section>
+  )}
+
   {favorites.length > 0 && (
     <section class="mb-6">
       <h2 class="mb-2 text-sm font-medium text-base-300">Monstruos favoritos</h2>
@@ -120,6 +147,9 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
                   ))}
                   {p?.largest != null && (
                     <span class="ml-1 text-[11px] text-base-500">máx {formatSize(p.largest)}</span>
+                  )}
+                  {sumCounts(p?.hunted) > 0 && (
+                    <span class="ml-1 text-[11px] text-base-500">· {sumCounts(p?.hunted)} cazados</span>
                   )}
                 </div>
               </div>
