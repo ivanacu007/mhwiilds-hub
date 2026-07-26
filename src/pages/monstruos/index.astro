@@ -1,9 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
-import Pagination from '../../components/Pagination.astro';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
-import { paginate } from '../../lib/paginate.ts';
 import MonsterWeaknesses from '../../components/MonsterWeaknesses.astro';
 
 const t = Astro.locals.t;
@@ -19,8 +17,8 @@ const matching = index.catalog.monsters.filter(
   (m) => !needle || m.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().includes(needle),
 );
 
-const info = paginate(matching.length, Number(Astro.url.searchParams.get('p') ?? 1), 24);
-const monsters = matching.slice(info.start, info.end);
+// Sin paginar: son 34 y el sentido de la pantalla es verlos todos de un vistazo.
+const monsters = matching;
 ---
 
 <Base title={`${t('monsters.title')} · ${t('app.name')}`} noIndex>
@@ -64,5 +62,9 @@ const monsters = matching.slice(info.start, info.end);
     <p class="py-10 text-center text-sm text-base-500">{t('monsters.noneMatch')}</p>
   )}
 
-  <Pagination info={info} label={t('monsters.monsters')} />
+  {monsters.length > 0 && (
+    <p class="mt-4 text-xs text-base-500">
+      {t('pagination.only', { total: monsters.length, label: t('monsters.monsters') })}
+    </p>
+  )}
 </Base>

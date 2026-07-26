@@ -461,7 +461,11 @@ try {
 
   const listPage = await (await fetch(`${BASE}/monstruos`, { headers: auth })).text();
   check('la lista muestra monstruos', listPage.includes(first.name));
-  check('la lista pagina', listPage.includes('?p=2'));
+  check('la lista no pagina: salen los 34',
+    !listPage.includes('?p=2') &&
+    catalog.monsters.every((m: any) => listPage.includes(m.name)),
+    `${catalog.monsters.filter((m: any) => !listPage.includes(m.name)).length} sin aparecer`);
+  check('conserva el conteo al pie', listPage.includes(`${catalog.monsters.length} monstruos`));
 
   // Mezclar debilidades y ordenar por nivel escondía el elemento en 32 de 34
   // monstruos: los estados son nivel 2-3 y los elementos nivel 1.
@@ -481,7 +485,7 @@ try {
   // en cada retoque de la maqueta sin que nada esté realmente mal.
   const listText = listPage.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
   const faltantes: string[] = [];
-  for (const m of catalog.monsters.slice(0, 24)) {
+  for (const m of catalog.monsters) {
     const s = splitAffinities(m.weaknesses);
     for (const w of [...s.elements, ...s.statuses, ...s.effects]) {
       const label = affinityLabelEs(w);
@@ -492,7 +496,7 @@ try {
     faltantes.slice(0, 4).join(' | '));
 
   // Las resistencias también, que antes solo estaban en el detalle.
-  const sinResistencias = catalog.monsters.slice(0, 24).filter((m: any) => {
+  const sinResistencias = catalog.monsters.filter((m: any) => {
     const r = splitAffinities(m.resistances);
     return [...r.elements, ...r.statuses, ...r.effects]
       .some((x: any) => !listText.includes(affinityLabelEs(x)));
@@ -507,17 +511,16 @@ try {
   check('los efectos están traducidos',
     !listPage.includes('>stun<') && !listPage.includes('>flash<') && !listPage.includes('>exhaust<'));
 
-  const primeraPagina = catalog.monsters.slice(0, 24);
-  const elementosVisibles = primeraPagina.filter((m: any) => {
+  const elementosVisibles = catalog.monsters.filter((m: any) => {
     const els = splitAffinities(m.weaknesses).elements;
     return els.length === 0 || els.some((e: any) => listPage.includes(`${'★'.repeat(e.level ?? 0)}`));
   });
   check('la lista enseña el elemento de cada uno',
-    elementosVisibles.length === primeraPagina.length,
-    `${elementosVisibles.length} de ${primeraPagina.length}`);
+    elementosVisibles.length === catalog.monsters.length,
+    `${elementosVisibles.length} de ${catalog.monsters.length}`);
 
   // Los estados también llevan nivel: sin él no se sabe cuál conviene llevar.
-  const conEstados = catalog.monsters.slice(0, 24).filter(
+  const conEstados = catalog.monsters.filter(
     (m: any) => splitAffinities(m.weaknesses).statuses.length > 0,
   );
   const estadosConEstrellas = conEstados.filter((m: any) =>
