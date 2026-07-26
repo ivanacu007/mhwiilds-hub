@@ -23,7 +23,7 @@ async function loadFromMongo(): Promise<Catalog | null> {
  */
 async function bootstrap(): Promise<Catalog> {
   console.log('[catalog] base vacía; descargando de wilds.mhdb.io…');
-  const locale = process.env.CATALOG_LOCALE || 'es';
+  const locale = process.env.CATALOG_LOCALE || 'es-419';
   const catalog = await buildCatalog(locale);
 
   const collection = await catalogCollection();

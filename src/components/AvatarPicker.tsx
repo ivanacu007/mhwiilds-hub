@@ -27,6 +27,12 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(1);
+  /**
+   * Qué niveles tiene cada monstruo se deduce de qué iconos existen: no hay
+   * lista de cuáles tienen curtido o archicurtido, y mantenerla a mano se
+   * desincronizaría con cada title update.
+   */
+  const [missing, setMissing] = useState<MonsterVariant[]>([]);
   const [status, setStatus] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
 
   useEffect(() => {
@@ -35,6 +41,8 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
 
   const monsters = catalog?.monsters ?? [];
   const current = selected != null ? monsters.find((m) => m.id === selected) ?? null : null;
+  // El normal siempre está; los demás solo si su archivo existe.
+  const available = MONSTER_VARIANTS.filter((v) => v === 'normal' || !missing.includes(v));
 
   const matching = useMemo(() => {
     const needle = normalize(query.trim());
@@ -45,6 +53,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
   const visible = matching.slice(pageInfo.start, pageInfo.end);
 
   const save = async (id: number | null, v: MonsterVariant) => {
+    if (id !== selected) setMissing([]);
     setSelected(id);
     setSelectedVariant(v);
     setStatus('guardando');
@@ -60,10 +69,19 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
     }
   };
 
+  // Un avatar guardado con una variante cuyo icono ya no está no debe quedar roto.
+  const effectiveVariant = missing.includes(selectedVariant) ? 'normal' : selectedVariant;
+
   return (
     <div>
       <div class="flex items-center gap-3">
-        <Preview monster={current} variant={selectedVariant} size={56} />
+        <Preview
+          monster={current}
+          variant={effectiveVariant}
+          size={56}
+          onMissing={() => setMissing((cur) =>
+            cur.includes(selectedVariant) ? cur : [...cur, selectedVariant])}
+        />
 
         <div class="flex-1">
           <button
@@ -84,7 +102,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
           )}
           <p class="mt-1 text-xs text-base-500">
             {current
-              ? `${current.name}${selectedVariant === 'normal' ? '' : ` · ${VARIANT_LABEL[selectedVariant]}`}`
+              ? `${current.name}${effectiveVariant === 'normal' ? '' : ` · ${VARIANT_LABEL[effectiveVariant]}`}`
               : 'Se usa tu inicial o tu foto de Google.'}
             {status === 'guardando' && ' · guardando…'}
             {status === 'guardado' && ' · guardado'}
@@ -93,9 +111,9 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
         </div>
       </div>
 
-      {current && (
+      {current && available.length > 1 && (
         <div class="mt-3 flex flex-wrap gap-2">
-          {MONSTER_VARIANTS.map((v) => (
+          {available.map((v) => (
             <button
               key={v}
               type="button"
@@ -106,7 +124,13 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
                   : 'border-base-700 text-base-300 hover:bg-base-850'
               }`}
             >
-              <Preview monster={current} variant={v} size={32} round={false} />
+              <Preview
+                monster={current}
+                variant={v}
+                size={32}
+                round={false}
+                onMissing={() => setMissing((cur) => (cur.includes(v) ? cur : [...cur, v]))}
+              />
               {VARIANT_LABEL[v]}
             </button>
           ))}
@@ -150,11 +174,13 @@ function Preview({
   variant,
   size,
   round = true,
+  onMissing,
 }: {
   monster: Monster | null;
   variant: MonsterVariant;
   size: number;
   round?: boolean;
+  onMissing?: () => void;
 }) {
   if (!monster) {
     return (
@@ -183,7 +209,10 @@ function Preview({
         width={size}
         height={size}
         class="h-full w-full object-cover"
-        onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
+        onError={(e) => {
+          (e.currentTarget as HTMLImageElement).style.opacity = '0';
+          onMissing?.();
+        }}
       />
     </span>
   );

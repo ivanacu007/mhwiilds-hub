@@ -10,7 +10,7 @@
 import { buildCatalog } from '../src/lib/catalog/build.ts';
 
 const dryRun = process.argv.includes('--dry-run');
-const locale = process.env.CATALOG_LOCALE || 'es';
+const locale = process.env.CATALOG_LOCALE || 'es-419';
 
 function mb(value: unknown): string {
   return `${(Buffer.byteLength(JSON.stringify(value)) / 1024 / 1024).toFixed(2)} MB`;
