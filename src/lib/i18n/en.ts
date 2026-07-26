@@ -283,6 +283,7 @@ export const en: Record<keyof typeof es, string> = {
   'st.blastblight': 'Blastblight',
   'ef.exhaust': 'Exhaust',
   'ef.flash': 'Flash',
+  'ef.stun': 'Stun',
   'ef.noise': 'Noise',
   'es.red': 'Red',
   'es.white': 'White',

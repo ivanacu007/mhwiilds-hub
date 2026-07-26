@@ -4,7 +4,7 @@ import MonsterIcon from '../../components/MonsterIcon.astro';
 import Pagination from '../../components/Pagination.astro';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { paginate } from '../../lib/paginate.ts';
-import { affinityLabel, splitAffinities } from '../../lib/monster-info.ts';
+import MonsterWeaknesses from '../../components/MonsterWeaknesses.astro';
 
 const t = Astro.locals.t;
 const index = await getCatalogIndex(Astro.locals.locale);
@@ -41,13 +41,11 @@ const monsters = matching.slice(info.start, info.end);
   </form>
 
   <ul class="grid gap-2 sm:grid-cols-2">
-    {monsters.map((monster) => {
-      const weak = splitAffinities(monster.weaknesses);
-      return (
+    {monsters.map((monster) => (
       <li>
         <a
           href={`/monstruos/${monster.id}`}
-          class="flex items-center gap-3 rounded border border-base-800 bg-base-900 p-2 transition-colors hover:border-ember-500/50 hover:bg-base-850"
+          class="flex items-start gap-3 rounded border border-base-800 bg-base-900 p-2 transition-colors hover:border-ember-500/50 hover:bg-base-850"
         >
           <MonsterIcon monster={monster} size={56} />
           <div class="min-w-0 flex-1">
@@ -55,32 +53,11 @@ const monsters = matching.slice(info.start, info.end);
             <p class="truncate text-xs text-base-500">
               {t(`species.${monster.species}` as never)}
             </p>
-            {/* El elemento es lo que decide con qué arma vas: va primero y
-                completo, y los estados quedan en su propia línea. */}
-            <p class="mt-0.5 truncate text-xs">
-              <span class="text-base-500">{t('monsters.weakTo')} </span>
-              {weak.elements.length > 0 ? (
-                <span class="text-ember-300">
-                  {weak.elements
-                    .map((w) => `${affinityLabel(t, w)} ${'★'.repeat(w.level ?? 0)}`)
-                    .join(' · ')}
-                </span>
-              ) : (
-                <span class="text-base-600">{t('monsters.noElemental')}</span>
-              )}
-            </p>
-            {[...weak.statuses, ...weak.effects].length > 0 && (
-              <p class="truncate text-xs text-base-500">
-                {[...weak.statuses, ...weak.effects]
-                  .map((w) => `${affinityLabel(t, w)} ${'★'.repeat(w.level ?? 0)}`)
-                  .join(' · ')}
-              </p>
-            )}
+            <MonsterWeaknesses weaknesses={monster.weaknesses} dense />
           </div>
         </a>
       </li>
-      );
-    })}
+    ))}
   </ul>
 
   {matching.length === 0 && (

@@ -465,12 +465,35 @@ try {
 
   // Mezclar debilidades y ordenar por nivel escondía el elemento en 32 de 34
   // monstruos: los estados son nivel 2-3 y los elementos nivel 1.
-  const { splitAffinities } = await import('../src/lib/monster-info.ts');
+  const { splitAffinities, affinityLabel } = await import('../src/lib/monster-info.ts');
+  const { translatorFor } = await import('../src/lib/i18n/index.ts');
+  const tEs = translatorFor('es');
+  const affinityLabelEs = (w: any) => affinityLabel(tEs, w);
   const conElemento = catalog.monsters.filter(
     (m: any) => splitAffinities(m.weaknesses).elements.length > 0,
   );
   check('casi todos tienen debilidad elemental', conElemento.length >= 33,
     `${conElemento.length} de ${catalog.monsters.length}`);
+
+  // La lista debe traer TODAS las debilidades, agrupadas igual que el detalle:
+  // antes iban en una línea con truncate y con 7.5 de media se cortaba casi todo.
+  const faltantes: string[] = [];
+  for (const m of catalog.monsters.slice(0, 24)) {
+    const s = splitAffinities(m.weaknesses);
+    for (const w of [...s.elements, ...s.statuses, ...s.effects]) {
+      const label = affinityLabelEs(w);
+      if (!listPage.includes(`>${label}</span>`)) faltantes.push(`${m.name}: ${label}`);
+    }
+  }
+  check('la lista trae todas las debilidades', faltantes.length === 0,
+    faltantes.slice(0, 4).join(' | '));
+
+  check('la lista agrupa como el detalle',
+    listPage.includes('Elemental') && listPage.includes('Estados') && listPage.includes('Efectos'));
+
+  // stun llegaba como efecto sin traducir y salía en minúscula.
+  check('los efectos están traducidos',
+    !listPage.includes('>stun<') && !listPage.includes('>flash<') && !listPage.includes('>exhaust<'));
 
   const primeraPagina = catalog.monsters.slice(0, 24);
   const elementosVisibles = primeraPagina.filter((m: any) => {

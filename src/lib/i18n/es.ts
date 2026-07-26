@@ -282,6 +282,7 @@ export const es = {
   'st.blastblight': 'Nitroplaga',
   'ef.exhaust': 'Agotamiento',
   'ef.flash': 'Destello',
+  'ef.stun': 'Aturdimiento',
   'ef.noise': 'Ruido',
   'es.red': 'Rojo',
   'es.white': 'Blanco',
