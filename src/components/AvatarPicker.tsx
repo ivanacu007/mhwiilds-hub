@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import { monsterArtDataUri } from '../lib/monster-art.ts';
+import Pagination from './Pagination.tsx';
+import { paginate } from '../lib/paginate.ts';
 import {
   MONSTER_VARIANTS,
   VARIANT_LABEL,
@@ -24,6 +26,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
   const [selectedVariant, setSelectedVariant] = useState<MonsterVariant>(variant);
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(1);
   const [status, setStatus] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
 
   useEffect(() => {
@@ -33,10 +36,13 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
   const monsters = catalog?.monsters ?? [];
   const current = selected != null ? monsters.find((m) => m.id === selected) ?? null : null;
 
-  const visible = useMemo(() => {
+  const matching = useMemo(() => {
     const needle = normalize(query.trim());
     return needle ? monsters.filter((m) => normalize(m.name).includes(needle)) : monsters;
   }, [monsters, query]);
+
+  const pageInfo = paginate(matching.length, page, 24);
+  const visible = matching.slice(pageInfo.start, pageInfo.end);
 
   const save = async (id: number | null, v: MonsterVariant) => {
     setSelected(id);
@@ -111,7 +117,7 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
         <div class="mt-3 rounded border border-base-800 bg-base-950 p-2">
           <input
             value={query}
-            onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+            onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
             placeholder="Buscar monstruo…"
             class="mb-2 w-full rounded border border-base-700 bg-base-900 px-3 py-1.5 text-sm outline-none focus:border-ember-500"
           />
@@ -131,6 +137,8 @@ export default function AvatarPicker({ monsterId, variant }: Props) {
               </button>
             ))}
           </div>
+
+          <Pagination info={pageInfo} onPage={setPage} label="monstruos" />
         </div>
       )}
     </div>

@@ -2,6 +2,8 @@
 import Base from '../../layouts/Base.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import HunterAvatar from '../../components/HunterAvatar.astro';
+import Pagination from '../../components/Pagination.astro';
+import { paginate } from '../../lib/paginate.ts';
 import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
@@ -20,10 +22,14 @@ const progress = doc?.monsters ?? {};
 const crowns = tallyCrowns(monsters, progress);
 const hunts = tallyHunts(progress);
 
-const sets = await (await savedSets())
+const setsCollection = await savedSets();
+const setsTotal = await setsCollection.countDocuments({ ownerId: member.id, isPublic: true });
+const setsInfo = paginate(setsTotal, Number(Astro.url.searchParams.get('s') ?? 1), 10);
+const sets = await setsCollection
   .find({ ownerId: member.id, isPublic: true })
   .sort({ updatedAt: -1 })
-  .limit(12)
+  .skip(setsInfo.start)
+  .limit(setsInfo.pageSize)
   .toArray();
 
 const favorites = member.favoriteMonsters
@@ -31,9 +37,12 @@ const favorites = member.favoriteMonsters
   .filter((m) => m != null);
 
 // Solo los que tienen alguna corona: la rejilla completa ya vive en /coronas.
-const withCrowns = monsters
+const allWithCrowns = monsters
   .map((monster) => ({ monster, state: deriveCrowns(monster, progress[String(monster.id)]) }))
   .filter((row) => row.state.mini.earned || row.state.silver.earned || row.state.gold.earned);
+
+const crownsInfo = paginate(allWithCrowns.length, Number(Astro.url.searchParams.get('c') ?? 1), 24);
+const withCrowns = allWithCrowns.slice(crownsInfo.start, crownsInfo.end);
 
 const isMe = Astro.locals.user?.id === member.id;
 const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as const;
@@ -120,10 +129,10 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
   <section class="mb-6">
     <h2 class="mb-2 text-sm font-medium text-base-300">
       Coronas conseguidas
-      {withCrowns.length > 0 && <span class="text-base-500"> ({withCrowns.length})</span>}
+      {allWithCrowns.length > 0 && <span class="text-base-500"> ({allWithCrowns.length})</span>}
     </h2>
 
-    {withCrowns.length === 0 ? (
+    {allWithCrowns.length === 0 ? (
       <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
         Todavía no registra ninguna corona.
       </p>
@@ -158,11 +167,13 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
         })}
       </div>
     )}
+
+    <Pagination info={crownsInfo} param="c" label="monstruos" />
   </section>
 
   <section>
     <h2 class="mb-2 text-sm font-medium text-base-300">Sets compartidos</h2>
-    {sets.length === 0 ? (
+    {setsTotal === 0 ? (
       <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
         No tiene sets públicos.
       </p>
@@ -180,5 +191,7 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
         ))}
       </ul>
     )}
+
+    <Pagination info={setsInfo} param="s" label="sets" />
   </section>
 </Base>

@@ -1,0 +1,74 @@
+---
+import { pageNumbers, type PageInfo } from '../lib/paginate.ts';
+
+interface Props {
+  info: PageInfo;
+  /** Nombre del parámetro en la URL. */
+  param?: string;
+  label?: string;
+}
+
+const { info, param = 'p', label = 'elementos' } = Astro.props;
+
+/**
+ * Enlaces en vez de botones: así la paginación funciona sin JavaScript y las
+ * páginas se pueden compartir y volver atrás con el navegador.
+ * Se conservan los demás parámetros para no perder filtros al cambiar de página.
+ */
+/** Extraído de la plantilla: el compilador de Astro no digiere ternarios
+ *  anidados dentro de `class:list`. */
+function linkClass(isCurrent: boolean): string {
+  const base = 'min-w-7 rounded px-2 py-1 text-center text-xs';
+  return isCurrent
+    ? `${base} bg-ember-500 font-medium text-base-950`
+    : `${base} border border-base-700 hover:bg-base-850`;
+}
+
+function summary(info: PageInfo, label: string): string {
+  return info.totalPages <= 1
+    ? `${info.total} ${label}`
+    : `${info.from}–${info.to} de ${info.total} ${label}`;
+}
+
+function hrefFor(page: number): string {
+  const params = new URLSearchParams(Astro.url.search);
+  if (page <= 1) params.delete(param);
+  else params.set(param, String(page));
+  const query = params.toString();
+  return query ? `${Astro.url.pathname}?${query}` : Astro.url.pathname;
+}
+---
+
+{info.total > 0 && (
+  <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+    <span class="text-xs text-base-500">{summary(info, label)}</span>
+
+    {info.totalPages > 1 && (
+      <nav class="ml-auto flex flex-wrap items-center gap-1" aria-label="Paginación">
+        {info.hasPrev ? (
+          <a href={hrefFor(info.page - 1)} class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850">
+            Anterior
+          </a>
+        ) : (
+          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">Anterior</span>
+        )}
+
+        {pageNumbers(info.page, info.totalPages).map((entry) =>
+          entry === '…' ? (
+            <span class="px-1 text-xs text-base-600">…</span>
+          ) : (
+            <a href={hrefFor(entry)} class={linkClass(entry === info.page)}>{entry}</a>
+          ),
+        )}
+
+        {info.hasNext ? (
+          <a href={hrefFor(info.page + 1)} class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850">
+            Siguiente
+          </a>
+        ) : (
+          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">Siguiente</span>
+        )}
+      </nav>
+    )}
+  </div>
+)}

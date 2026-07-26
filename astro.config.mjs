@@ -16,23 +16,29 @@ const siteUrl = process.env.PUBLIC_SITE_URL;
  * Por eso PUBLIC_SITE_URL tiene que estar disponible EN EL BUILD, no solo en
  * ejecución (el Dockerfile la recibe como ARG).
  */
+/** Solo desarrollo. Astro no acepta un comodín "cualquier host": sus patrones
+ *  con `*` exigen un punto (`*.dominio.com`), así que hay que listarlos. */
+const LOCAL_HOSTS = [{ hostname: 'localhost' }, { hostname: '127.0.0.1' }];
+
 function allowedDomains() {
   if (!siteUrl) {
-    // Sin dominio configurado (dev, o un deploy al que se le olvidó la variable)
-    // se acepta cualquier host: es lo que Astro hacía por defecto antes de la v5.
-    return [{ hostname: '**' }];
+    console.warn(
+      '[config] PUBLIC_SITE_URL no está definida en el build.\n' +
+        '         Solo se aceptarán peticiones desde localhost. En producción hay\n' +
+        '         que pasarla como Build Arg de Docker o los formularios darán 403.',
+    );
+    return LOCAL_HOSTS;
   }
   try {
     const url = new URL(siteUrl);
     return [
       { hostname: url.hostname, protocol: url.protocol.replace(':', '') },
       // El healthcheck de Docker pega a localhost, no al dominio público.
-      { hostname: 'localhost' },
-      { hostname: '127.0.0.1' },
+      ...LOCAL_HOSTS,
     ];
   } catch {
     console.warn(`[config] PUBLIC_SITE_URL no es una URL válida: "${siteUrl}"`);
-    return [{ hostname: '**' }];
+    return LOCAL_HOSTS;
   }
 }
 

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
+import Pagination from './Pagination.tsx';
+import { paginate } from '../lib/paginate.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import {
   CROWN_KINDS, deriveCrowns, emptyCounts, emptyProgress, formatSize, sumCounts, tallyCrowns,
@@ -22,6 +24,8 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'todos' | 'faltantes' | 'completos' | 'favoritos'>('todos');
   const [open, setOpen] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [status, setStatus] = useState<'cargando' | 'listo' | 'guardando' | 'guardado' | 'error'>('cargando');
 
   useEffect(() => {
@@ -81,7 +85,7 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
 
   const monsters = catalog?.monsters ?? [];
 
-  const visible = useMemo(() => {
+  const matching = useMemo(() => {
     const needle = normalize(query.trim());
     return monsters.filter((m) => {
       if (needle && !normalize(m.name).includes(needle)) return false;
@@ -93,6 +97,9 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
       return true;
     });
   }, [monsters, query, filter, progress, favs]);
+
+  const pageInfo = paginate(matching.length, page, pageSize);
+  const visible = matching.slice(pageInfo.start, pageInfo.end);
 
   if (status === 'cargando') return <p class="py-10 text-center text-base-500">Cargando…</p>;
   if (!catalog) return <p class="py-10 text-center text-red-300">No se pudo cargar el catálogo.</p>;
@@ -116,14 +123,14 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
       <div class="mb-4 flex flex-wrap gap-2">
         <input
           value={query}
-          onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+          onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
           placeholder="Buscar monstruo…"
           class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
         />
         {(['todos', 'faltantes', 'completos', 'favoritos'] as const).map((f) => (
           <button
             key={f}
-            onClick={() => setFilter(f)}
+            onClick={() => { setFilter(f); setPage(1); }}
             class={`rounded px-3 py-1.5 text-sm capitalize ${
               filter === f ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
             }`}
@@ -145,9 +152,16 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
         ))}
       </div>
 
-      {visible.length === 0 && (
+      {matching.length === 0 && (
         <p class="py-10 text-center text-sm text-base-500">Ningún monstruo coincide.</p>
       )}
+
+      <Pagination
+        info={pageInfo}
+        onPage={setPage}
+        onPageSize={(size) => { setPageSize(size); setPage(1); }}
+        label="monstruos"
+      />
 
       {open != null && (
         <MonsterDialog

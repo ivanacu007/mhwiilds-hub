@@ -3,7 +3,7 @@
   "type": "module",
   "version": "0.1.0",
   "scripts": {
-    "dev": "astro dev",
+    "dev": "node --env-file=.env ./node_modules/.bin/astro dev",
     "build": "astro build",
     "start": "node dist/server/entry.mjs",
     "preview": "astro preview",
@@ -12,7 +12,8 @@
     "invite": "node scripts/make-invite.ts",
     "test:smoke": "node scripts/smoke-test.ts",
     "sandbox": "node scripts/dev-sandbox.ts",
-    "iconos:importar": "node scripts/import-monster-icons.ts"
+    "iconos:importar": "node scripts/import-monster-icons.ts",
+    "start:local": "node --env-file=.env dist/server/entry.mjs"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.1",

@@ -367,6 +367,42 @@ try {
   const noSuchHunter = await fetch(`${BASE}/cazador/no-existe`, { headers: auth });
   check('cazador inexistente da 404', noSuchHunter.status === 404, `${noSuchHunter.status}`);
 
+  console.log('\n--- Paginación ---');
+  // 60 sets para que la lista tenga que partirse en varias páginas.
+  for (let i = 0; i < 59; i++) {
+    await fetch(`${BASE}/api/sets`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: `Set ${String(i).padStart(2, '0')}`,
+        head: { armorId: catalog.armor.find((a: any) => a.kind === 'head').id, decorations: [] },
+        chest: null, arms: null, waist: null, legs: null,
+        weaponId: null, weaponDecorations: [], charmId: null, charmLevel: null, isPublic: true,
+      }),
+    });
+  }
+
+  const p1 = await (await fetch(`${BASE}/mis-sets`, { headers: auth })).text();
+  const countRows = (html: string) => (html.match(/class="borrar/g) ?? []).length;
+  check('la primera página trae 25 sets', countRows(p1) === 25, `${countRows(p1)}`);
+  check('muestra el total real', p1.includes('60 sets guardados'));
+  check('dibuja el enlace a la página 2', p1.includes('?p=2'));
+
+  const p3 = await (await fetch(`${BASE}/mis-sets?p=3`, { headers: auth })).text();
+  check('la última página trae el resto', countRows(p3) === 10, `${countRows(p3)}`);
+  check('las páginas muestran sets distintos',
+    p1.includes('Set 58') !== p3.includes('Set 58'));
+
+  // Una página fuera de rango debe caer a la última, no quedarse en blanco.
+  const far = await (await fetch(`${BASE}/mis-sets?p=999`, { headers: auth })).text();
+  check('una página inexistente cae a la última', countRows(far) === 10, `${countRows(far)}`);
+
+  const bogus = await (await fetch(`${BASE}/mis-sets?p=abc`, { headers: auth })).text();
+  check('una página no numérica cae a la primera', countRows(bogus) === 25, `${countRows(bogus)}`);
+
+  const negative = await (await fetch(`${BASE}/mis-sets?p=-5`, { headers: auth })).text();
+  check('una página negativa cae a la primera', countRows(negative) === 25, `${countRows(negative)}`);
+
   console.log('\n--- Avatar de monstruo ---');
   const setAvatar = await fetch(`${BASE}/api/avatar`, {
     method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },

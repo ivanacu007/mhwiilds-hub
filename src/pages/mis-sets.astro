@@ -1,10 +1,22 @@
 ---
 import Base from '../layouts/Base.astro';
+import Pagination from '../components/Pagination.astro';
+import { paginate } from '../lib/paginate.ts';
 import { savedSets } from '../lib/db.ts';
 
 const user = Astro.locals.user!;
 const collection = await savedSets();
-const sets = await collection.find({ ownerId: user.id }).sort({ updatedAt: -1 }).limit(300).toArray();
+
+// Se cuenta primero y se pide solo la página: traer 300 documentos para
+// mostrar 25 sería tirar trabajo de Mongo y de la red a la basura.
+const total = await collection.countDocuments({ ownerId: user.id });
+const info = paginate(total, Number(Astro.url.searchParams.get('p') ?? 1), 25);
+const sets = await collection
+  .find({ ownerId: user.id })
+  .sort({ updatedAt: -1 })
+  .skip(info.start)
+  .limit(info.pageSize)
+  .toArray();
 
 const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/, '');
 ---
@@ -12,9 +24,9 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
 <Base title="Mis sets · Sets de Wilds" noIndex>
   <h1 class="mb-1 text-2xl font-semibold">Mis sets</h1>
   <p class="mb-5 text-sm text-base-500">
-    {sets.length === 0
+    {total === 0
       ? 'Todavía no guardas ninguno. Ve al armador y guarda el primero.'
-      : `${sets.length} ${sets.length === 1 ? 'set guardado' : 'sets guardados'}.`}
+      : `${total} ${total === 1 ? 'set guardado' : 'sets guardados'}.`}
   </p>
 
   <ul class="space-y-2">
@@ -45,6 +57,8 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
       </li>
     ))}
   </ul>
+
+  <Pagination info={info} label="sets" />
 </Base>
 
 <script>

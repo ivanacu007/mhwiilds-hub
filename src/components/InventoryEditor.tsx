@@ -1,6 +1,8 @@
 import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
+import Pagination from './Pagination.tsx';
+import { paginate } from '../lib/paginate.ts';
 import type { Catalog } from '../lib/catalog/types.ts';
 
 type Tab = 'adornos' | 'talismanes' | 'armaduras' | 'materiales';
@@ -26,6 +28,8 @@ export default function InventoryEditor() {
   const [tab, setTab] = useState<Tab>('adornos');
   const [query, setQuery] = useState('');
   const [onlyOwned, setOnlyOwned] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
   const [status, setStatus] = useState<'cargando' | 'listo' | 'guardando' | 'guardado' | 'error'>('cargando');
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -148,8 +152,7 @@ export default function InventoryEditor() {
           if (!matches(a.name, skills)) return false;
           if (onlyOwned && !inventory.armor.includes(a.id)) return false;
           return true;
-        })
-        .slice(0, 400);
+        });
     }
 
     return catalog.items
@@ -157,9 +160,12 @@ export default function InventoryEditor() {
         if (!matches(i.name)) return false;
         if (onlyOwned && !(inventory.materials[String(i.id)] > 0)) return false;
         return true;
-      })
-      .slice(0, 400);
+      });
   }, [catalog, tab, needle, onlyOwned, inventory, skillName]);
+
+  // `rows` es la lista completa ya filtrada; `visible` es solo la página actual.
+  const pageInfo = paginate(rows.length, page, pageSize);
+  const visible = rows.slice(pageInfo.start, pageInfo.end);
 
   if (status === 'cargando') {
     return <p class="py-10 text-center text-base-500">Cargando catálogo…</p>;
@@ -183,7 +189,7 @@ export default function InventoryEditor() {
         {tabs.map(([key, label, count]) => (
           <button
             key={key}
-            onClick={() => { setTab(key); setQuery(''); }}
+            onClick={() => { setTab(key); setQuery(''); setPage(1); }}
             class={`rounded px-3 py-1.5 text-sm transition-colors ${
               tab === key ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
             }`}
@@ -203,12 +209,16 @@ export default function InventoryEditor() {
       <div class="mb-3 flex flex-wrap gap-2">
         <input
           value={query}
-          onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
+          onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
           placeholder={tab === 'adornos' ? 'Busca por nombre o habilidad…' : 'Buscar…'}
           class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
         />
         <label class="flex items-center gap-2 rounded border border-base-700 px-3 text-sm text-base-300">
-          <input type="checkbox" checked={onlyOwned} onChange={(e) => setOnlyOwned((e.target as HTMLInputElement).checked)} />
+          <input
+            type="checkbox"
+            checked={onlyOwned}
+            onChange={(e) => { setOnlyOwned((e.target as HTMLInputElement).checked); setPage(1); }}
+          />
           Solo lo que tengo
         </label>
       </div>
@@ -224,7 +234,7 @@ export default function InventoryEditor() {
           <p class="px-3 py-6 text-center text-sm text-base-500">Nada coincide con la búsqueda.</p>
         )}
 
-        {tab === 'adornos' && (rows as Catalog['decorations']).map((deco) => (
+        {tab === 'adornos' && (visible as Catalog['decorations']).map((deco) => (
           <Row
             key={deco.id}
             title={deco.name}
@@ -239,7 +249,7 @@ export default function InventoryEditor() {
           </Row>
         ))}
 
-        {tab === 'talismanes' && (rows as Catalog['charms']).map((charm) => {
+        {tab === 'talismanes' && (visible as Catalog['charms']).map((charm) => {
           const owned = inventory.charms[String(charm.id)] ?? 0;
           const maxRank = charm.ranks.at(-1)?.level ?? 1;
           return (
@@ -275,7 +285,7 @@ export default function InventoryEditor() {
           );
         })}
 
-        {tab === 'armaduras' && (rows as Catalog['armor']).map((piece) => (
+        {tab === 'armaduras' && (visible as Catalog['armor']).map((piece) => (
           <Row
             key={piece.id}
             title={piece.name}
@@ -295,7 +305,7 @@ export default function InventoryEditor() {
           </Row>
         ))}
 
-        {tab === 'materiales' && (rows as Catalog['items']).map((item) => (
+        {tab === 'materiales' && (visible as Catalog['items']).map((item) => (
           <Row key={item.id} title={item.name} subtitle={`rareza ${item.rarity}`}>
             <Stepper
               value={inventory.materials[String(item.id)] ?? 0}
@@ -305,6 +315,18 @@ export default function InventoryEditor() {
           </Row>
         ))}
       </div>
+
+      <Pagination
+        info={pageInfo}
+        onPage={setPage}
+        onPageSize={(size) => { setPageSize(size); setPage(1); }}
+        label={
+          tab === 'adornos' ? 'adornos'
+          : tab === 'talismanes' ? 'talismanes'
+          : tab === 'armaduras' ? 'piezas'
+          : 'materiales'
+        }
+      />
     </div>
   );
 }

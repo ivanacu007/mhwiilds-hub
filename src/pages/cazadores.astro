@@ -1,6 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import HunterAvatar from '../components/HunterAvatar.astro';
+import Pagination from '../components/Pagination.astro';
+import { paginate } from '../lib/paginate.ts';
 import { getGuild, listMembers, displayName } from '../lib/guild.ts';
 import { getCatalogIndex } from '../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../lib/db.ts';
@@ -24,13 +26,18 @@ const [progressDocs, setCounts] = await Promise.all([
 const progressById = new Map(progressDocs.map((d) => [d._id, d.monsters ?? {}]));
 const setsById = new Map(setCounts.map((d) => [d._id, d.count]));
 
-const rows = members
+const allRows = members
   .map((member) => ({
     member,
     crowns: tallyCrowns(monsters, progressById.get(member.id) ?? {}),
     sets: setsById.get(member.id) ?? 0,
   }))
+  // Se ordena por coronas, que solo se pueden calcular en memoria, así que la
+  // página se recorta después de ordenar.
   .sort((a, b) => b.crowns.gold - a.crowns.gold || (b.member.hr ?? 0) - (a.member.hr ?? 0));
+
+const info = paginate(allRows.length, Number(Astro.url.searchParams.get('p') ?? 1), 25);
+const rows = allRows.slice(info.start, info.end);
 ---
 
 <Base title={`Cazadores · ${guild.name}`} noIndex>
@@ -66,7 +73,9 @@ const rows = members
     ))}
   </ul>
 
-  {rows.length === 0 && (
+  {allRows.length === 0 && (
     <p class="py-10 text-center text-sm text-base-500">Todavía no hay nadie registrado.</p>
   )}
+
+  <Pagination info={info} label="cazadores" />
 </Base>

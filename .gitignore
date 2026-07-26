@@ -13,3 +13,4 @@ public/monstruos/*
 
 # Originales de los iconos antes de importarlos
 assets/
+.mongo-data/
