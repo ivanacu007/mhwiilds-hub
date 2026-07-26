@@ -3,10 +3,12 @@ import type { UserDoc } from '../models.ts';
 import { consumeInvite, releaseInvite } from './invites.ts';
 import { newUserId } from './session.ts';
 import type { GoogleProfile } from './google.ts';
+import type { FlashKey } from '../flash.ts';
 
 export type AccountResult =
   | { ok: true; user: UserDoc }
-  | { ok: false; error: string };
+  /** Clave de mensaje, no texto: quien lo muestre lo traduce a su idioma. */
+  | { ok: false; error: FlashKey };
 
 export async function findByEmail(email: string): Promise<UserDoc | null> {
   const collection = await users();
@@ -29,7 +31,7 @@ export async function createUser(params: {
   // mismo código no puedan colarse ambos.
   const claimed = await consumeInvite(params.inviteCode, 'pending');
   if (!claimed) {
-    return { ok: false, error: 'Ese código de invitación no existe o ya fue usado.' };
+    return { ok: false, error: 'msg.inviteInvalid' };
   }
 
   const user: UserDoc = {
@@ -60,9 +62,7 @@ export async function createUser(params: {
       const clashedOnEmail = String(err?.keyPattern ? Object.keys(err.keyPattern)[0] : '') === 'email';
       return {
         ok: false,
-        error: clashedOnEmail
-          ? 'Ya existe una cuenta con ese correo.'
-          : 'Esa cuenta de Google ya está vinculada a otro usuario.',
+        error: clashedOnEmail ? 'msg.emailTaken' : 'msg.googleTaken',
       };
     }
     throw err;
@@ -114,10 +114,7 @@ export async function loginWithGoogle(
   }
 
   if (!inviteCode) {
-    return {
-      ok: false,
-      error: 'No hay ninguna cuenta con ese correo. Para crear una necesitas un código de invitación.',
-    };
+    return { ok: false, error: 'msg.googleNoAccount' };
   }
 
   return createUser({

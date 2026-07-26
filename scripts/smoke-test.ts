@@ -164,7 +164,7 @@ try {
   const noInviteLocation = noInvite.headers.get('location') ?? '';
   check(
     'rechaza código inválido',
-    noInviteLocation.includes('error='),
+    noInviteLocation.includes('error=msg.inviteInvalid'),
     `status ${noInvite.status}, location "${noInviteLocation}"`,
   );
 
@@ -192,7 +192,8 @@ try {
       email: 'otro@example.com', name: 'Otro', password: 'contrasenalarga1', invite: code,
     }),
   });
-  check('el código no se puede reusar', (reuse.headers.get('location') ?? '').includes('error='));
+  check('el código no se puede reusar',
+    (reuse.headers.get('location') ?? '').includes('error=msg.inviteInvalid'));
 
   const auth = { cookie };
 
@@ -267,7 +268,7 @@ try {
     redirect: 'manual',
     body: new URLSearchParams({ name: 'Cazador', hunterName: 'NuevoNombre' }),
   });
-  check('permite cambiarlo', (rename.headers.get('location') ?? '').includes('aviso='));
+  check('permite cambiarlo', (rename.headers.get('location') ?? '').includes('aviso=msg.saved'));
 
   // Los sets guardan copia del nombre; al renombrarse deben actualizarse.
   const afterRename = await (await fetch(`${BASE}/set/${setData.slug}`)).text();
@@ -280,7 +281,8 @@ try {
     redirect: 'manual',
     body: new URLSearchParams({ name: 'Cazador', hunterName: 'x'.repeat(41) }),
   });
-  check('rechaza un nombre demasiado largo', (tooLong.headers.get('location') ?? '').includes('error='));
+  check('rechaza un nombre demasiado largo',
+    (tooLong.headers.get('location') ?? '').includes('error=msg.hunterNameLong'));
 
   console.log('\n--- Aislamiento entre usuarios ---');
   const code2 = await createInvite(null);
@@ -403,13 +405,13 @@ try {
     method: 'POST', headers: auth, redirect: 'manual',
     body: new URLSearchParams({ name: 'Cazador', hunterName: 'Ivanhunter', hunterId: 'ABC-123', hr: '145' }),
   });
-  check('guarda Hunter ID y HR', (perfil.headers.get('location') ?? '').includes('aviso='));
+  check('guarda Hunter ID y HR', (perfil.headers.get('location') ?? '').includes('aviso=msg.saved'));
 
   const badHr = await fetch(`${BASE}/api/auth/profile`, {
     method: 'POST', headers: auth, redirect: 'manual',
     body: new URLSearchParams({ name: 'Cazador', hr: '0' }),
   });
-  check('rechaza un HR inválido', (badHr.headers.get('location') ?? '').includes('error='));
+  check('rechaza un HR inválido', (badHr.headers.get('location') ?? '').includes('error=msg.badHr'));
 
   const favs = await fetch(`${BASE}/api/favorites`, {
     method: 'PUT', headers: { ...auth, 'content-type': 'application/json' },
@@ -422,7 +424,7 @@ try {
     method: 'POST', headers: auth, redirect: 'manual',
     body: new URLSearchParams({ name: 'Los Cazadores del Sur', motto: 'Sin miedo al Rey Dau' }),
   });
-  check('nombra el gremio', (gremio.headers.get('location') ?? '').includes('aviso='));
+  check('nombra el gremio', (gremio.headers.get('location') ?? '').includes('aviso=msg.guildUpdated'));
 
   const gremioHtml = await (await fetch(`${BASE}/gremio`, { headers: auth })).text();
   check('el gremio muestra su nombre', gremioHtml.includes('Los Cazadores del Sur'));
@@ -506,13 +508,35 @@ try {
   });
   check('permite quitarlo', (await quitar.json()).monsterId === null);
 
+  console.log('\n--- Mensajes traducidos ---');
+  const savedEs = await (await fetch(`${BASE}/cuenta?aviso=msg.saved`, {
+    headers: { ...auth, cookie: `${cookie}; mhw_lang=es` },
+  })).text();
+  check('el aviso sale en español', savedEs.includes('Guardado.'));
+
+  const savedEn = await (await fetch(`${BASE}/cuenta?aviso=msg.saved`, {
+    headers: { ...auth, cookie: `${cookie}; mhw_lang=en` },
+  })).text();
+  check('el mismo aviso sale en inglés', savedEn.includes('Saved.') && !savedEn.includes('Guardado.'));
+
+  // Antes el mensaje viajaba como texto y se pintaba tal cual: cualquiera podía
+  // fabricar un enlace que mostrara lo que quisiera.
+  const injected = await (await fetch(`${BASE}/cuenta?error=Tu%20cuenta%20fue%20bloqueada`, {
+    headers: auth,
+  })).text();
+  check('un mensaje inventado en la URL no se pinta', !injected.includes('Tu cuenta fue bloqueada'));
+
+  const injectedHtml = await (await fetch(`${BASE}/entrar?error=%3Cimg%20src%3Dx%3E`)).text();
+  check('tampoco se cuela marcado', !injectedHtml.includes('<img src=x>'));
+
   console.log('\n--- Login ---');
   const badLogin = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',
     redirect: 'manual',
     body: new URLSearchParams({ email: 'cazador@example.com', password: 'incorrecta!!' }),
   });
-  check('rechaza contraseña incorrecta', (badLogin.headers.get('location') ?? '').includes('error='));
+  check('rechaza contraseña incorrecta',
+    (badLogin.headers.get('location') ?? '').includes('error=msg.badCredentials'));
 
   const goodLogin = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST',

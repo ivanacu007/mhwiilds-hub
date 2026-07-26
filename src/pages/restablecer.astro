@@ -1,9 +1,10 @@
 ---
 const t = Astro.locals.t;
+import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
 
 const token = Astro.url.searchParams.get('token') ?? '';
-const error = Astro.url.searchParams.get('error');
+const error = readFlash(t, Astro.url.searchParams.get('error'));
 ---
 
 <Base title={`${t('auth.resetTitle')} · ${t('app.name')}`} noIndex>

@@ -4,24 +4,20 @@ import { findByEmail } from '../../../lib/auth/accounts.ts';
 import { emailConfigured, sendPasswordReset } from '../../../lib/auth/email.ts';
 import { resetTokens } from '../../../lib/db.ts';
 import { clientIp, rateLimit } from '../../../lib/auth/ratelimit.ts';
+import { redirectWithFlash, type FlashKey } from '../../../lib/flash.ts';
 
 const TOKEN_TTL_MS = 60 * 60 * 1000;
 
-function done(message: string): Response {
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/entrar?aviso=${encodeURIComponent(message)}` },
-  });
-}
+const done = (key: FlashKey) => redirectWithFlash('/entrar', 'aviso', key);
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
   if (!emailConfigured()) {
-    return done('Este servidor no manda correos. Entra con Google para recuperar el acceso.');
+    return done('msg.resetNoEmail');
   }
 
   const ip = clientIp(request, clientAddress);
   if (!rateLimit(`forgot:${ip}`, 5, 60 * 60 * 1000)) {
-    return done('Demasiadas solicitudes. Espera un rato.');
+    return done('msg.tooManyRequests');
   }
 
   const form = await request.formData();
@@ -29,7 +25,7 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
   // Siempre la misma respuesta: si dijera "ese correo no existe" convertiría
   // el formulario en una forma de averiguar quién tiene cuenta.
-  const generic = done('Si ese correo tiene cuenta, te llegará un enlace en un minuto.');
+  const generic = done('msg.resetSent');
 
   const user = await findByEmail(email);
   if (!user) return generic;

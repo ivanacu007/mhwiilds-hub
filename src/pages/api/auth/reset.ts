@@ -3,24 +3,21 @@ import type { APIRoute } from 'astro';
 import { hashPassword, validatePassword } from '../../../lib/auth/password.ts';
 import { createSession, destroyAllSessions } from '../../../lib/auth/session.ts';
 import { resetTokens, users } from '../../../lib/db.ts';
+import { redirectWithFlash, type FlashKey } from '../../../lib/flash.ts';
 
-function back(token: string, message: string): Response {
-  const params = new URLSearchParams({ token, error: message });
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/restablecer?${params}` },
-  });
-}
+const back = (token: string, key: FlashKey) =>
+  redirectWithFlash('/restablecer', 'error', key, { token });
 
 export const POST: APIRoute = async ({ request, cookies }) => {
   const form = await request.formData();
   const token = String(form.get('token') ?? '');
   const password = String(form.get('password') ?? '');
 
-  if (!token) return back('', 'Falta el token del enlace.');
+  if (!token) return back('', 'msg.resetNoToken');
 
-  const passwordError = validatePassword(password);
-  if (passwordError) return back(token, passwordError);
+  if (validatePassword(password)) {
+    return back(token, password.length < 10 ? 'msg.passwordShort' : 'msg.passwordLong');
+  }
 
   const collection = await resetTokens();
   const hashed = createHash('sha256').update(token).digest('hex');
@@ -33,7 +30,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   );
 
   if (!record) {
-    return back(token, 'Ese enlace ya se usó o venció. Pide uno nuevo.');
+    return back(token, 'msg.resetUsed');
   }
 
   const userCollection = await users();

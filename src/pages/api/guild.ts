@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 import { setGuild } from '../../lib/guild.ts';
+import { redirectWithFlash } from '../../lib/flash.ts';
 
 /**
  * Cualquier miembro puede renombrar el gremio. Son amigos con invitación: meter
@@ -14,18 +15,9 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const motto = String(form.get('motto') ?? '').trim();
 
   if (name.length < 2 || name.length > 50) {
-    return new Response(null, {
-      status: 303,
-      headers: {
-        location: `/gremio?error=${encodeURIComponent('El nombre debe tener entre 2 y 50 caracteres.')}`,
-      },
-    });
+    return redirectWithFlash('/gremio', 'error', 'msg.guildNameLength');
   }
 
   await setGuild(name, motto || null, locals.user.id);
-
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/gremio?aviso=${encodeURIComponent('Gremio actualizado.')}` },
-  });
+  return redirectWithFlash('/gremio', 'aviso', 'msg.guildUpdated');
 };

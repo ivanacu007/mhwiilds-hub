@@ -4,19 +4,16 @@ import { inviteIsAvailable, normalizeInviteCode } from '../../../lib/auth/invite
 import { hashPassword, validateEmail, validatePassword } from '../../../lib/auth/password.ts';
 import { createSession } from '../../../lib/auth/session.ts';
 import { clientIp, rateLimit } from '../../../lib/auth/ratelimit.ts';
+import { redirectWithFlash, type FlashKey } from '../../../lib/flash.ts';
 
-function back(message: string, form: Record<string, string>): Response {
-  const params = new URLSearchParams({ error: message, ...form });
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/registro?${params}` },
-  });
+function back(key: FlashKey, form: Record<string, string>): Response {
+  return redirectWithFlash('/registro', 'error', key, form);
 }
 
 export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   const ip = clientIp(request, clientAddress);
   if (!rateLimit(`register:${ip}`, 10, 60 * 60 * 1000)) {
-    return back('Demasiados intentos. Espera un rato.', {});
+    return back('msg.tooManyTries', {});
   }
 
   const form = await request.formData();
@@ -28,25 +25,19 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
 
   const keep = { email, name, hunterName, invite: inviteCode };
 
-  const emailError = validateEmail(email);
-  if (emailError) return back(emailError, keep);
-  if (name.length < 2 || name.length > 40) {
-    return back('El nombre debe tener entre 2 y 40 caracteres.', keep);
-  }
-  // El nombre de cazador es opcional, pero si lo escriben tiene que ser usable.
-  if (hunterName && hunterName.length > 40) {
-    return back('El nombre de cazador no puede pasar de 40 caracteres.', keep);
-  }
-  const passwordError = validatePassword(password);
-  if (passwordError) return back(passwordError, keep);
-  if (!inviteCode) return back('Necesitas un código de invitación.', keep);
+  if (validateEmail(email)) return back('msg.badEmail', keep);
+  if (name.length < 2 || name.length > 40) return back('msg.nameLength', keep);
+  // El Hunter Name es opcional, pero si lo escriben tiene que ser usable.
+  if (hunterName && hunterName.length > 40) return back('msg.hunterNameLong', keep);
 
-  if (!(await inviteIsAvailable(inviteCode))) {
-    return back('Ese código de invitación no existe o ya fue usado.', keep);
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return back(password.length < 10 ? 'msg.passwordShort' : 'msg.passwordLong', keep);
   }
-  if (await findByEmail(email)) {
-    return back('Ya existe una cuenta con ese correo.', keep);
-  }
+  if (!inviteCode) return back('msg.inviteNeeded', keep);
+
+  if (!(await inviteIsAvailable(inviteCode))) return back('msg.inviteInvalid', keep);
+  if (await findByEmail(email)) return back('msg.emailTaken', keep);
 
   const result = await createUser({
     email,

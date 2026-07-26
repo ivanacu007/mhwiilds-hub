@@ -1,11 +1,12 @@
 ---
 const t = Astro.locals.t;
+import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
 import AvatarPicker from '../components/AvatarPicker.tsx';
 
 const user = Astro.locals.user!;
-const error = Astro.url.searchParams.get('error');
-const aviso = Astro.url.searchParams.get('aviso');
+const error = readFlash(t, Astro.url.searchParams.get('error'));
+const aviso = readFlash(t, Astro.url.searchParams.get('aviso'));
 ---
 
 <Base title={`${t('account.title')} · ${t('app.name')}`} noIndex>

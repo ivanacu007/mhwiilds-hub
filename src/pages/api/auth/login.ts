@@ -3,14 +3,12 @@ import { findByEmail, touchLogin } from '../../../lib/auth/accounts.ts';
 import { verifyPassword } from '../../../lib/auth/password.ts';
 import { createSession } from '../../../lib/auth/session.ts';
 import { clientIp, rateLimit } from '../../../lib/auth/ratelimit.ts';
+import { redirectWithFlash, type FlashKey } from '../../../lib/flash.ts';
 
-function back(message: string, email: string, next: string): Response {
-  const params = new URLSearchParams({ error: message, email });
-  if (next) params.set('siguiente', next);
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/entrar?${params}` },
-  });
+function back(key: FlashKey, email: string, next: string): Response {
+  const keep: Record<string, string> = { email };
+  if (next) keep.siguiente = next;
+  return redirectWithFlash('/entrar', 'error', key, keep);
 }
 
 /** Solo rutas internas: evita que un ?siguiente= manipulado mande a otro sitio. */
@@ -29,20 +27,20 @@ export const POST: APIRoute = async ({ request, cookies, clientAddress }) => {
   // Dos cubetas: una frena a quien rocía contraseñas desde una IP, la otra
   // frena a quien ataca una cuenta concreta desde muchas IPs.
   if (!rateLimit(`login-ip:${ip}`, 20, 15 * 60 * 1000)) {
-    return back('Demasiados intentos. Espera unos minutos.', email, next);
+    return back('msg.tooManyTriesShort', email, next);
   }
   if (email && !rateLimit(`login-user:${email}`, 10, 15 * 60 * 1000)) {
-    return back('Demasiados intentos. Espera unos minutos.', email, next);
+    return back('msg.tooManyTriesShort', email, next);
   }
 
   const user = await findByEmail(email);
 
   // Mismo mensaje exista o no la cuenta, para no revelar qué correos hay.
-  const invalid = () => back('Correo o contraseña incorrectos.', email, next);
+  const invalid = () => back('msg.badCredentials', email, next);
 
   if (!user || !user.passwordHash) {
     if (user && !user.passwordHash) {
-      return back('Esa cuenta entra con Google.', email, next);
+      return back('msg.useGoogle', email, next);
     }
     return invalid();
   }

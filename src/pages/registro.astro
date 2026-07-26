@@ -1,12 +1,13 @@
 ---
 const t = Astro.locals.t;
+import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
 import { googleConfigured } from '../lib/auth/google.ts';
 
 if (Astro.locals.user) return Astro.redirect('/armador');
 
 const params = Astro.url.searchParams;
-const error = params.get('error');
+const error = readFlash(t, params.get('error'));
 const email = params.get('email') ?? '';
 const name = params.get('name') ?? '';
 const invite = params.get('invite') ?? params.get('codigo') ?? '';

@@ -7,22 +7,18 @@ import {
 } from '../../../../lib/auth/google.ts';
 import { loginWithGoogle } from '../../../../lib/auth/accounts.ts';
 import { createSession } from '../../../../lib/auth/session.ts';
+import { redirectWithFlash, type FlashKey } from '../../../../lib/flash.ts';
 
-function fail(message: string): Response {
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/entrar?error=${encodeURIComponent(message)}` },
-  });
-}
+const fail = (key: FlashKey) => redirectWithFlash('/entrar', 'error', key);
 
 export const GET: APIRoute = async ({ url, cookies }) => {
-  if (!googleConfigured()) return fail('El acceso con Google no está configurado.');
+  if (!googleConfigured()) return fail('msg.googleNotConfigured');
 
   const invite = cookies.get(OAUTH_INVITE_COOKIE)?.value ?? null;
   cookies.delete(OAUTH_INVITE_COOKIE, { path: '/' });
 
   if (url.searchParams.get('error')) {
-    return fail('Cancelaste el acceso con Google.');
+    return fail('msg.googleCancelled');
   }
 
   // Se valida el state siempre, incluso si falta el código: así la cookie
@@ -30,19 +26,19 @@ export const GET: APIRoute = async ({ url, cookies }) => {
   const stateOk = verifyState(cookies, url.searchParams.get('state'));
   const code = url.searchParams.get('code');
 
-  if (!stateOk) return fail('La sesión de acceso caducó. Inténtalo otra vez.');
-  if (!code) return fail('Google no devolvió un código de acceso.');
+  if (!stateOk) return fail('msg.googleExpired');
+  if (!code) return fail('msg.googleNoCode');
 
   let profile;
   try {
     profile = await exchangeCodeForProfile(code);
   } catch (err) {
     console.error('[auth] fallo intercambiando código de Google:', err);
-    return fail('No se pudo completar el acceso con Google.');
+    return fail('msg.googleFailed');
   }
 
   if (!profile.emailVerified) {
-    return fail('Tu correo de Google no está verificado.');
+    return fail('msg.googleUnverified');
   }
 
   const result = await loginWithGoogle(profile, invite);

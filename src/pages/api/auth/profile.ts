@@ -1,12 +1,9 @@
 import type { APIRoute } from 'astro';
 import { savedSets, users } from '../../../lib/db.ts';
+import { redirectWithFlash } from '../../../lib/flash.ts';
+import type { FlashKey } from '../../../lib/flash.ts';
 
-function back(message: string, key: 'error' | 'aviso'): Response {
-  return new Response(null, {
-    status: 303,
-    headers: { location: `/cuenta?${key}=${encodeURIComponent(message)}` },
-  });
-}
+const back = (kind: 'error' | 'aviso', key: FlashKey) => redirectWithFlash('/cuenta', kind, key);
 
 export const POST: APIRoute = async ({ locals, request }) => {
   if (!locals.user) return new Response('No autorizado', { status: 401 });
@@ -17,36 +14,21 @@ export const POST: APIRoute = async ({ locals, request }) => {
   const hunterId = String(form.get('hunterId') ?? '').trim();
   const hrRaw = String(form.get('hr') ?? '').trim();
 
-  if (name.length < 2 || name.length > 40) {
-    return back('El nombre debe tener entre 2 y 40 caracteres.', 'error');
-  }
-  if (hunterName.length > 40) {
-    return back('El Hunter Name no puede pasar de 40 caracteres.', 'error');
-  }
-  if (hunterId.length > 30) {
-    return back('El Hunter ID no puede pasar de 30 caracteres.', 'error');
-  }
+  if (name.length < 2 || name.length > 40) return back('error', 'msg.nameLength');
+  if (hunterName.length > 40) return back('error', 'msg.hunterNameLong');
+  if (hunterId.length > 30) return back('error', 'msg.hunterIdLong');
 
   let hr: number | null = null;
   if (hrRaw) {
     const parsed = Number(hrRaw);
-    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 999) {
-      return back('El HR debe ser un número entre 1 y 999.', 'error');
-    }
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 999) return back('error', 'msg.badHr');
     hr = parsed;
   }
 
   const collection = await users();
   await collection.updateOne(
     { _id: locals.user.id },
-    {
-      $set: {
-        name,
-        hunterName: hunterName || null,
-        hunterId: hunterId || null,
-        hr,
-      },
-    },
+    { $set: { name, hunterName: hunterName || null, hunterId: hunterId || null, hr } },
   );
 
   // Los sets guardan una copia del nombre del autor para que el enlace público
@@ -58,5 +40,5 @@ export const POST: APIRoute = async ({ locals, request }) => {
     { $set: { ownerName: name, ownerHunterName: hunterName || null } },
   );
 
-  return back('Guardado.', 'aviso');
+  return back('aviso', 'msg.saved');
 };

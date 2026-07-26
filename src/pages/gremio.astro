@@ -1,12 +1,13 @@
 ---
 const t = Astro.locals.t;
+import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
 import { getGuild, listMembers, displayName } from '../lib/guild.ts';
 
 const guild = await getGuild();
 const members = await listMembers();
-const error = Astro.url.searchParams.get('error');
-const aviso = Astro.url.searchParams.get('aviso');
+const error = readFlash(t, Astro.url.searchParams.get('error'));
+const aviso = readFlash(t, Astro.url.searchParams.get('aviso'));
 
 const editor = guild.updatedBy ? members.find((m) => m.id === guild.updatedBy) : null;
 ---
