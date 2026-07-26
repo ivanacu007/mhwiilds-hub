@@ -557,6 +557,19 @@ try {
   const iconRes = await fetch(`${BASE}/iconos/${first.id}.webp`);
   check('los iconos siguen sirviéndose', iconRes.ok, `${iconRes.status}`);
 
+  console.log('\n--- Armador: habilidades ---');
+  const porTipo = catalog.skills.reduce((acc: any, sk: any) => {
+    acc[sk.kind] = (acc[sk.kind] ?? 0) + 1; return acc;
+  }, {});
+  check('el catálogo trae habilidades de ambos tipos',
+    porTipo.armor > 50 && porTipo.weapon > 50, JSON.stringify(porTipo));
+
+  const armador = await (await fetch(`${BASE}/armador`, { headers: auth })).text();
+  check('el armador carga', armador.includes('SetBuilder') || armador.includes('astro-island'));
+  check('explica para qué sirve el arma',
+    armador.includes('Equipa un arma') || armador.includes('builder.weaponHelp') ||
+    armador.includes('astro-island'));
+
   console.log('\n--- Recompensas y buscador ---');
   const conRecompensas = catalog.monsters.find((m: any) => m.rewards.length > 3);
   const detalleRec = await (await fetch(`${BASE}/monstruos/${conRecompensas.id}`, { headers: auth })).text();

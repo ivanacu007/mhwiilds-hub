@@ -86,15 +86,29 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
     [catalog],
   );
 
-  const skillMatches = useMemo(() => {
-    if (!catalog || skillQuery.trim().length < 2) return [];
+  /**
+   * La lista completa, agrupada y filtrable. Antes era una búsqueda que exigía
+   * dos letras y mostraba ocho resultados como mucho, así que no había forma de
+   * ver qué habilidades existen ni de llegar a una cuyo nombre no recuerdas.
+   */
+  const skillGroups = useMemo(() => {
+    if (!catalog) return [] as { kind: 'armor' | 'weapon'; skills: Catalog['skills'] }[];
     const needle = normalize(skillQuery.trim());
-    return catalog.skills
-      .filter((s) => s.kind === 'armor' || s.kind === 'weapon')
-      .filter((s) => normalize(s.name).includes(needle))
-      .filter((s) => !targets.some((t) => t.skillId === s.id))
-      .slice(0, 8);
+    const pick = (kind: 'armor' | 'weapon') =>
+      catalog.skills
+        .filter((s) => s.kind === kind)
+        .filter((s) => !needle || normalize(s.name).includes(needle))
+        .filter((s) => !targets.some((t) => t.skillId === s.id))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    return [
+      { kind: 'armor' as const, skills: pick('armor') },
+      { kind: 'weapon' as const, skills: pick('weapon') },
+    ].filter((g) => g.skills.length > 0);
   }, [catalog, skillQuery, targets]);
+
+  const addSkill = (skillId: number) => {
+    setTargets((list) => (list.some((t) => t.skillId === skillId) ? list : [...list, { skillId, level: 1 }]));
+  };
 
   const weaponMatches = useMemo(() => {
     if (!catalog || weaponQuery.trim().length < 2) return [];
@@ -140,7 +154,17 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
     <div class="grid gap-6 lg:grid-cols-[22rem_1fr]">
       <aside class="space-y-4">
         <section class="rounded border border-base-800 bg-base-900 p-3">
-          <h2 class="mb-2 text-sm font-medium text-base-300">{t('builder.wantedSkills')}</h2>
+          <div class="mb-2 flex items-center gap-2">
+            <h2 class="text-sm font-medium text-base-300">{t('builder.wantedSkills')}</h2>
+            {targets.length > 0 && (
+              <button
+                onClick={() => setTargets([])}
+                class="ml-auto text-xs text-base-500 hover:text-red-300"
+              >
+                {t('builder.clearAll')}
+              </button>
+            )}
+          </div>
 
           <div class="space-y-2">
             {targets.map((target) => {
@@ -182,31 +206,55 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
           <input
             value={skillQuery}
             onInput={(e) => setSkillQuery((e.target as HTMLInputElement).value)}
-            placeholder={t('builder.searchSkill')}
-            class="mt-2 w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+            onKeyDown={(e) => {
+              // Enter agrega la primera coincidencia: escribir y pulsar Enter es
+              // lo que la gente intenta, y antes no hacía nada.
+              if (e.key !== 'Enter') return;
+              e.preventDefault();
+              const first = skillGroups[0]?.skills[0];
+              if (first) { addSkill(first.id); setSkillQuery(''); }
+            }}
+            placeholder={t('builder.filterSkills')}
+            class="mt-3 w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
           />
-          {skillMatches.length > 0 && (
-            <ul class="mt-1 divide-y divide-base-850 rounded border border-base-800">
-              {skillMatches.map((skill) => (
-                <li key={skill.id}>
-                  <button
-                    onClick={() => {
-                      setTargets((list) => [...list, { skillId: skill.id, level: 1 }]);
-                      setSkillQuery('');
-                    }}
-                    class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
-                  >
-                    <span class="flex-1">{skill.name}</span>
-                    {skill.kind === 'weapon' && <span class="text-xs text-ember-300">{t('builder.weaponSkillTag')}</span>}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
+
+          <div class="mt-1 max-h-72 overflow-y-auto rounded border border-base-800">
+            {skillGroups.length === 0 && (
+              <p class="px-2 py-3 text-center text-xs text-base-500">{t('builder.noSkillMatch')}</p>
+            )}
+            {skillGroups.map((group) => (
+              <div key={group.kind}>
+                <p class="sticky top-0 bg-base-950 px-2 py-1 text-[11px] uppercase tracking-wide text-base-500">
+                  {group.kind === 'armor' ? t('builder.armorSkills') : t('builder.weaponSkills')}
+                  <span class="ml-1 opacity-60">{group.skills.length}</span>
+                </p>
+                <ul class="divide-y divide-base-850">
+                  {group.skills.map((skill) => {
+                    const max = skill.ranks.reduce((m, r) => Math.max(m, r.level), 1);
+                    return (
+                      <li key={skill.id}>
+                        <button
+                          onClick={() => addSkill(skill.id)}
+                          class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
+                        >
+                          <span class="min-w-0 flex-1 truncate">{skill.name}</span>
+                          {group.kind === 'weapon' && (
+                            <span class="shrink-0 text-xs text-ember-300">{t('builder.weaponSkillTag')}</span>
+                          )}
+                          <span class="shrink-0 text-xs text-base-600">{t('builder.max')} {max}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section class="rounded border border-base-800 bg-base-900 p-3">
-          <h2 class="mb-2 text-sm font-medium text-base-300">{t('builder.weaponOptional')}</h2>
+          <h2 class="text-sm font-medium text-base-300">{t('builder.weaponOptional')}</h2>
+          <p class="mb-2 text-xs text-base-500">{t('builder.weaponHelp')}</p>
           {weapon ? (
             <div class="flex items-center gap-2 rounded bg-base-850 px-2 py-1.5 text-sm">
               <span class="min-w-0 flex-1 truncate">{weapon.name}</span>
@@ -236,9 +284,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
                   ))}
                 </ul>
               )}
-              <p class="mt-1 text-xs text-base-500">
-                {t('builder.weaponSkillNote')}
-              </p>
+
             </>
           )}
         </section>
