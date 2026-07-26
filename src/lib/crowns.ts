@@ -2,12 +2,65 @@ import type { Monster } from './catalog/types.ts';
 import { MONSTER_VARIANTS, isMonsterVariant } from './catalog/monster-icons.ts';
 import type { MonsterProgress, VariantCounts } from './models.ts';
 
-export type CrownKind = 'mini' | 'silver' | 'gold';
+/**
+ * Coronas de Wilds: dos tamaños, y cada uno puede ser de plata o de oro.
+ *
+ *   pequeña plata · pequeña oro · grande plata · grande oro
+ *
+ * Las guías web hablan de "tres tipos de corona" porque enumeran los trofeos
+ * (Miniatura, Plata, Oro), pero la guía de campo del juego muestra una ranura
+ * para el ejemplar más pequeño y otra para el más grande, y cada una se llena
+ * en plata o en oro según lo extremo que sea el tamaño.
+ */
+export type CrownSlot = 'small' | 'large';
+export type CrownTier = 'silver' | 'gold';
 
-export const CROWN_KINDS: CrownKind[] = ['mini', 'silver', 'gold'];
+/** Identificador plano, que es como se guarda y se recorre. */
+export type CrownKey = 'smallSilver' | 'smallGold' | 'largeSilver' | 'largeGold';
+
+export const CROWN_KEYS: CrownKey[] = ['smallSilver', 'smallGold', 'largeSilver', 'largeGold'];
+
+export const CROWN_INFO: Record<CrownKey, { slot: CrownSlot; tier: CrownTier; label: string }> = {
+  smallSilver: { slot: 'small', tier: 'silver', label: 'Pequeña plata' },
+  smallGold: { slot: 'small', tier: 'gold', label: 'Pequeña oro' },
+  largeSilver: { slot: 'large', tier: 'silver', label: 'Grande plata' },
+  largeGold: { slot: 'large', tier: 'gold', label: 'Grande oro' },
+};
+
+/**
+ * La API solo trae tres umbrales: `mini` (0.90 del tamaño base), `silver` (1.15)
+ * y `gold` (1.23). El de la corona pequeña de PLATA no aparece en la API ni en
+ * las guías, así que se estima como fracción del tamaño base.
+ *
+ * Es el único número aquí que no sale del juego: si al comparar con la guía de
+ * campo no cuadra, se corrige esta constante y todo lo demás se recalcula solo.
+ */
+export const SMALL_SILVER_RATIO = 0.95;
+
+export interface CrownThresholds {
+  smallSilver: number;
+  smallGold: number;
+  largeSilver: number;
+  largeGold: number;
+}
+
+export function crownThresholds(monster: Monster): CrownThresholds | null {
+  const size = monster.size;
+  if (!size) return null;
+  return {
+    smallSilver: size.base * SMALL_SILVER_RATIO,
+    smallGold: size.mini,
+    largeSilver: size.silver,
+    largeGold: size.gold,
+  };
+}
 
 export function emptyCounts(): VariantCounts {
   return { normal: 0, frenzied: 0, tempered: 0, 'arch-tempered': 0 };
+}
+
+export function emptyManual(): Record<CrownKey, boolean> {
+  return { smallSilver: false, smallGold: false, largeSilver: false, largeGold: false };
 }
 
 export function emptyProgress(): MonsterProgress {
@@ -16,9 +69,7 @@ export function emptyProgress(): MonsterProgress {
     largest: null,
     hunted: emptyCounts(),
     captured: emptyCounts(),
-    manualMini: false,
-    manualSilver: false,
-    manualGold: false,
+    manual: emptyManual(),
   };
 }
 
@@ -31,61 +82,105 @@ export interface CrownState {
   earned: boolean;
   /** true si viene de un tamaño registrado, false si se marcó a mano. */
   fromSize: boolean;
+  threshold: number | null;
 }
 
-export interface MonsterCrowns {
-  mini: CrownState;
-  silver: CrownState;
-  gold: CrownState;
+export type MonsterCrowns = Record<CrownKey, CrownState> & {
   /**
-   * Cuánto falta para la siguiente corona que se puede conseguir creciendo.
-   * Null si ya las tiene todas, si no hay umbrales, o si lo que falta es la
-   * pequeña (que se consigue cazando más chico, no más grande).
+   * Qué falta para la siguiente corona alcanzable, con la dirección: las
+   * pequeñas se consiguen cazando MÁS CHICO y las grandes cazando MÁS GRANDE.
    */
-  nextGoal: { kind: CrownKind; needed: number; target: number } | null;
-}
+  nextGoal: { key: CrownKey; needed: number; target: number; direction: 'menor' | 'mayor' } | null;
+};
 
 /**
- * Deduce las coronas de un monstruo.
+ * Deduce las coronas de un monstruo a partir del rango de tamaños registrado.
  *
- * La pequeña se gana cazando por DEBAJO del umbral; plata y oro, por encima.
- * Confundir el sentido es el error fácil aquí.
+ * Las pequeñas se ganan por DEBAJO del umbral y las grandes por encima:
+ * confundir el sentido es el error fácil aquí.
  */
 export function deriveCrowns(monster: Monster, raw: MonsterProgress | undefined): MonsterCrowns {
-  const p = raw ?? emptyProgress();
-  const size = monster.size;
+  const p = { ...emptyProgress(), ...raw };
+  const manual = { ...emptyManual(), ...p.manual };
+  const thresholds = crownThresholds(monster);
 
-  const bySize = (kind: CrownKind): boolean => {
-    if (!size) return false;
-    if (kind === 'mini') return p.smallest != null && p.smallest <= size.mini;
-    const threshold = kind === 'silver' ? size.silver : size.gold;
-    return p.largest != null && p.largest >= threshold;
+  const state = (key: CrownKey): CrownState => {
+    const threshold = thresholds?.[key] ?? null;
+    let fromSize = false;
+
+    if (threshold != null) {
+      fromSize = CROWN_INFO[key].slot === 'small'
+        ? p.smallest != null && p.smallest <= threshold
+        : p.largest != null && p.largest >= threshold;
+    }
+
+    return { earned: fromSize || manual[key], fromSize, threshold };
   };
 
-  const manual: Record<CrownKind, boolean> = {
-    mini: p.manualMini,
-    silver: p.manualSilver,
-    gold: p.manualGold,
+  const crowns = {
+    smallSilver: state('smallSilver'),
+    smallGold: state('smallGold'),
+    largeSilver: state('largeSilver'),
+    largeGold: state('largeGold'),
   };
-
-  const state = (kind: CrownKind): CrownState => {
-    const fromSize = bySize(kind);
-    return { earned: fromSize || manual[kind], fromSize };
-  };
-
-  const crowns = { mini: state('mini'), silver: state('silver'), gold: state('gold') };
 
   let nextGoal: MonsterCrowns['nextGoal'] = null;
-  if (size && p.largest != null) {
-    for (const kind of ['silver', 'gold'] as const) {
-      if (crowns[kind].earned) continue;
-      const target = kind === 'silver' ? size.silver : size.gold;
-      nextGoal = { kind, needed: Math.max(0, target - p.largest), target };
+  if (thresholds) {
+    // Primero las grandes, en orden de dificultad; luego las pequeñas.
+    for (const key of ['largeSilver', 'largeGold'] as const) {
+      if (crowns[key].earned || p.largest == null) continue;
+      nextGoal = {
+        key,
+        needed: Math.max(0, thresholds[key] - p.largest),
+        target: thresholds[key],
+        direction: 'mayor',
+      };
       break;
+    }
+    if (!nextGoal) {
+      for (const key of ['smallSilver', 'smallGold'] as const) {
+        if (crowns[key].earned || p.smallest == null) continue;
+        nextGoal = {
+          key,
+          needed: Math.max(0, p.smallest - thresholds[key]),
+          target: thresholds[key],
+          direction: 'menor',
+        };
+        break;
+      }
     }
   }
 
   return { ...crowns, nextGoal };
+}
+
+export type CrownTally = Record<CrownKey, number> & {
+  /** Monstruos con las cuatro coronas. */
+  complete: number;
+  total: number;
+};
+
+export function tallyCrowns(
+  monsters: Monster[],
+  progress: Record<string, MonsterProgress>,
+): CrownTally {
+  const tally: CrownTally = {
+    smallSilver: 0, smallGold: 0, largeSilver: 0, largeGold: 0,
+    complete: 0,
+    total: monsters.length,
+  };
+
+  for (const monster of monsters) {
+    const crowns = deriveCrowns(monster, progress[String(monster.id)]);
+    let all = true;
+    for (const key of CROWN_KEYS) {
+      if (crowns[key].earned) tally[key] += 1;
+      else all = false;
+    }
+    if (all) tally.complete += 1;
+  }
+
+  return tally;
 }
 
 /** Totales de caza de un cazador, por nivel de monstruo. */
@@ -105,38 +200,7 @@ export function tallyHunts(progress: Record<string, MonsterProgress>): {
     }
   }
 
-  return {
-    hunted,
-    captured,
-    totalHunted: sumCounts(hunted),
-    totalCaptured: sumCounts(captured),
-  };
-}
-
-export interface CrownTally {
-  mini: number;
-  silver: number;
-  gold: number;
-  /** Monstruos con las tres coronas. */
-  complete: number;
-  total: number;
-}
-
-export function tallyCrowns(
-  monsters: Monster[],
-  progress: Record<string, MonsterProgress>,
-): CrownTally {
-  const tally: CrownTally = { mini: 0, silver: 0, gold: 0, complete: 0, total: monsters.length };
-
-  for (const monster of monsters) {
-    const crowns = deriveCrowns(monster, progress[String(monster.id)]);
-    if (crowns.mini.earned) tally.mini += 1;
-    if (crowns.silver.earned) tally.silver += 1;
-    if (crowns.gold.earned) tally.gold += 1;
-    if (crowns.mini.earned && crowns.silver.earned && crowns.gold.earned) tally.complete += 1;
-  }
-
-  return tally;
+  return { hunted, captured, totalHunted: sumCounts(hunted), totalCaptured: sumCounts(captured) };
 }
 
 /** Los tamaños se muestran con dos decimales, igual que en el juego. */
@@ -174,12 +238,26 @@ export function cleanProgress(raw: unknown): MonsterProgress | null {
       return out;
     }
     if (value && typeof value === 'object') {
-      for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
-        if (isMonsterVariant(key)) out[key] = one(raw);
+      for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+        if (isMonsterVariant(key)) out[key] = one(entry);
       }
     }
     return out;
   };
+
+  /**
+   * El modelo anterior tenía tres coronas planas. Se traducen a las nuevas: la
+   * "mini" era la pequeña de oro, y plata y oro eran las grandes.
+   */
+  const manual = emptyManual();
+  if (r.manualMini === true) manual.smallGold = true;
+  if (r.manualSilver === true) manual.largeSilver = true;
+  if (r.manualGold === true) manual.largeGold = true;
+  if (r.manual && typeof r.manual === 'object') {
+    for (const [key, value] of Object.entries(r.manual as Record<string, unknown>)) {
+      if ((CROWN_KEYS as string[]).includes(key)) manual[key as CrownKey] = value === true;
+    }
+  }
 
   let smallest = size(r.smallest);
   let largest = size(r.largest);
@@ -193,15 +271,13 @@ export function cleanProgress(raw: unknown): MonsterProgress | null {
     largest,
     hunted: counts(r.hunted),
     captured: counts(r.captured),
-    manualMini: r.manualMini === true,
-    manualSilver: r.manualSilver === true,
-    manualGold: r.manualGold === true,
+    manual,
   };
 
   const isEmpty =
     progress.smallest == null && progress.largest == null &&
     sumCounts(progress.hunted) === 0 && sumCounts(progress.captured) === 0 &&
-    !progress.manualMini && !progress.manualSilver && !progress.manualGold;
+    !CROWN_KEYS.some((key) => progress.manual[key]);
 
   // Guardar entradas vacías solo engordaría el documento.
   return isEmpty ? null : progress;

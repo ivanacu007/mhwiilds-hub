@@ -34,7 +34,9 @@ const allRows = members
   }))
   // Se ordena por coronas, que solo se pueden calcular en memoria, así que la
   // página se recorta después de ordenar.
-  .sort((a, b) => b.crowns.gold - a.crowns.gold || (b.member.hr ?? 0) - (a.member.hr ?? 0));
+  .sort((a, b) =>
+    (b.crowns.largeGold + b.crowns.smallGold) - (a.crowns.largeGold + a.crowns.smallGold) ||
+    (b.member.hr ?? 0) - (a.member.hr ?? 0));
 
 const info = paginate(allRows.length, Number(Astro.url.searchParams.get('p') ?? 1), 25);
 const rows = allRows.slice(info.start, info.end);
@@ -63,9 +65,10 @@ const rows = allRows.slice(info.start, info.end);
           </div>
 
           <div class="flex items-center gap-3 text-sm">
-            <span title="Coronas de oro" class="text-[#e0b53c]">♔ {crowns.gold}</span>
-            <span title="Coronas de plata" class="text-[#c9ccd4]">♔ {crowns.silver}</span>
-            <span title="Coronas pequeñas" class="text-[#8fb8d8]">♔ {crowns.mini}</span>
+            <span title="Grande oro" class="text-[#e0b53c]">♔ {crowns.largeGold}</span>
+            <span title="Grande plata" class="text-[#c9ccd4]">♔ {crowns.largeSilver}</span>
+            <span title="Pequeña oro" class="text-[#e0b53c]">♙ {crowns.smallGold}</span>
+            <span title="Pequeña plata" class="text-[#c9ccd4]">♙ {crowns.smallSilver}</span>
             <span class="text-base-500">{sets} {sets === 1 ? 'set' : 'sets'}</span>
           </div>
         </a>

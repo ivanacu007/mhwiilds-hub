@@ -285,20 +285,35 @@ try {
     JSON.stringify(counts?.hunted));
   check('suma el total de cacerías', sumCounts(counts?.hunted) === 17, `${sumCounts(counts?.hunted)}`);
 
-  const { deriveCrowns } = await import('../src/lib/crowns.ts');
+  const { deriveCrowns, emptyProgress, CROWN_KEYS } = await import('../src/lib/crowns.ts');
   const derived = deriveCrowns(monster, savedProgress[String(monster.id)]);
-  check('deduce la corona pequeña por tamaño', derived.mini.earned && derived.mini.fromSize);
-  check('deduce la de oro por tamaño', derived.gold.earned && derived.gold.fromSize);
+  // Un ejemplar bajo el umbral mini y otro sobre el de oro dan las CUATRO.
+  check('las cuatro coronas se deducen del tamaño',
+    CROWN_KEYS.every((k) => derived[k].earned && derived[k].fromSize),
+    JSON.stringify(CROWN_KEYS.map((k) => [k, derived[k].earned])));
 
-  // Al revés: un ejemplar dentro del rango normal no debe dar ninguna corona.
+  // Un ejemplar de tamaño normal no debe dar ninguna.
   const none = deriveCrowns(monster, {
-    smallest: monster.size.base, largest: monster.size.base,
-    hunted: { normal: 1, frenzied: 0, tempered: 0, 'arch-tempered': 0 },
-    captured: { normal: 0, frenzied: 0, tempered: 0, 'arch-tempered': 0 },
-    manualMini: false, manualSilver: false, manualGold: false,
+    ...emptyProgress(), smallest: monster.size.base, largest: monster.size.base,
   });
-  check('no regala coronas con tamaño normal', !none.mini.earned && !none.gold.earned);
-  check('dice cuánto falta para la siguiente', none.nextGoal != null && none.nextGoal.needed > 0);
+  check('no regala coronas con tamaño normal', CROWN_KEYS.every((k) => !none[k].earned));
+  check('la meta grande se persigue cazando mayor',
+    none.nextGoal?.direction === 'mayor' && none.nextGoal.needed > 0);
+
+  // Solo un ejemplar pequeño: pequeñas sí, grandes no.
+  const onlySmall = deriveCrowns(monster, {
+    ...emptyProgress(), smallest: monster.size.mini - 1, largest: monster.size.mini - 1,
+  });
+  check('un ejemplar chico da las pequeñas y no las grandes',
+    onlySmall.smallGold.earned && onlySmall.smallSilver.earned &&
+    !onlySmall.largeSilver.earned && !onlySmall.largeGold.earned);
+
+  // Plata sí, oro no: tamaño entre ambos umbrales.
+  const silverOnly = deriveCrowns(monster, {
+    ...emptyProgress(), largest: (monster.size.silver + monster.size.gold) / 2,
+  });
+  check('plata grande sin oro grande',
+    silverOnly.largeSilver.earned && !silverOnly.largeGold.earned);
 
   // Si llegan invertidos, se ordenan en vez de perder el dato.
   await fetch(`${BASE}/api/progress`, {
@@ -321,6 +336,16 @@ try {
   const legacy = legacyRead.monsters[String(monster.id)];
   const { cleanProgress } = await import('../src/lib/crowns.ts');
   const migrated = cleanProgress(legacy);
+  // El modelo anterior tenía tres coronas planas marcadas a mano.
+  const { cleanProgress: cp } = await import('../src/lib/crowns.ts');
+  const oldManual = cp({ manualMini: true, manualSilver: true, manualGold: true });
+  check('traduce las coronas manuales del modelo viejo',
+    oldManual?.manual.smallGold === true &&
+    oldManual?.manual.largeSilver === true &&
+    oldManual?.manual.largeGold === true &&
+    oldManual?.manual.smallSilver === false,
+    JSON.stringify(oldManual?.manual));
+
   check('migra un contador viejo a la variante normal',
     migrated?.hunted.normal === 7 && migrated?.captured.normal === 2,
     JSON.stringify(migrated?.hunted));

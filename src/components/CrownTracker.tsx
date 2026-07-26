@@ -4,8 +4,9 @@ import Pagination from './Pagination.tsx';
 import { paginate } from '../lib/paginate.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import {
-  CROWN_KINDS, deriveCrowns, emptyCounts, emptyProgress, formatSize, sumCounts, tallyCrowns,
-  type CrownKind,
+  CROWN_INFO, CROWN_KEYS, crownThresholds, deriveCrowns, emptyCounts, emptyManual, emptyProgress,
+  formatSize, sumCounts, tallyCrowns,
+  type CrownKey, type CrownTier,
 } from '../lib/crowns.ts';
 import { monsterArtDataUri, SPECIES_LABEL } from '../lib/monster-art.ts';
 import { MONSTER_VARIANTS, VARIANT_LABEL, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
@@ -90,7 +91,7 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
     return monsters.filter((m) => {
       if (needle && !normalize(m.name).includes(needle)) return false;
       const c = deriveCrowns(m, progress[String(m.id)]);
-      const all = c.mini.earned && c.silver.earned && c.gold.earned;
+      const all = CROWN_KEYS.every((key) => c[key].earned);
       if (filter === 'faltantes' && all) return false;
       if (filter === 'completos' && !all) return false;
       if (filter === 'favoritos' && !favs.includes(m.id)) return false;
@@ -109,9 +110,9 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
   return (
     <div>
       <div class="mb-4 flex flex-wrap items-center gap-3 rounded border border-base-800 bg-base-900 px-3 py-2">
-        <Stat label="Pequeñas" value={tally.mini} total={tally.total} kind="mini" />
-        <Stat label="Plata" value={tally.silver} total={tally.total} kind="silver" />
-        <Stat label="Oro" value={tally.gold} total={tally.total} kind="gold" />
+        {CROWN_KEYS.map((key) => (
+          <Stat key={key} label={CROWN_INFO[key].label} value={tally[key]} total={tally.total} crown={key} />
+        ))}
         <span class="ml-auto text-xs text-base-500">
           {tally.complete} de {tally.total} completos
           {status === 'guardando' && ' · guardando…'}
@@ -177,10 +178,10 @@ export default function CrownTracker({ favorites }: { favorites: number[] }) {
   );
 }
 
-function Stat({ label, value, total, kind }: { label: string; value: number; total: number; kind: CrownKind }) {
+function Stat({ label, value, total, crown }: { label: string; value: number; total: number; crown: CrownKey }) {
   return (
     <span class="flex items-center gap-1.5 text-sm">
-      <Crown kind={kind} earned />
+      <Crown crown={crown} earned />
       <span class="text-base-300">{label}</span>
       <strong>{value}</strong>
       <span class="text-base-500">/{total}</span>
@@ -188,32 +189,39 @@ function Stat({ label, value, total, kind }: { label: string; value: number; tot
   );
 }
 
-const CROWN_COLOR: Record<CrownKind, string> = {
-  mini: '#8fb8d8',
+const TIER_COLOR: Record<CrownTier, string> = {
   silver: '#c9ccd4',
   gold: '#e0b53c',
 };
 
-function Crown({ kind, earned, dim }: { kind: CrownKind; earned: boolean; dim?: boolean }) {
+/**
+ * El color dice el tipo (plata u oro) y el alto dice la ranura: la corona
+ * pequeña se dibuja achatada y la grande estirada, como en el juego.
+ */
+function Crown({ crown, earned, dim }: { crown: CrownKey; earned: boolean; dim?: boolean }) {
+  const { slot, tier, label } = CROWN_INFO[crown];
+  const small = slot === 'small';
+  const color = earned ? TIER_COLOR[tier] : '#6b7280';
+
   return (
     <svg
       viewBox="0 0 24 20"
       width="14"
-      height="12"
-      aria-hidden="true"
+      height={small ? 9 : 12}
+      aria-label={label}
       style={{
-        opacity: earned ? (dim ? 0.75 : 1) : 0.18,
+        opacity: earned ? (dim ? 0.7 : 1) : 0.18,
         filter: earned && !dim ? 'drop-shadow(0 0 2px rgba(0,0,0,.6))' : undefined,
       }}
     >
       <path
-        d="M2 16 L2 5 L7 9 L12 2 L17 9 L22 5 L22 16 Z"
-        fill={earned ? CROWN_COLOR[kind] : '#6b7280'}
+        d={small ? 'M2 16 L2 8 L7 11 L12 6 L17 11 L22 8 L22 16 Z' : 'M2 16 L2 5 L7 9 L12 2 L17 9 L22 5 L22 16 Z'}
+        fill={color}
         stroke="rgba(0,0,0,.45)"
         stroke-width="1"
         stroke-linejoin="round"
       />
-      <rect x="2" y="16" width="20" height="2.5" fill={earned ? CROWN_COLOR[kind] : '#6b7280'} />
+      <rect x="2" y="16" width="20" height="2.5" fill={color} />
     </svg>
   );
 }
@@ -295,8 +303,8 @@ function MonsterTile(props: {
       </span>
 
       <span class="flex gap-0.5">
-        {CROWN_KINDS.map((kind) => (
-          <Crown key={kind} kind={kind} earned={crowns[kind].earned} dim={!crowns[kind].fromSize} />
+        {CROWN_KEYS.map((key) => (
+          <Crown key={key} crown={key} earned={crowns[key].earned} dim={!crowns[key].fromSize} />
         ))}
       </span>
     </button>
@@ -322,6 +330,8 @@ function MonsterDialog(props: {
   const [missing, setMissing] = useState<MonsterVariant[]>([]);
   const available = MONSTER_VARIANTS.filter((v) => v === 'normal' || !missing.includes(v));
   const crowns = deriveCrowns(monster, p);
+  const manual = { ...emptyManual(), ...p.manual };
+  const thresholds = crownThresholds(monster);
   const size = monster.size;
 
   useEffect(() => {
@@ -382,23 +392,25 @@ function MonsterDialog(props: {
         {size ? (
           <>
             <div class="mb-3 grid grid-cols-2 gap-2">
-              {numberField('Tu más pequeño', p.smallest, `Corona pequeña con ${formatSize(size.mini)} o menos`,
+              {numberField('Tu más pequeño', p.smallest,
+                `Oro pequeña con ${formatSize(thresholds!.smallGold)} o menos`,
                 (v) => onChange({ smallest: v }))}
-              {numberField('Tu más grande', p.largest, `Oro con ${formatSize(size.gold)} o más`,
+              {numberField('Tu más grande', p.largest,
+                `Oro grande con ${formatSize(thresholds!.largeGold)} o más`,
                 (v) => onChange({ largest: v }))}
             </div>
 
             <div class="mb-3 space-y-1.5">
-              {CROWN_KINDS.map((kind) => {
-                const state = crowns[kind];
-                const threshold = kind === 'mini' ? size.mini : kind === 'silver' ? size.silver : size.gold;
+              {CROWN_KEYS.map((key) => {
+                const state = crowns[key];
+                const { slot, label } = CROWN_INFO[key];
                 return (
-                  <div key={kind} class="flex items-center gap-2 rounded bg-base-850 px-2 py-1.5 text-sm">
-                    <Crown kind={kind} earned={state.earned} />
+                  <div key={key} class="flex items-center gap-2 rounded bg-base-850 px-2 py-1.5 text-sm">
+                    <Crown crown={key} earned={state.earned} />
                     <span class="flex-1">
-                      {kind === 'mini' ? 'Pequeña' : kind === 'silver' ? 'Plata' : 'Oro'}
+                      {label}
                       <span class="ml-1 text-xs text-base-500">
-                        {kind === 'mini' ? '≤' : '≥'} {formatSize(threshold)}
+                        {slot === 'small' ? '≤' : '≥'} {formatSize(state.threshold)}
                       </span>
                     </span>
                     {state.fromSize ? (
@@ -407,17 +419,10 @@ function MonsterDialog(props: {
                       <label class="flex cursor-pointer items-center gap-1 text-xs text-base-500">
                         <input
                           type="checkbox"
-                          checked={
-                            kind === 'mini' ? p.manualMini : kind === 'silver' ? p.manualSilver : p.manualGold
-                          }
-                          onChange={(e) => {
-                            const checked = (e.target as HTMLInputElement).checked;
-                            onChange(
-                              kind === 'mini' ? { manualMini: checked }
-                              : kind === 'silver' ? { manualSilver: checked }
-                              : { manualGold: checked },
-                            );
-                          }}
+                          checked={manual[key]}
+                          onChange={(e) => onChange({
+                            manual: { ...manual, [key]: (e.target as HTMLInputElement).checked },
+                          })}
                         />
                         marcar
                       </label>
@@ -429,8 +434,9 @@ function MonsterDialog(props: {
 
             {crowns.nextGoal && (
               <p class="mb-3 rounded border border-ember-500/30 bg-ember-500/5 px-2 py-1.5 text-xs text-ember-300">
-                Te faltan {formatSize(crowns.nextGoal.needed)} para la corona de{' '}
-                {crowns.nextGoal.kind === 'silver' ? 'plata' : 'oro'}.
+                Te faltan {formatSize(crowns.nextGoal.needed)} para la corona{' '}
+                {CROWN_INFO[crowns.nextGoal.key].label.toLowerCase()}, cazando uno{' '}
+                {crowns.nextGoal.direction}.
               </p>
             )}
           </>

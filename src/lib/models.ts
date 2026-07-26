@@ -1,5 +1,6 @@
 import type { Catalog } from './catalog/types.ts';
 import type { MonsterVariant } from './catalog/monster-icons.ts';
+import type { CrownKey } from './crowns.ts';
 
 export interface UserDoc {
   _id: string;
@@ -135,9 +136,7 @@ export interface MonsterProgress {
   hunted: VariantCounts;
   captured: VariantCounts;
   /** Coronas marcadas a mano, sin respaldo de tamaño. */
-  manualMini: boolean;
-  manualSilver: boolean;
-  manualGold: boolean;
+  manual: Record<CrownKey, boolean>;
 }
 
 export interface ProgressDoc {

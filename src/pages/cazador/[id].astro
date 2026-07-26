@@ -7,7 +7,7 @@ import { paginate } from '../../lib/paginate.ts';
 import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
-import { CROWN_KINDS, deriveCrowns, formatSize, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
+import { CROWN_INFO, CROWN_KEYS, deriveCrowns, formatSize, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
 import { MONSTER_VARIANTS, VARIANT_LABEL } from '../../lib/catalog/monster-icons.ts';
 import { SPECIES_LABEL } from '../../lib/monster-art.ts';
 
@@ -39,13 +39,14 @@ const favorites = member.favoriteMonsters
 // Solo los que tienen alguna corona: la rejilla completa ya vive en /coronas.
 const allWithCrowns = monsters
   .map((monster) => ({ monster, state: deriveCrowns(monster, progress[String(monster.id)]) }))
-  .filter((row) => row.state.mini.earned || row.state.silver.earned || row.state.gold.earned);
+  .filter((row) => CROWN_KEYS.some((key) => row.state[key].earned));
 
 const crownsInfo = paginate(allWithCrowns.length, Number(Astro.url.searchParams.get('c') ?? 1), 24);
 const withCrowns = allWithCrowns.slice(crownsInfo.start, crownsInfo.end);
 
 const isMe = Astro.locals.user?.id === member.id;
-const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as const;
+// El color dice el tipo; la ranura (pequeña o grande) va en la etiqueta.
+const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
 ---
 
 <Base title={`${displayName(member)} · Sets de Wilds`} noIndex>
@@ -68,14 +69,12 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
     </div>
   </header>
 
-  <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-    {CROWN_KINDS.map((kind) => (
+  <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
+    {CROWN_KEYS.map((key) => (
       <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
-        <p class="text-xs text-base-500">
-          {kind === 'mini' ? 'Pequeñas' : kind === 'silver' ? 'Plata' : 'Oro'}
-        </p>
-        <p class="text-lg font-semibold" style={`color:${CROWN_COLOR[kind]}`}>
-          {crowns[kind]} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
+        <p class="text-xs text-base-500">{CROWN_INFO[key].label}</p>
+        <p class="text-lg font-semibold" style={`color:${TIER_COLOR[CROWN_INFO[key].tier]}`}>
+          {crowns[key]} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
         </p>
       </div>
     ))}
@@ -147,12 +146,12 @@ const CROWN_COLOR = { mini: '#8fb8d8', silver: '#c9ccd4', gold: '#e0b53c' } as c
                 <p class="truncate text-sm">{monster.name}</p>
                 <p class="text-[11px] text-base-500">{SPECIES_LABEL[monster.species] ?? monster.species}</p>
                 <div class="mt-0.5 flex gap-1">
-                  {CROWN_KINDS.map((kind) => (
+                  {CROWN_KEYS.map((key) => (
                     <span
                       class="text-xs"
-                      style={`color:${CROWN_COLOR[kind]};opacity:${state[kind].earned ? 1 : 0.2}`}
-                      title={state[kind].fromSize ? 'Confirmada por tamaño' : 'Marcada a mano'}
-                    >♔</span>
+                      style={`color:${TIER_COLOR[CROWN_INFO[key].tier]};opacity:${state[key].earned ? 1 : 0.2}`}
+                      title={`${CROWN_INFO[key].label} · ${state[key].fromSize ? 'confirmada por tamaño' : 'marcada a mano'}`}
+                    >{CROWN_INFO[key].slot === 'small' ? '♙' : '♔'}</span>
                   ))}
                   {p?.largest != null && (
                     <span class="ml-1 text-[11px] text-base-500">máx {formatSize(p.largest)}</span>
