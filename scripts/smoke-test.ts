@@ -486,10 +486,7 @@ try {
     (m: any) => splitAffinities(m.weaknesses).statuses.length > 0,
   );
   const estadosConEstrellas = conEstados.filter((m: any) =>
-    splitAffinities(m.weaknesses).statuses.every((st: any) => {
-      const label = st.what;
-      return (st.level ?? 0) > 0;
-    }),
+    splitAffinities(m.weaknesses).statuses.every((st: any) => (st.level ?? 0) > 0),
   );
   check('los estados traen nivel en los datos',
     conEstados.length > 0 && estadosConEstrellas.length === conEstados.length);
