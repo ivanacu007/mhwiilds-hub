@@ -73,8 +73,10 @@ const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
         rombo y el logotipo condensado son el registro de menú; el filete ámbar
         de arriba es su remate. La sección activa se marca con tinte y filete,
         no con caja: la caja compite con el propio marco del panel. */}
+    {/* Por encima del panel del armador (z-40): empatados, el panel gana por
+        venir después en el documento y tapaba el desplegable de la nav. */}
     <header
-      class="topbar sticky top-0 z-40 border-b border-line"
+      class="topbar sticky top-0 z-50 border-b border-line"
     >
       <div class="mx-auto flex h-12 max-w-[1360px] items-center gap-1 px-4">
         <a href="/" class="mr-3.5 flex shrink-0 items-center">
