@@ -17,3 +17,6 @@ assets/
 
 # Iconos de material antes de importarlos
 assets/materiales/
+
+# Originales de 512 px de los iconos de monstruo, antes de recomprimir
+.iconos-originales/

@@ -39,7 +39,7 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
   useEffect(() => {
     (async () => {
       try {
-        const [cat, res] = await Promise.all([loadCatalog(), fetch('/api/progress')]);
+        const [cat, res] = await Promise.all([loadCatalog(['monsters']), fetch('/api/progress')]);
         setCatalog(cat);
         if (res.ok) setProgress((await res.json()).monsters ?? {});
         setStatus('listo');

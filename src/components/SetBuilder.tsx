@@ -41,7 +41,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
     (async () => {
       try {
-        const [cat, res] = await Promise.all([loadCatalog(), fetch('/api/inventory')]);
+        const [cat, res] = await Promise.all([loadCatalog(['armor', 'armorSets', 'charms', 'decorations', 'items', 'skills', 'weapons']), fetch('/api/inventory')]);
         if (disposed) return;
         setCatalog(cat);
         setInventory(res.ok ? await res.json() : { decorations: {}, charms: {}, armor: [] });

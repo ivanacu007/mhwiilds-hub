@@ -42,7 +42,7 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
   useEffect(() => {
     (async () => {
       try {
-        const [cat, res] = await Promise.all([loadCatalog(), fetch('/api/inventory')]);
+        const [cat, res] = await Promise.all([loadCatalog(['armor', 'charms', 'decorations', 'items', 'skills']), fetch('/api/inventory')]);
         setCatalog(cat);
         if (res.ok) {
           const doc = await res.json();

@@ -198,6 +198,48 @@ try {
     enCatalog.decorations[0].name !== catalog.decorations[0].name,
     `${enCatalog.decorations[0].name} vs ${catalog.decorations[0].name}`);
 
+  // El catálogo entero es ~1 MB de JSON y viajaba sin comprimir a las cinco
+  // pantallas que se pintan en cliente, aunque la de coronas solo mire
+  // `monsters`. Estas dos cosas son las que hacían lenta la primera carga.
+  const gz = await fetch(`${BASE}/api/catalog.json`, {
+    headers: { cookie: 'mhw_lang=es', 'accept-encoding': 'gzip' },
+  });
+  check('el catálogo viaja comprimido',
+    gz.headers.get('content-encoding') === 'gzip',
+    'sin gzip son ~1 MB por primera visita');
+
+  const solo = await fetch(`${BASE}/api/catalog.json?parts=monsters`, {
+    headers: { cookie: 'mhw_lang=es' },
+  });
+  const recorte = await solo.json();
+  check('se puede pedir el catálogo por partes',
+    Array.isArray(recorte.monsters) && recorte.monsters.length === catalog.monsters.length &&
+    recorte.armor === undefined && recorte.weapons === undefined,
+    JSON.stringify(Object.keys(recorte)));
+  check('el recorte pesa una fracción del entero',
+    JSON.stringify(recorte).length < JSON.stringify(catalog).length / 3,
+    `${Math.round(JSON.stringify(recorte).length / 1024)} KB de ${Math.round(JSON.stringify(catalog).length / 1024)} KB`);
+
+  // Si el ETag no distinguiera el recorte, pedir `monsters` después del entero
+  // devolvería 304 y la pantalla se quedaría con el catálogo anterior.
+  const etagRecorte = solo.headers.get('etag');
+  const cruzado = await fetch(`${BASE}/api/catalog.json`, {
+    headers: { cookie: 'mhw_lang=es', 'if-none-match': etagRecorte! },
+  });
+  check('el ETag distingue un recorte del catálogo entero', cruzado.status === 200,
+    `dio ${cruzado.status}`);
+
+  const mismo = await fetch(`${BASE}/api/catalog.json?parts=monsters`, {
+    headers: { cookie: 'mhw_lang=es', 'if-none-match': etagRecorte! },
+  });
+  check('y el mismo recorte sí responde 304', mismo.status === 304, `dio ${mismo.status}`);
+
+  // Un `parts` con basura no puede dejar una pantalla vacía.
+  const basura = await (await fetch(`${BASE}/api/catalog.json?parts=inventado`, {
+    headers: { cookie: 'mhw_lang=es' },
+  })).json();
+  check('un recorte inventado cae al catálogo entero', Array.isArray(basura.armor));
+
   console.log('\n--- Registro sin invitación ---');
   const noInvite = await fetch(`${BASE}/api/auth/register`, {
     method: 'POST',

@@ -1,3 +1,4 @@
+import { gzipSync } from 'node:zlib';
 import { catalogCollection } from '../db.ts';
 import { buildCatalog } from './build.ts';
 import { indexCatalog, type Catalog, type CatalogIndex } from './types.ts';
@@ -72,6 +73,66 @@ export async function getCatalogJson(
   await ensureLoaded(locale);
   const entry = cached.get(locale)!;
   return { json: entry.json, version: entry.catalog.version };
+}
+
+/** Las listas que se pueden pedir sueltas. `version` y `locale` van siempre. */
+export const CATALOG_PARTS = [
+  'skills', 'armor', 'armorSets', 'decorations',
+  'charms', 'weapons', 'items', 'monsters',
+] as const;
+export type CatalogPart = (typeof CATALOG_PARTS)[number];
+
+export function isCatalogPart(value: string): value is CatalogPart {
+  return (CATALOG_PARTS as readonly string[]).includes(value);
+}
+
+interface Slice {
+  version: string;
+  json: string;
+  gzip: Buffer;
+}
+
+/**
+ * Recortes del catálogo, serializados y comprimidos una sola vez.
+ *
+ * El catálogo entero son ~1 MB de JSON y hasta ahora viajaba completo a las
+ * cinco pantallas que se pintan en cliente, aunque la de coronas solo mire
+ * `monsters` —el 27 %— y la portada `items` y `monsters`. Aquí se arma el
+ * recorte que pida cada una y se guarda ya gzipeado: stringificar y comprimir
+ * un megabyte en cada petición saldría más caro que mandarlo entero.
+ *
+ * La caché se rehace sola cuando cambia la versión del catálogo.
+ */
+const slices = new Map<string, Slice>();
+
+export async function getCatalogSlice(
+  locale: Locale = DEFAULT_LOCALE,
+  parts: CatalogPart[] | null,
+): Promise<Slice> {
+  await ensureLoaded(locale);
+  const entry = cached.get(locale)!;
+  const version = entry.catalog.version;
+
+  // Orden fijo: pedir "items,monsters" y "monsters,items" es el mismo recorte.
+  const key = `${locale}|${parts ? [...parts].sort().join(',') : 'all'}`;
+  const hit = slices.get(key);
+  if (hit && hit.version === version) return hit;
+
+  let json: string;
+  if (!parts) {
+    json = entry.json;
+  } else {
+    const slice: Record<string, unknown> = {
+      version,
+      locale: entry.catalog.locale,
+    };
+    for (const part of parts) slice[part] = entry.catalog[part];
+    json = JSON.stringify(slice);
+  }
+
+  const fresh: Slice = { version, json, gzip: gzipSync(json) };
+  slices.set(key, fresh);
+  return fresh;
 }
 
 /** Índices por id; los usa el renderizado en servidor. */

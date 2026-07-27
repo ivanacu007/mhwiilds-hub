@@ -38,7 +38,7 @@ export default function AvatarPicker({ monsterId, variant, locale }: Props) {
   const [status, setStatus] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
 
   useEffect(() => {
-    loadCatalog().then(setCatalog).catch(() => setStatus('error'));
+    loadCatalog(['monsters']).then(setCatalog).catch(() => setStatus('error'));
   }, []);
 
   const monsters = catalog?.monsters ?? [];

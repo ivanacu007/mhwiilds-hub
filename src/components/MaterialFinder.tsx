@@ -18,7 +18,7 @@ export default function MaterialFinder({ locale }: { locale: Locale }) {
   const [item, setItem] = useState<Item | null>(null);
 
   useEffect(() => {
-    loadCatalog().then(setCatalog).catch(() => {});
+    loadCatalog(['items', 'monsters']).then(setCatalog).catch(() => {});
   }, []);
 
   /** Materiales que suelta el monstruo elegido, sin repetir. */
