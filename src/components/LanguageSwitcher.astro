@@ -21,10 +21,10 @@ const back = Astro.url.pathname + Astro.url.search;
         aria-current={locale === current ? 'true' : undefined}
         title={LOCALE_LABEL[locale]}
         class:list={[
-          'rounded px-1.5 py-1 text-xs font-medium uppercase transition-colors',
+          'font-ui h-[26px] w-[30px] text-[12px] uppercase tracking-wide transition-colors',
           locale === current
-            ? 'bg-base-800 text-base-100'
-            : 'text-base-500 hover:bg-base-850 hover:text-base-300',
+            ? 'bg-accent font-semibold text-bg-0'
+            : 'border border-line text-text-3 hover:text-text-1',
         ]}
       >
         {locale}

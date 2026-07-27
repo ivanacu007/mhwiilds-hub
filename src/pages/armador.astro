@@ -2,13 +2,29 @@
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import SetBuilder from '../components/SetBuilder.tsx';
+import { getCatalogIndex } from '../lib/catalog/store.ts';
+
+// Las cifras del subtítulo salen del catálogo real, no de una constante que se
+// quede vieja en el siguiente title update.
+const index = await getCatalogIndex(Astro.locals.locale);
+const counts = {
+  armor: index.catalog.armor.length,
+  decos: index.catalog.decorations.length,
+  charms: index.catalog.charms.length,
+};
 ---
 
-<Base title={`${t('builder.title')} · ${t('app.name')}`} noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">{t('builder.title')}</h1>
-  <p class="mb-5 text-sm text-base-500">
-    {t('builder.blurb')}
-  </p>
+<Base title={`${t('builder.pageTitle')} · ${t('app.name')}`} noIndex>
+  {/* Cabecera de pantalla: título, contexto y acciones, sobre una barra propia
+      con el filete ámbar del registro de menú. */}
+  <div class="bevel-head mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-b-2 border-accent bg-bg-1 px-4 py-3">
+    <h1 class="font-ui text-[23px] uppercase tracking-[0.06em] text-text-1">
+      {t('builder.pageTitle')}
+    </h1>
+    <p class="font-ui text-[13px] tracking-wide text-text-3">
+      {t('builder.pageSub', counts)}
+    </p>
+  </div>
 
   <SetBuilder client:only="preact" locale={Astro.locals.locale} />
 </Base>

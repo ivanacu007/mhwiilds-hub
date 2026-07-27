@@ -62,25 +62,34 @@ const nav = [
   <body class="min-h-screen flex flex-col">
     {/* 48 px fijos y cristal: es la única superficie translúcida junto al panel
         del armador y los diálogos. El desenfoque nunca baja a las filas. */}
+    {/* 48 px con cristal. El rombo y el logotipo condensado son el registro de
+        menú; la sección activa va en caja biselada, no en relleno plano. */}
     <header
       class="sticky top-0 z-40 border-b border-line"
       style="background: var(--panel-glass); backdrop-filter: blur(var(--panel-blur))"
     >
-      <div class="mx-auto flex h-12 max-w-6xl items-center gap-4 px-4">
-        <a href="/" class="font-guide text-[17px] font-semibold tracking-tight text-accent">{t('app.name')}</a>
+      <div class="mx-auto flex h-12 max-w-[1360px] items-center gap-1 px-4">
+        <a href="/" class="mr-3 flex shrink-0 items-center gap-2">
+          <span
+            class="h-[14px] w-[14px] bg-accent"
+            style="clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%)"
+          ></span>
+          <span class="font-ui text-[15px] uppercase tracking-[0.14em] text-text-1">
+            {t('app.name')}
+          </span>
+        </a>
 
         {user && (
-          <nav class="flex gap-1 text-sm">
+          <nav class="flex items-center gap-0.5">
             {nav.map((item) => (
               <a
                 href={item.href}
                 class:list={[
-                  'font-ui px-2.5 py-1.5 text-[13px] uppercase tracking-wide transition-colors',
-                  path.startsWith(item.href)
-                    ? 'text-accent-hi'
-                    : 'text-text-2 hover:text-text-1',
+                  'bevel-sm font-ui px-3 py-1.5 text-[13px] uppercase tracking-[0.08em] transition-colors',
+                  path === item.href || path.startsWith(`${item.href}/`)
+                    ? 'border border-accent bg-accent-weak text-accent-hi'
+                    : 'border border-transparent text-text-2 hover:text-text-1',
                 ]}
-                style={path.startsWith(item.href) ? 'box-shadow: inset 0 -2px 0 var(--accent)' : undefined}
               >
                 {item.label}
               </a>
@@ -88,28 +97,35 @@ const nav = [
           </nav>
         )}
 
-        <div class="ml-auto flex items-center gap-3 text-sm">
-          <ThemeToggle />
+        <div class="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
+          <ThemeToggle />
           {user ? (
             <>
-              <a href="/cuenta" class="flex items-center gap-2 text-base-300 hover:text-base-100">
-                <HunterAvatar hunter={user} size={28} />
-                <span class="hidden sm:inline">{user.hunterName ?? user.name}</span>
+              <a href="/cuenta" class="flex items-center gap-2 pl-1">
+                <HunterAvatar hunter={user} size={26} />
+                <span class="hidden font-ui text-[13px] uppercase tracking-wide text-text-2 sm:inline">
+                  {user.hunterName ?? user.name}
+                  {user.hr && <span class="num ml-1.5 text-text-3">HR {user.hr}</span>}
+                </span>
               </a>
               <form method="post" action="/api/auth/logout">
-                <button class="rounded px-2 py-1 text-base-300 hover:text-base-100">{t('nav.signOut')}</button>
+                <button class="font-ui px-2 py-1 text-[12px] uppercase tracking-wide text-text-3 hover:text-text-1">
+                  {t('nav.signOut')}
+                </button>
               </form>
             </>
           ) : (
-            <a href="/entrar" class="rounded bg-ember-500 px-3 py-1.5 font-medium text-base-950 hover:bg-ember-400">
-{t('nav.signIn')}</a>
+            <a
+              href="/entrar"
+              class="bevel-sm font-ui bg-accent px-3 py-1.5 text-[13px] uppercase tracking-wide text-bg-0 hover:bg-accent-hi"
+            >{t('nav.signIn')}</a>
           )}
         </div>
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+    <main class="mx-auto w-full max-w-[1360px] flex-1 px-4 py-6">
       <slot />
     </main>
 
