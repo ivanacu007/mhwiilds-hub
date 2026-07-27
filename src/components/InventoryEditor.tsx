@@ -7,7 +7,9 @@ import { slotSvg } from '../lib/ui/glyphs.ts';
 import { paginate } from '../lib/paginate.ts';
 import { itemIconColor, itemIconPath } from '../lib/catalog/item-icons.ts';
 import { translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
-import type { Catalog } from '../lib/catalog/types.ts';
+import { indexCatalog, type Catalog } from '../lib/catalog/types.ts';
+import SeriesBrowser from './SeriesBrowser.tsx';
+import SkillDetails from './SkillDetails.tsx';
 
 type Tab = 'adornos' | 'talismanes' | 'armaduras' | 'materiales';
 
@@ -42,7 +44,9 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
   useEffect(() => {
     (async () => {
       try {
-        const [cat, res] = await Promise.all([loadCatalog(['armor', 'charms', 'decorations', 'items', 'skills']), fetch('/api/inventory')]);
+        // `armorSets` es para la pestaña de armaduras: se recorre por serie y
+        // por monstruo, igual que en el armador.
+        const [cat, res] = await Promise.all([loadCatalog(['armor', 'armorSets', 'charms', 'decorations', 'items', 'skills']), fetch('/api/inventory')]);
         setCatalog(cat);
         if (res.ok) {
           const doc = await res.json();
@@ -123,6 +127,11 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
     return map;
   }, [catalog]);
 
+  const index = useMemo(() => (catalog ? indexCatalog(catalog) : null), [catalog]);
+  const ownedArmorIds = useMemo(() => new Set(inventory.armor), [inventory.armor]);
+  const [skillInfo, setSkillInfo] = useState<{ skillId: number; level?: number } | null>(null);
+  const openSkill = skillInfo && index ? index.skillById.get(skillInfo.skillId) : undefined;
+
   const needle = normalize(query.trim());
 
   const rows = useMemo(() => {
@@ -151,15 +160,9 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
       });
     }
 
-    if (tab === 'armaduras') {
-      return catalog.armor
-        .filter((a) => {
-          const skills = a.skills.map((s) => skillName.get(s.skillId) ?? '').join(' ');
-          if (!matches(a.name, skills)) return false;
-          if (onlyOwned && !inventory.armor.includes(a.id)) return false;
-          return true;
-        });
-    }
+    // Las armaduras no salen de aquí: las pinta `SeriesBrowser`, agrupadas por
+    // serie y por monstruo, con su propio filtro y sin paginar.
+    if (tab === 'armaduras') return [];
 
     return catalog.items
       .filter((i) => {
@@ -213,13 +216,18 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
       </div>
 
       <div class="mb-3 flex flex-wrap gap-2">
-        <input
-          value={query}
-          onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
-          placeholder={tab === 'adornos' ? t('inventory.searchDecorations') : t('inventory.search')}
-          class="min-w-0 flex-1 rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
-        />
-        <label class="flex items-center gap-2 rounded border border-line-strong px-3 text-sm text-text-2">
+        {/* En armaduras el buscador lo trae el navegador de series, con su
+            selector de monstruo; dos campos de texto seguidos que filtran lo
+            mismo sobraban. La casilla sí se queda: es la que le dice qué ocultar. */}
+        {tab !== 'armaduras' && (
+          <input
+            value={query}
+            onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
+            placeholder={tab === 'adornos' ? t('inventory.searchDecorations') : t('inventory.search')}
+            class="min-w-0 flex-1 rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
+          />
+        )}
+        <label class="flex items-center gap-2 rounded border border-line-strong px-3 py-2 text-sm text-text-2">
           <input
             type="checkbox"
             checked={onlyOwned}
@@ -235,7 +243,31 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
         </p>
       )}
 
-      <div class="divide-y divide-bg-2 rounded border border-bg-3">
+      {tab === 'armaduras' && index && (
+        <div class="flex flex-col gap-3">
+          <SeriesBrowser
+            index={index}
+            locale={locale}
+            t={t}
+            selected={ownedArmorIds}
+            onToggle={(piece) => toggleArmor(piece.id)}
+            selectAllLabel={t('inventory.ownWholeSeries')}
+            onShowSkill={(skillId, level) => setSkillInfo({ skillId, level })}
+            ownedArmor={onlyOwned ? ownedArmorIds : null}
+          />
+        </div>
+      )}
+
+      {openSkill && (
+        <SkillDetails
+          skill={openSkill}
+          level={skillInfo?.level}
+          t={t}
+          onClose={() => setSkillInfo(null)}
+        />
+      )}
+
+      <div class={`divide-y divide-bg-2 rounded border border-bg-3 ${tab === 'armaduras' ? 'hidden' : ''}`}>
         {rows.length === 0 && (
           <p class="px-3 py-6 text-center text-sm text-text-3">{t('inventory.nothingMatches')}</p>
         )}
@@ -294,26 +326,6 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
           );
         })}
 
-        {tab === 'armaduras' && (visible as Catalog['armor']).map((piece) => (
-          <Row
-            key={piece.id}
-            title={piece.name}
-            subtitle={`${piece.kind} · def ${piece.defense} · ${
-              piece.skills.map((s) => `${skillName.get(s.skillId)} ${s.level}`).join(', ') || t('inventory.noSkills')
-            }`}
-            badge={<span class="text-xs text-text-3">{piece.slots.map((s) => `[${s}]`).join('') || '—'}</span>}
-          >
-            <label class="flex cursor-pointer items-center gap-2 text-sm text-text-2">
-              <input
-                type="checkbox"
-                checked={inventory.armor.includes(piece.id)}
-                onChange={() => toggleArmor(piece.id)}
-              />
-              {t('inventory.iHaveIt')}
-            </label>
-          </Row>
-        ))}
-
         {tab === 'materiales' && (visible as Catalog['items']).map((item) => (
           <Row
             key={item.id}
@@ -333,18 +345,22 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
         ))}
       </div>
 
-      <Pagination
-        info={pageInfo}
-        onPage={setPage}
-        onPageSize={(size) => { setPageSize(size); setPage(1); }}
-        t={t}
-        label={(
-          tab === 'adornos' ? t('inventory.decorations')
-          : tab === 'talismanes' ? t('inventory.charms')
-          : tab === 'armaduras' ? t('inventory.pieces')
-          : t('inventory.materials')
-        ).toLowerCase()}
-      />
+      {/* Sin paginador en armaduras: los grupos van plegados por monstruo, que
+          ya es el recorte, y una página 3 de 27 dentro de eso no significaría
+          nada. */}
+      {tab !== 'armaduras' && (
+        <Pagination
+          info={pageInfo}
+          onPage={setPage}
+          onPageSize={(size) => { setPageSize(size); setPage(1); }}
+          t={t}
+          label={(
+            tab === 'adornos' ? t('inventory.decorations')
+            : tab === 'talismanes' ? t('inventory.charms')
+            : t('inventory.materials')
+          ).toLowerCase()}
+        />
+      )}
     </div>
   );
 }

@@ -22,6 +22,7 @@ export const es = {
   'theme.system': 'Sistema',
   'nav.language': 'Idioma',
   'nav.menu': 'Menú',
+  'nav.top': 'Volver arriba',
 
   'admin.title': 'Admin',
   'admin.blurb': 'Solo tú ves esta pantalla. Se decide por ADMIN_EMAILS, no por un campo en tu cuenta.',
@@ -136,6 +137,7 @@ export const es = {
   'inventory.onlyOwned': 'Solo lo que tengo',
   'inventory.decoCount': '{count} adornos registrados. Los de arma solo entran en ranuras de arma.',
   'inventory.iHaveIt': 'la tengo',
+  'inventory.ownWholeSeries': 'Marcar la serie entera',
   'inventory.rank': 'rango',
   'inventory.no': 'no',
   'inventory.rarity': 'rareza',

@@ -24,6 +24,7 @@ export const en: Record<keyof typeof es, string> = {
   'theme.system': 'System',
   'nav.language': 'Language',
   'nav.menu': 'Menu',
+  'nav.top': 'Back to top',
 
   'admin.title': 'Admin',
   'admin.blurb': 'Only you see this screen. It is decided by ADMIN_EMAILS, not by a field on your account.',
@@ -137,6 +138,7 @@ export const en: Record<keyof typeof es, string> = {
   'inventory.onlyOwned': 'Only what I own',
   'inventory.decoCount': '{count} decorations recorded. Weapon ones only fit weapon slots.',
   'inventory.iHaveIt': 'I have it',
+  'inventory.ownWholeSeries': 'Mark the whole series',
   'inventory.rank': 'rank',
   'inventory.no': 'no',
   'inventory.rarity': 'rarity',

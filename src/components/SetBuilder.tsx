@@ -199,6 +199,9 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   const openSkill = skillInfo ? skillById.get(skillInfo.skillId) : undefined;
 
   const pinnedCount = ARMOR_KINDS.filter((kind) => pinned[kind] != null).length;
+  const pinnedIds = new Set(
+    ARMOR_KINDS.map((kind) => pinned[kind]).filter((id): id is number => id != null),
+  );
   // Volver a tocar la pieza que ya estaba la suelta: es el mismo gesto para
   // poner y quitar, y evita tener que buscar la ✕ en la otra columna.
   const pin = (kind: ArmorKind, armorId: number) =>
@@ -563,8 +566,9 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               index={index}
               locale={locale}
               t={t}
-              pinned={pinned}
-              onPin={pin}
+              selected={pinnedIds}
+              onToggle={(piece) => pin(piece.kind, piece.id)}
+              selectAllLabel={t('builder.pinWholeSeries')}
               onShowSkill={showSkill}
               ownedArmor={ownedArmor}
             />

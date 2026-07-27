@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'preact/hooks';
-import { ARMOR_KINDS, type ArmorKind, type ArmorPiece, type ArmorSet, type CatalogIndex } from '../lib/catalog/types.ts';
+import { ARMOR_KINDS, type ArmorPiece, type ArmorSet, type CatalogIndex } from '../lib/catalog/types.ts';
 import { MONSTER_ICONS, MONSTER_SORT_ORDER, monsterIconPath } from '../lib/catalog/monster-icons.ts';
 import type { Locale, Translator } from '../lib/i18n/index.ts';
 import Combo from './ui/Combo.tsx';
@@ -21,10 +21,16 @@ interface Props {
   index: CatalogIndex;
   locale: Locale;
   t: Translator;
-  pinned: Partial<Record<ArmorKind, number>>;
-  onPin: (kind: ArmorKind, armorId: number) => void;
+  /**
+   * Piezas marcadas. Qué significa la marca lo decide quien lo usa: en el
+   * armador son las fijadas para el set, en el inventario las que ya forjaste.
+   */
+  selected: Set<number>;
+  onToggle: (piece: ArmorPiece) => void;
+  /** Rótulo del botón que marca la serie entera; cambia según qué se marca. */
+  selectAllLabel: string;
   onShowSkill: (skillId: number, level?: number) => void;
-  /** Ids de armadura forjada, o null si da igual. */
+  /** Ids de armadura forjada, para el filtro «solo forjadas». Null = sin filtro. */
   ownedArmor: Set<number> | null;
 }
 
@@ -59,7 +65,8 @@ interface MonsterOption {
   name: string;
 }
 
-export default function SeriesBrowser({ index, locale, t, pinned, onPin, onShowSkill, ownedArmor }: Props) {
+export default function SeriesBrowser(props: Props) {
+  const { index, locale, t, selected, onToggle, selectAllLabel, onShowSkill, ownedArmor } = props;
   const [query, setQuery] = useState('');
   const [monster, setMonster] = useState<MonsterOption | null>(null);
   const [open, setOpen] = useState<Set<number | null>>(new Set());
@@ -228,8 +235,9 @@ export default function SeriesBrowser({ index, locale, t, pinned, onPin, onShowS
                 series={series}
                 index={index}
                 t={t}
-                pinned={pinned}
-                onPin={onPin}
+                selected={selected}
+                onToggle={onToggle}
+                selectAllLabel={selectAllLabel}
                 onShowSkill={onShowSkill}
               />
             ))}
@@ -244,11 +252,12 @@ function SeriesRow(props: {
   series: Series;
   index: CatalogIndex;
   t: Translator;
-  pinned: Partial<Record<ArmorKind, number>>;
-  onPin: (kind: ArmorKind, armorId: number) => void;
+  selected: Set<number>;
+  onToggle: (piece: ArmorPiece) => void;
+  selectAllLabel: string;
   onShowSkill: (skillId: number, level?: number) => void;
 }) {
-  const { series, index, t, pinned, onPin, onShowSkill } = props;
+  const { series, index, t, selected, onToggle, selectAllLabel, onShowSkill } = props;
   const { set, pieces } = series;
 
   const bonuses = [
@@ -260,10 +269,12 @@ function SeriesRow(props: {
     <div class="border-b border-line-soft last:border-b-0">
       <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1 bg-bg-1 px-3 py-1">
         <h3 class="font-ui text-[13.5px] uppercase tracking-[0.08em] text-text-1">{set.name}</h3>
+        {/* Solo lo que falte: `onToggle` alterna, así que llamarlo sobre una
+            pieza ya marcada la desmarcaría y el botón dejaría la serie a medias. */}
         <button
-          onClick={() => { for (const piece of pieces) onPin(piece.kind, piece.id); }}
+          onClick={() => { for (const piece of pieces) if (!selected.has(piece.id)) onToggle(piece); }}
           class="font-ui flex h-[22px] items-center border border-line-strong bg-bg-2 px-2 text-[11.5px] uppercase tracking-[0.06em] text-text-3 hover:border-accent hover:text-accent-hi"
-        >{t('builder.pinWholeSeries')}</button>
+        >{selectAllLabel}</button>
 
         {bonuses.length > 0 && (
           <span class="ml-auto flex flex-wrap items-center gap-1.5">
@@ -283,11 +294,11 @@ function SeriesRow(props: {
       </div>
 
       {pieces.map((piece) => {
-        const isPinned = pinned[piece.kind] === piece.id;
+        const isPinned = selected.has(piece.id);
         return (
           <button
             key={piece.id}
-            onClick={() => onPin(piece.kind, piece.id)}
+            onClick={() => onToggle(piece)}
             aria-pressed={isPinned}
             class={`grid w-full grid-cols-[58px_24px_minmax(0,1fr)_46px_auto] items-center gap-2 px-3 py-[3px] text-left ${
               isPinned ? 'bg-accent-weak' : 'hover:bg-bg-2'
