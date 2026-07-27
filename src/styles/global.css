@@ -416,3 +416,26 @@ body {
 :root[data-theme='light'] .topbar {
   box-shadow: inset 0 2px 0 var(--accent), 0 1px 3px rgb(60 40 16 / 0.12);
 }
+
+/*
+ * Campos en móvil: 16 px o Safari hace zoom.
+ *
+ * Safari de iOS acerca la página al enfocar cualquier campo cuya letra mida
+ * menos de 16 px, y no vuelve a alejarla al salir: se queda desplazada y con la
+ * barra medio fuera de pantalla. Pasaba en todos los selectores del sitio, que
+ * van a 14 px para caber en el panel de 380 px.
+ *
+ * Se arregla subiendo la letra, no con `maximum-scale` en el viewport: eso
+ * quita el zoom a mano, y quien lo necesita para leer se queda sin él.
+ *
+ * Va fuera de capa a propósito. Tailwind mete sus utilidades en `@layer`, y lo
+ * que está sin capa gana siempre, así que esto pisa a `text-[14px]` sin
+ * necesidad de `!important` ni de tocar cada campo.
+ */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

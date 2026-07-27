@@ -1100,6 +1100,20 @@ try {
     body: new URLSearchParams({ email: 'cazador@example.com', password: 'contrasenalarga1' }),
   });
   check('acepta la correcta', (goodLogin.headers.get('set-cookie') ?? '').includes('mhw_session='));
+  check('y deja en la portada, no en el armador',
+    goodLogin.headers.get('location') === '/', goodLogin.headers.get('location') ?? '');
+
+  // Quien llegó al login rebotado desde una pantalla protegida vuelve a ella:
+  // mandarlo a la portada le haría repetir el camino.
+  const withNext = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST',
+    redirect: 'manual',
+    body: new URLSearchParams({
+      email: 'cazador@example.com', password: 'contrasenalarga1', siguiente: '/inventario',
+    }),
+  });
+  check('salvo que viniera rebotado de otra pantalla',
+    withNext.headers.get('location') === '/inventario', withNext.headers.get('location') ?? '');
 
   console.log(`\n${failures === 0 ? 'TODO OK' : `${failures} FALLOS`}`);
   await shutdown(failures === 0 ? 0 : 1);

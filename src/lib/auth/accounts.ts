@@ -6,7 +6,16 @@ import type { GoogleProfile } from './google.ts';
 import type { FlashKey } from '../flash.ts';
 
 export type AccountResult =
-  | { ok: true; user: UserDoc }
+  | {
+      ok: true;
+      user: UserDoc;
+      /**
+       * La cuenta se acaba de crear en esta misma petición. Con Google, entrar y
+       * registrarse son la misma dirección, y quien llega decide a dónde mandar
+       * después: a estrenar el inventario o a la portada de siempre.
+       */
+      created?: boolean;
+    }
   /** Clave de mensaje, no texto: quien lo muestre lo traduce a su idioma. */
   | { ok: false; error: FlashKey };
 
@@ -75,7 +84,7 @@ export async function createUser(params: {
     { $set: { usedBy: user._id } },
   );
 
-  return { ok: true, user };
+  return { ok: true, user, created: true };
 }
 
 /**

@@ -4,7 +4,7 @@ import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
 import { googleConfigured } from '../lib/auth/google.ts';
 
-if (Astro.locals.user) return Astro.redirect('/armador');
+if (Astro.locals.user) return Astro.redirect('/');
 
 const params = Astro.url.searchParams;
 const error = readFlash(t, params.get('error'));

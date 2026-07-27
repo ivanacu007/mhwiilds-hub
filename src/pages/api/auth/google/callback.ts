@@ -45,5 +45,10 @@ export const GET: APIRoute = async ({ url, cookies }) => {
   if (!result.ok) return fail(result.error);
 
   await createSession(cookies, result.user._id);
-  return new Response(null, { status: 303, headers: { location: '/inventario' } });
+  // Cuenta recién creada: al inventario, que es lo primero que hay que llenar.
+  // Quien ya la tenía solo está entrando, y entrar lleva a la portada.
+  return new Response(null, {
+    status: 303,
+    headers: { location: result.created ? '/inventario' : '/' },
+  });
 };

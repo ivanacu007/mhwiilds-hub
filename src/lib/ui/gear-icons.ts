@@ -30,8 +30,17 @@ export function hasGearIcon(slug: string): slug is GearSlug {
  * parece un icono roto en vez de un dato que falta.
  */
 export function gearIconStyle(slug: string, size = 15, color = 'currentColor'): string {
-  const box = `width:${size}px;height:${size}px;background-color:${color};`;
-  if (!hasGearIcon(slug)) return `${box}border-radius:50%;opacity:.4`;
-  const url = `url("/iconos/equipo/${slug}.webp") center/contain no-repeat`;
-  return `${box}-webkit-mask:${url};mask:${url}`;
+  if (!hasGearIcon(slug)) {
+    return `width:${size}px;height:${size}px;background-color:${color};border-radius:50%;opacity:.4`;
+  }
+  return maskStyle(`/iconos/equipo/${slug}.webp`, size, color);
+}
+
+/**
+ * Lo mismo para cualquier archivo monocromo del proyecto: los de materiales
+ * viven en otra carpeta y se pintan igual, recortando un bloque de color.
+ */
+export function maskStyle(path: string, size = 15, color = 'currentColor'): string {
+  const url = `url("${path}") center/contain no-repeat`;
+  return `width:${size}px;height:${size}px;background-color:${color};-webkit-mask:${url};mask:${url}`;
 }

@@ -2,8 +2,28 @@
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import MaterialFinder from '../components/MaterialFinder.tsx';
+import { gearIconStyle, maskStyle } from '../lib/ui/gear-icons.ts';
+import { crownSvg } from '../lib/ui/glyphs.ts';
 
 const user = Astro.locals.user;
+
+/**
+ * Accesos rápidos con el icono del juego, no solo el rótulo: son seis destinos
+ * que se reconocen antes por la forma que por el texto, y en una rejilla de
+ * rótulos sueltos había que leerlos todos para encontrar el que se buscaba.
+ * Se reutilizan las máscaras que ya trae el proyecto; ninguna es nueva.
+ */
+const material = (slug: string) => maskStyle(`/iconos/materiales/${slug}.webp`, 22, 'var(--accent-hi)');
+
+const quickLinks = [
+  { href: '/armador', label: t('builder.title'), icon: gearIconStyle('chest', 22, 'var(--accent-hi)') },
+  { href: '/inventario', label: t('nav.inventory'), icon: material('pouch') },
+  { href: '/monstruos', label: t('monsters.title'), icon: material('claw') },
+  // La corona es glifo propio, no máscara: ya existe con la silueta del juego.
+  { href: '/coronas', label: t('nav.crowns'), crown: crownSvg('largeGold', true) },
+  { href: '/mis-sets', label: t('nav.mySets'), icon: material('decoration') },
+  { href: '/cazadores', label: t('nav.hunters'), icon: material('ticket') },
+];
 ---
 
 <Base
@@ -24,19 +44,19 @@ const user = Astro.locals.user;
 
       <h2 class="mb-2 mt-6 text-sm font-medium text-text-2">{t('home.quickLinks')}</h2>
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {[
-          { href: '/armador', label: t('builder.title') },
-          { href: '/inventario', label: t('nav.inventory') },
-          { href: '/monstruos', label: t('monsters.title') },
-          { href: '/coronas', label: t('nav.crowns') },
-          { href: '/mis-sets', label: t('nav.mySets') },
-          { href: '/cazadores', label: t('nav.hunters') },
-        ].map((link) => (
+        {quickLinks.map((link) => (
           <a
             href={link.href}
-            class="rounded border border-bg-3 bg-bg-1 px-3 py-2 text-sm hover:border-accent/50 hover:bg-bg-2"
+            class="flex items-center gap-2.5 rounded border border-bg-3 bg-bg-1 px-3 py-2.5 text-sm hover:border-accent/50 hover:bg-bg-2"
           >
-            {link.label}
+            {/* Recuadro fijo para el icono: la corona mide distinto que las
+                máscaras, y sin caja los rótulos bailaban de fila en fila. */}
+            <span class="grid h-6 w-6 shrink-0 place-items-center">
+              {link.crown
+                ? <span set:html={link.crown} />
+                : <span style={link.icon} />}
+            </span>
+            <span class="min-w-0 truncate">{link.label}</span>
           </a>
         ))}
       </div>

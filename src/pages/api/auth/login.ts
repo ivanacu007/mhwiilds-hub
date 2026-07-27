@@ -13,7 +13,10 @@ function back(key: FlashKey, email: string, next: string): Response {
 
 /** Solo rutas internas: evita que un ?siguiente= manipulado mande a otro sitio. */
 function safeNext(raw: string): string {
-  if (!raw.startsWith('/') || raw.startsWith('//')) return '/armador';
+  // A la portada y no al armador: al entrar no siempre se viene a armar un set,
+  // y la portada tiene los accesos a todo. Si se llegó al login por rebote
+  // desde una pantalla protegida, `siguiente` manda y se vuelve a ella.
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/';
   return raw;
 }
 
