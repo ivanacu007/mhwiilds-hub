@@ -19,10 +19,10 @@ const { info, param = 'p', label = Astro.locals.t('common.items') } = Astro.prop
 /** Extraído de la plantilla: el compilador de Astro no digiere ternarios
  *  anidados dentro de `class:list`. */
 function linkClass(isCurrent: boolean): string {
-  const base = 'min-w-7 rounded px-2 py-1 text-center text-xs';
+  const base = 'num grid h-[30px] min-w-[30px] place-items-center px-2 text-center text-xs';
   return isCurrent
-    ? `${base} bg-ember-500 font-medium text-base-950`
-    : `${base} border border-base-700 hover:bg-base-850`;
+    ? `${base} bg-accent font-medium text-bg-0`
+    : `${base} border border-line hover:bg-bg-3`;
 }
 
 function summary(info: PageInfo, label: string): string {
@@ -41,7 +41,7 @@ function hrefFor(page: number): string {
 ---
 
 {info.total > 0 && (
-  <div class="mt-4 flex flex-wrap items-center gap-2 text-sm">
+  <div class="mt-4 flex h-[34px] flex-wrap items-center gap-2 text-sm">
     <span class="text-xs text-base-500">{summary(info, label)}</span>
 
     {info.totalPages > 1 && (

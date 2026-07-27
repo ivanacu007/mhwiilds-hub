@@ -60,9 +60,14 @@ const nav = [
     <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body class="min-h-screen flex flex-col">
-    <header class="border-b border-base-800 bg-base-900">
-      <div class="mx-auto flex max-w-6xl items-center gap-4 px-4 py-3">
-        <a href="/" class="font-semibold tracking-tight text-ember-400">{t('app.name')}</a>
+    {/* 48 px fijos y cristal: es la única superficie translúcida junto al panel
+        del armador y los diálogos. El desenfoque nunca baja a las filas. */}
+    <header
+      class="sticky top-0 z-40 border-b border-line"
+      style="background: var(--panel-glass); backdrop-filter: blur(var(--panel-blur))"
+    >
+      <div class="mx-auto flex h-12 max-w-6xl items-center gap-4 px-4">
+        <a href="/" class="font-guide text-[17px] font-semibold tracking-tight text-accent">{t('app.name')}</a>
 
         {user && (
           <nav class="flex gap-1 text-sm">
@@ -70,11 +75,12 @@ const nav = [
               <a
                 href={item.href}
                 class:list={[
-                  'rounded px-3 py-1.5 transition-colors',
+                  'font-ui px-2.5 py-1.5 text-[13px] uppercase tracking-wide transition-colors',
                   path.startsWith(item.href)
-                    ? 'bg-base-800 text-base-100'
-                    : 'text-base-300 hover:bg-base-850 hover:text-base-100',
+                    ? 'text-accent-hi'
+                    : 'text-text-2 hover:text-text-1',
                 ]}
+                style={path.startsWith(item.href) ? 'box-shadow: inset 0 -2px 0 var(--accent)' : undefined}
               >
                 {item.label}
               </a>

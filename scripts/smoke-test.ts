@@ -625,6 +625,23 @@ try {
   check('carga las tipografías del sistema',
     entrarHtml.includes('Barlow') && entrarHtml.includes('Spectral') && entrarHtml.includes('IBM+Plex+Mono'));
 
+  check('define las utilidades de tabla densa',
+    hoja.includes('.table-dense') && hoja.includes('.col-sticky'));
+  check('define los tramos de zona de impacto',
+    ['hz-0', 'hz-bad', 'hz-low', 'hz-mid', 'hz-good'].every((c) => hoja.includes(c)));
+  check('define el remate angular', hoja.includes('clip-path'));
+
+  const { hitzoneTone, hitzoneDots, formatMultiplier } =
+    await import('../src/lib/monster-info.ts');
+  check('el cero de una zona se marca con guion, no con 0',
+    formatMultiplier(0) === '—' && hitzoneTone(0) === 'hz-0' && hitzoneDots(0) === '');
+  check('cada tramo tiene su clase y sus puntos',
+    hitzoneTone(0.15) === 'hz-bad' && hitzoneTone(0.72) === 'hz-good' && hitzoneDots(0.72) === '···');
+
+  const detalleTabla = await (await fetch(`${BASE}/monstruos/${first.id}`, { headers: auth })).text();
+  check('la tabla de zonas fija cabecera y primera columna',
+    detalleTabla.includes('table-dense') && detalleTabla.includes('col-sticky'));
+
   const { PAGINATION_THRESHOLD, PAGE_SIZES } = await import('../src/lib/paginate.ts');
   check('el tamaño de página es 40', PAGE_SIZES[0] === 40);
   check('los monstruos quedan por debajo del umbral',

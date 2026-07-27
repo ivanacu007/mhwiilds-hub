@@ -10,6 +10,7 @@ import {
   affinityLabel,
   damageLabel,
   formatMultiplier,
+  hitzoneDots,
   hitzoneTone,
   splitAffinities,
 } from '../../lib/monster-info.ts';
@@ -54,10 +55,10 @@ const rewards = monster.rewards
   </p>
 
   <header class="mb-6 flex flex-wrap items-start gap-4">
-    <MonsterIcon monster={monster} size={88} />
+    <MonsterIcon monster={monster} size={88} class="tile" />
     <div class="min-w-0 flex-1">
-      <h1 class="text-2xl font-semibold">{monster.name}</h1>
-      <p class="mt-1 text-sm text-base-500">
+      <h1 class="font-guide text-[40px] font-bold leading-none">{monster.name}</h1>
+      <p class="mt-1 font-ui text-[13px] uppercase tracking-wide text-text-3">
         {t(`species.${monster.species}` as never)}
         {monster.baseHealth && <> · {t('monsters.health')} {monster.baseHealth.toLocaleString()}</>}
         {monster.size && <> · {t('monsters.baseSize')} {monster.size.base.toFixed(2)}</>}
@@ -133,31 +134,37 @@ const rewards = monster.rewards
       <h2 class="text-sm font-medium text-base-300">{t('monsters.hitzones')}</h2>
       <p class="mb-2 text-xs text-base-500">{t('monsters.hitzonesHint')}</p>
 
-      {/* La tabla es ancha: se desplaza sola en móvil en vez de romper la página. */}
+      {/* Se recorre en horizontal con la columna de parte fija: sin ella no se
+          sabe qué fila se está leyendo. No se rota ni se parte en tarjetas
+          porque el objetivo es comparar entre columnas. */}
       <div class="overflow-x-auto">
-        <table class="w-full min-w-[34rem] text-sm">
+        <table class="table-dense w-full min-w-[34rem]">
           <thead>
-            <tr class="border-b border-base-800 text-xs text-base-500">
-              <th class="py-1 pr-2 text-left font-normal">{t('monsters.part')}</th>
+            <tr>
+              <th class="col-sticky px-2 text-left">{t('monsters.part')}</th>
               {columns.map((key) => (
-                <th class="px-1 py-1 text-right font-normal">{damageLabel(t, key)}</th>
+                <th class="min-w-10 px-1 text-center">{damageLabel(t, key)}</th>
               ))}
-              <th class="px-1 py-1 text-right font-normal">{t('monsters.essence')}</th>
+              <th class="px-2 text-right">{t('monsters.essence')}</th>
             </tr>
           </thead>
           <tbody>
             {monster.parts.map((part) => (
-              <tr class="border-b border-base-850/60 last:border-0">
-                <td class="py-1 pr-2">
+              <tr>
+                <td class="col-sticky whitespace-nowrap px-2 text-sm">
                   {part.name}
-                  {part.health && <span class="ml-1 text-xs text-base-600">{part.health}</span>}
+                  {part.health && <span class="num ml-1.5 text-[11px] text-text-3">{part.health}</span>}
                 </td>
-                {columns.map((key) => (
-                  <td class={`px-1 py-1 text-right tabular-nums ${hitzoneTone(part.multipliers[key] ?? 0)}`}>
-                    {formatMultiplier(part.multipliers[key])}
-                  </td>
-                ))}
-                <td class="px-1 py-1 text-right text-xs">
+                {columns.map((key) => {
+                  const value = part.multipliers[key] ?? 0;
+                  return (
+                    <td class={`num min-w-10 px-1 text-center text-sm ${hitzoneTone(value)}`}>
+                      {formatMultiplier(part.multipliers[key])}
+                      <span class="ml-0.5 text-[9px] opacity-70">{hitzoneDots(value)}</span>
+                    </td>
+                  );
+                })}
+                <td class="px-2 text-right text-xs">
                   {part.kinsectEssence ? t(`es.${part.kinsectEssence}` as never) : '—'}
                 </td>
               </tr>

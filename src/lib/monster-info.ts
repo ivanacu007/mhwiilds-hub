@@ -52,21 +52,37 @@ export const DAMAGE_COLUMNS = [
 ];
 
 /**
- * Tinte según lo bueno que sea golpear ahí. Los umbrales son los de siempre en
- * la serie: 45 o más es zona blanda, y por debajo de 25 el daño casi rebota.
+ * Tramo de la matriz de zonas. Los cortes son los del sistema de diseño; el
+ * fondo tiñe muy bajo y el número conserva contraste en los cinco.
  */
 export function hitzoneTone(value: number): string {
-  const percent = value * 100;
-  if (percent >= 45) return 'text-jade-400 font-semibold';
-  if (percent >= 25) return 'text-base-100';
-  if (percent > 0) return 'text-base-500';
-  return 'text-base-700';
+  const percent = Math.round(value * 100);
+  if (percent === 0) return 'hz-0';
+  if (percent <= 20) return 'hz-bad';
+  if (percent <= 40) return 'hz-low';
+  if (percent <= 60) return 'hz-mid';
+  return 'hz-good';
+}
+
+/**
+ * Puntos de tramo: segundo canal para que el nivel no dependa solo del color.
+ * Cero se marca con guion largo y sin tinte.
+ */
+export function hitzoneDots(value: number): string {
+  const percent = Math.round(value * 100);
+  if (percent === 0) return '';
+  if (percent <= 40) return '·';
+  if (percent <= 60) return '··';
+  return '···';
 }
 
 /** Los multiplicadores llegan como fracción (0.45) y se leen mejor como 45. */
 export function formatMultiplier(value: number | undefined): string {
   if (value == null) return '—';
-  return String(Math.round(value * 100));
+  const percent = Math.round(value * 100);
+  // Cero se marca con guion largo: un "0" en una matriz de números se confunde
+  // con un valor bajo, y aquí significa que el daño rebota del todo.
+  return percent === 0 ? '—' : String(percent);
 }
 
 /** La parte con mejor multiplicador para un tipo de daño, si alguna destaca. */

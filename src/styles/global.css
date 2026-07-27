@@ -307,6 +307,51 @@ body {
 .slot-2 { color: var(--slot-2); }
 .slot-3 { color: var(--slot-3); }
 
+/**
+ * Tabla de datos densa.
+ *
+ * La cabecera queda pegajosa arriba y la primera columna a la izquierda: en
+ * móvil la matriz de zonas se recorre en horizontal, y sin la columna de parte
+ * fija no se sabe qué fila se está leyendo. No se rota ni se parte en tarjetas
+ * porque el objetivo es justo comparar entre columnas.
+ */
+.table-dense { border-collapse: separate; border-spacing: 0; }
+
+.table-dense thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 26px;
+  background: var(--bg-2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.table-dense tbody td { height: var(--row-data); border-bottom: 1px solid var(--line); }
+.table-dense tbody tr:hover td { background: var(--bg-3); }
+
+/** La columna fija lleva sombra a la derecha como pista de que hay más. */
+.table-dense .col-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--bg-1);
+  box-shadow: 6px 0 6px -6px rgb(0 0 0 / 0.45);
+}
+.table-dense thead .col-sticky { z-index: 3; }
+
+/** Tramos de la matriz de zonas. El número no pierde contraste en ninguno. */
+.hz-0    { background: var(--hz-0-bg);    color: var(--hz-0-fg); }
+.hz-bad  { background: var(--hz-bad-bg);  color: var(--hz-bad-fg); }
+.hz-low  { background: var(--hz-low-bg);  color: var(--hz-low-fg); }
+.hz-mid  { background: var(--hz-mid-bg);  color: var(--hz-mid-fg); }
+.hz-good { background: var(--hz-good-bg); color: var(--hz-good-fg); font-weight: 700; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

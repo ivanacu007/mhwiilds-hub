@@ -22,7 +22,7 @@ const monsters = matching;
 ---
 
 <Base title={`${t('monsters.title')} · ${t('app.name')}`} noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">{t('monsters.title')}</h1>
+  <h1 class="font-guide mb-1 text-[30px] font-bold leading-tight">{t('monsters.title')}</h1>
   <p class="mb-5 text-sm text-base-500">{t('monsters.blurb')}</p>
 
   {/* Búsqueda por GET: la página es de servidor y así el resultado se comparte. */}
@@ -31,24 +31,26 @@ const monsters = matching;
       name="q"
       value={query}
       placeholder={t('monsters.search')}
-      class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+      class="h-8 min-w-0 flex-1 rounded-[2px] border border-line bg-bg-1 px-2 text-[13px] outline-none focus:border-accent"
     />
-    <button class="rounded border border-base-700 px-3 py-2 text-sm hover:bg-base-850">
+    <button class="font-ui h-8 border border-line px-3 text-[13px] uppercase tracking-wide hover:bg-bg-3">
       {t('monsters.search').replace('…', '')}
     </button>
   </form>
 
-  <ul class="grid gap-2 xl:grid-cols-2">
+  {/* auto-fill con mínimo de 232 px: la tarjeta manda sobre el número de
+      columnas, así el bloque de debilidades nunca se estrangula. */}
+  <ul class="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(232px,1fr))]">
     {monsters.map((monster) => (
       <li>
         <a
           href={`/monstruos/${monster.id}`}
-          class="flex items-start gap-3 rounded border border-base-800 bg-base-900 p-2 transition-colors hover:border-ember-500/50 hover:bg-base-850"
+          class="bevel-sm flex h-full items-start gap-3 border border-line bg-bg-1 p-2 transition-colors hover:border-accent"
         >
-          <MonsterIcon monster={monster} size={56} />
+          <MonsterIcon monster={monster} size={56} class="tile" />
           <div class="min-w-0 flex-1">
-            <p class="truncate font-medium">{monster.name}</p>
-            <p class="truncate text-xs text-base-500">
+            <p class="font-guide text-[17px] leading-tight">{monster.name}</p>
+            <p class="truncate font-ui text-[11px] uppercase tracking-wide text-text-3">
               {t(`species.${monster.species}` as never)}
             </p>
             <MonsterWeaknesses weaknesses={monster.weaknesses} resistances={monster.resistances} dense />
@@ -63,7 +65,7 @@ const monsters = matching;
   )}
 
   {monsters.length > 0 && (
-    <p class="mt-4 text-xs text-base-500">
+    <p class="num mt-4 text-xs text-text-3">
       {t('pagination.only', { total: monsters.length, label: t('monsters.monsters') })}
     </p>
   )}
