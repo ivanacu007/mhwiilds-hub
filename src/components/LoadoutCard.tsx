@@ -34,6 +34,7 @@ interface Props {
    */
   weaponId: number | null;
   onUnpinWeapon: () => void;
+  onShowSkill: (skillId: number, level?: number) => void;
   onComplete: () => void;
   /** Si hay objetivos elegidos, completar con el buscador tiene sentido. */
   canComplete: boolean;
@@ -62,7 +63,8 @@ function defaultName(index: CatalogIndex, locale: Locale, armorIds: number[]): s
 }
 
 export default function LoadoutCard(props: Props) {
-  const { index, locale, t, pinned, onUnpin, weaponId, onUnpinWeapon, onComplete, canComplete } = props;
+  const { index, locale, t, pinned, onUnpin, weaponId, onUnpinWeapon, onShowSkill } = props;
+  const { onComplete, canComplete } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
@@ -259,18 +261,26 @@ export default function LoadoutCard(props: Props) {
             <p class="py-2 text-[12.5px] text-text-3">{t('builder.emptySet')}</p>
           ) : (
             <>
+              {/* La pista va aquí y no en cada tarjeta de resultado: repetida
+                  ocho veces sería ruido, y esta tarjeta está siempre en pantalla
+                  mientras se hojea. */}
               <h3 class="font-ui text-[12px] uppercase tracking-[0.12em] text-text-3">
                 {t('builder.achieved')}
+                <span class="ml-2 normal-case tracking-normal opacity-80">
+                  {t('builder.skillHint')}
+                </span>
               </h3>
               <div class="flex flex-wrap gap-1">
                 {summary.skills.map((skill) => (
-                  <span
+                  <button
                     key={skill.skillId}
-                    class="inline-flex items-center gap-1.5 border border-line bg-bg-3 px-2 py-[3px] text-[12.5px] text-text-2"
+                    onClick={() => onShowSkill(skill.skillId, skill.level)}
+                    title={t('builder.skillInfo')}
+                    class="inline-flex items-center gap-1.5 border border-line bg-bg-3 px-2 py-[3px] text-[12.5px] text-text-2 hover:border-accent hover:text-text-1"
                   >
                     {skill.name}
                     <span class="num text-[11px] text-accent-hi">{skill.level}/{skill.max}</span>
-                  </span>
+                  </button>
                 ))}
               </div>
 
@@ -280,14 +290,26 @@ export default function LoadoutCard(props: Props) {
                     {t('builder.setBonus')}
                   </h3>
                   <ul class="text-[12.5px] leading-[1.35] text-text-2">
-                    {[...summary.setBonuses, ...summary.groupBonuses].map((bonus, i) => (
-                      <li key={i} class="truncate">
-                        {bonus.name}
-                        <span class="num text-text-3">
-                          {' · '}{t('builder.bonusPieces', { count: bonus.ranks.at(-1)!.pieces })}
-                        </span>
-                      </li>
-                    ))}
+                    {[...summary.setBonuses, ...summary.groupBonuses].map((bonus, i) => {
+                      const last = bonus.ranks.at(-1)!;
+                      return (
+                        <li key={i}>
+                          {/* También se abre: un bonus de serie es una habilidad
+                              del mismo catálogo, y es donde menos se sabe qué
+                              hace. */}
+                          <button
+                            onClick={() => onShowSkill(last.skillId, last.level)}
+                            title={t('builder.skillInfo')}
+                            class="max-w-full truncate text-left hover:text-accent-hi"
+                          >
+                            {bonus.name}
+                            <span class="num text-text-3">
+                              {' · '}{t('builder.bonusPieces', { count: last.pieces })}
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
                   </ul>
                 </>
               )}

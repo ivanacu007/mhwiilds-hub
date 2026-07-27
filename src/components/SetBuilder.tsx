@@ -5,6 +5,7 @@ import { ARMOR_KINDS, indexCatalog, type ArmorKind, type Catalog } from '../lib/
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
 import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import Combo from './ui/Combo.tsx';
+import SkillDetails from './SkillDetails.tsx';
 import LoadoutCard from './LoadoutCard.tsx';
 import SeriesBrowser from './SeriesBrowser.tsx';
 import { slotSvg } from '../lib/ui/glyphs.ts';
@@ -32,6 +33,10 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   // fijadas valen para las dos: el solver las respeta como restricción.
   const [mode, setMode] = useState<'solve' | 'browse'>('solve');
   const [pinned, setPinned] = useState<Partial<Record<ArmorKind, number>>>({});
+  // Qué habilidad se está mirando y con qué nivel. Vive aquí y no en cada
+  // tarjeta porque el diálogo se abre desde cuatro sitios distintos y solo
+  // puede haber uno abierto.
+  const [skillInfo, setSkillInfo] = useState<{ skillId: number; level?: number } | null>(null);
   // En móvil el panel es una hoja inferior: ocupa toda la altura útil y
   // taparía los resultados si estuviera siempre abierto.
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -190,6 +195,9 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   const weaponSkills = skillGroups.find((g) => g.kind === 'weapon')?.skills ?? [];
   const totalSkills = catalog.skills.filter((s) => s.kind === 'armor' || s.kind === 'weapon').length;
 
+  const showSkill = (skillId: number, level?: number) => setSkillInfo({ skillId, level });
+  const openSkill = skillInfo ? skillById.get(skillInfo.skillId) : undefined;
+
   const pinnedCount = ARMOR_KINDS.filter((kind) => pinned[kind] != null).length;
   // Volver a tocar la pieza que ya estaba la suelta: es el mismo gesto para
   // poner y quitar, y evita tener que buscar la ✕ en la otra columna.
@@ -203,6 +211,15 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
   return (
     <div class="grid gap-3.5 lg:grid-cols-[380px_minmax(0,1fr)]">
+      {openSkill && (
+        <SkillDetails
+          skill={openSkill}
+          level={skillInfo?.level}
+          t={t}
+          onClose={() => setSkillInfo(null)}
+        />
+      )}
+
       {headerSlot && createPortal(
         <>
           {/* El conmutador vive en la fila de cabecera, junto a «Limpiar»: es una
@@ -538,6 +555,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               onUnpin={unpin}
               weaponId={weaponId}
               onUnpinWeapon={() => setWeaponId(null)}
+              onShowSkill={showSkill}
               onComplete={() => void run()}
               canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
             />
@@ -547,6 +565,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               t={t}
               pinned={pinned}
               onPin={pin}
+              onShowSkill={showSkill}
               ownedArmor={ownedArmor}
             />
           </>
@@ -642,6 +661,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
                 charmById={charmById}
                 skillById={skillById}
                 targets={targets}
+                onShowSkill={showSkill}
                 t={t}
               />
             ))}
@@ -662,9 +682,10 @@ function SolutionCard(props: {
   charmById: Map<number, Catalog['charms'][number]>;
   skillById: Map<number, Catalog['skills'][number]>;
   targets: Target[];
+  onShowSkill: (skillId: number, level: number) => void;
   t: Translator;
 }) {
-  const { index, solution, armorById, decoById, charmById, skillById, targets, t } = props;
+  const { index, solution, armorById, decoById, charmById, skillById, targets, onShowSkill, t } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
@@ -835,9 +856,11 @@ function SolutionCard(props: {
                 // la única forma de ver que este set no cumple sin recontar.
                 const short = target !== undefined && entry.level < target.level;
                 return (
-                  <span
+                  <button
                     key={entry.id}
-                    class="inline-flex items-center gap-1.5 border px-2 py-[3px] text-[12.5px]"
+                    onClick={() => onShowSkill(entry.id, entry.level)}
+                    title={t('builder.skillInfo')}
+                    class="inline-flex items-center gap-1.5 border px-2 py-[3px] text-[12.5px] hover:border-accent"
                     style={
                       short
                         ? 'background: color-mix(in srgb, var(--warn) 12%, transparent); border-color: var(--warn); color: var(--warn)'
@@ -848,7 +871,7 @@ function SolutionCard(props: {
                     <span class="num text-[11px]" style={short ? undefined : 'color: var(--accent-hi)'}>
                       {entry.level}/{target ? target.level : max}
                     </span>
-                  </span>
+                  </button>
                 );
               })}
           </div>

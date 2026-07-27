@@ -23,6 +23,7 @@ interface Props {
   t: Translator;
   pinned: Partial<Record<ArmorKind, number>>;
   onPin: (kind: ArmorKind, armorId: number) => void;
+  onShowSkill: (skillId: number, level?: number) => void;
   /** Ids de armadura forjada, o null si da igual. */
   ownedArmor: Set<number> | null;
 }
@@ -58,7 +59,7 @@ interface MonsterOption {
   name: string;
 }
 
-export default function SeriesBrowser({ index, locale, t, pinned, onPin, ownedArmor }: Props) {
+export default function SeriesBrowser({ index, locale, t, pinned, onPin, onShowSkill, ownedArmor }: Props) {
   const [query, setQuery] = useState('');
   const [monster, setMonster] = useState<MonsterOption | null>(null);
   const [open, setOpen] = useState<Set<number | null>>(new Set());
@@ -229,6 +230,7 @@ export default function SeriesBrowser({ index, locale, t, pinned, onPin, ownedAr
                 t={t}
                 pinned={pinned}
                 onPin={onPin}
+                onShowSkill={onShowSkill}
               />
             ))}
           </section>
@@ -244,8 +246,9 @@ function SeriesRow(props: {
   t: Translator;
   pinned: Partial<Record<ArmorKind, number>>;
   onPin: (kind: ArmorKind, armorId: number) => void;
+  onShowSkill: (skillId: number, level?: number) => void;
 }) {
-  const { series, index, t, pinned, onPin } = props;
+  const { series, index, t, pinned, onPin, onShowSkill } = props;
   const { set, pieces } = series;
 
   const bonuses = [
@@ -265,14 +268,15 @@ function SeriesRow(props: {
         {bonuses.length > 0 && (
           <span class="ml-auto flex flex-wrap items-center gap-1.5">
             {bonuses.map(({ rank, label }, i) => (
-              <span
+              <button
                 key={i}
+                onClick={() => onShowSkill(rank.skillId, rank.level)}
                 title={rank.description ?? label}
-                class="num border border-line px-1.5 py-[1px] text-[11px] text-text-2"
+                class="num border border-line px-1.5 py-[1px] text-[11px] text-text-2 hover:border-accent hover:text-accent-hi"
               >
                 {rank.name ?? index.skillById.get(rank.skillId)?.name}
                 <span class="text-text-3"> · {t('builder.bonusPieces', { count: rank.pieces })}</span>
-              </span>
+              </button>
             ))}
           </span>
         )}

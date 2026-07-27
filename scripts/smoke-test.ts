@@ -128,7 +128,7 @@ try {
   const IDENTICAS_A_PROPOSITO = new Set([
     'account.accessGoogle', 'account.hr', 'account.hunterId', 'account.hunterName',
     'admin.authGoogle', 'admin.setsCount', 'admin.title', 'app.name',
-    'builder.res', 'builder.setNumber', 'common.error', 'crowns.total',
+    'builder.res', 'builder.seriesCount', 'builder.setNumber', 'common.error', 'crowns.total',
     'finder.material', 'hunters.sets', 'hunters.setsOne', 'inventory.no',
     'monsters.elemental', 'monsters.material', 'pagination.only',
     'profile.hunterRank', 'sets.sets', 'species.temnoceran', 'variant.normal',
