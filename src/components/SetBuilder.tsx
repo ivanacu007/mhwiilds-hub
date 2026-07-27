@@ -536,6 +536,8 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               t={t}
               pinned={pinned}
               onUnpin={unpin}
+              weaponId={weaponId}
+              onUnpinWeapon={() => setWeaponId(null)}
               onComplete={() => void run()}
               canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
             />

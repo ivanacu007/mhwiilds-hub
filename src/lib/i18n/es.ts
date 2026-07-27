@@ -247,6 +247,8 @@ export const es = {
   'builder.genericSeries': 'Sin monstruo',
   'builder.genericSeriesNote': 'Series de forja común, cosméticas o de monstruo pequeño.',
   'builder.filterSeries': 'Filtrar serie o pieza…',
+  'builder.filterMonster': 'Filtrar por monstruo…',
+  'builder.allMonsters': 'Todos los monstruos',
   'builder.seriesCount': '{count} series',
   'builder.seriesPieces': '{count} piezas',
   'builder.yourSet': 'Tu set',
@@ -256,6 +258,7 @@ export const es = {
   'builder.emptySet': 'Elige piezas de las series de abajo para armar tu set.',
   'builder.noSeriesMatch': 'Ninguna serie coincide.',
   'builder.completeWithSearch': 'Completar con el buscador',
+  'builder.saveNeedsPiece': 'Un set necesita al menos una pieza de armadura.',
   'builder.slotsShort': 'Ranuras',
 
   'piece.head': 'Cabeza',

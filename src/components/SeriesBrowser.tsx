@@ -2,6 +2,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { ARMOR_KINDS, type ArmorKind, type ArmorPiece, type ArmorSet, type CatalogIndex } from '../lib/catalog/types.ts';
 import { MONSTER_ICONS, MONSTER_SORT_ORDER, monsterIconPath } from '../lib/catalog/monster-icons.ts';
 import type { Locale, Translator } from '../lib/i18n/index.ts';
+import Combo from './ui/Combo.tsx';
 import { slotSvg } from '../lib/ui/glyphs.ts';
 import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 
@@ -48,8 +49,18 @@ interface Group {
   series: Series[];
 }
 
+/**
+ * Entrada del selector de monstruo. `all` no filtra y `generic` deja solo las
+ * series sin monstruo; el resto es el id del monstruo.
+ */
+interface MonsterOption {
+  key: 'all' | 'generic' | number;
+  name: string;
+}
+
 export default function SeriesBrowser({ index, locale, t, pinned, onPin, ownedArmor }: Props) {
   const [query, setQuery] = useState('');
+  const [monster, setMonster] = useState<MonsterOption | null>(null);
   const [open, setOpen] = useState<Set<number | null>>(new Set());
 
   const groups = useMemo(() => {
@@ -70,7 +81,12 @@ export default function SeriesBrowser({ index, locale, t, pinned, onPin, ownedAr
       const entry: Series = {
         set,
         pieces,
-        haystack: normalize([set.name, ...pieces.map((p) => p.name)].join(' ')),
+        // El nombre del monstruo entra en el filtro: buscar «omega» busca su
+        // armadura, y las piezas de Omega Planetes no se llaman así. Antes solo
+        // salían las que llevaban la palabra en el nombre, que no es ninguna.
+        haystack: normalize(
+          [set.name, monsterId != null ? monsterName.get(monsterId)! : '', ...pieces.map((p) => p.name)].join(' '),
+        ),
       };
       const list = byMonster.get(monsterId);
       if (list) list.push(entry);
@@ -105,34 +121,64 @@ export default function SeriesBrowser({ index, locale, t, pinned, onPin, ownedAr
     // tecla del filtro. `locale`, que es de lo que depende de verdad, sí está.
   }, [index, locale, ownedArmor]);
 
+  // Solo los monstruos que tienen serie: ofrecer los 34 y que trece devuelvan
+  // vacío sería prometer lo que no hay. `groups` ya viene en orden de guía.
+  const monsterOptions = useMemo<MonsterOption[]>(() => [
+    { key: 'all', name: t('builder.allMonsters') },
+    ...groups.map((group) => ({
+      key: group.monsterId ?? ('generic' as const),
+      name: group.monsterId == null ? t('builder.genericSeries') : group.name,
+    })),
+  ], [groups, t]);
+
   const needle = normalize(query.trim());
   const filtered = useMemo(() => {
-    if (!needle) return groups;
+    const picked = monster && monster.key !== 'all' ? monster.key : null;
     return groups
-      .map((group) => ({ ...group, series: group.series.filter((s) => s.haystack.includes(needle)) }))
+      .filter((group) => picked == null || (picked === 'generic' ? group.monsterId == null : group.monsterId === picked))
+      .map((group) => (needle
+        ? { ...group, series: group.series.filter((s) => s.haystack.includes(needle)) }
+        : group))
       .filter((group) => group.series.length > 0);
-  }, [groups, needle]);
+  }, [groups, needle, monster]);
 
   const total = filtered.reduce((n, group) => n + group.series.length, 0);
 
   return (
     <>
-      <div class="flex min-h-8 flex-wrap items-center gap-2 border border-line bg-bg-1 px-3 py-[3px]">
+      {/* Dos maneras de acotar, porque se llega por dos caminos: sabiendo de qué
+          monstruo es la armadura, o recordando media palabra de su nombre. */}
+      <div class="grid gap-2 border border-line bg-bg-1 p-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
+        <Combo
+          placeholder={t('builder.filterMonster')}
+          groups={[{ label: t('finder.monster'), items: monsterOptions }]}
+          value={monster}
+          onPick={setMonster}
+          render={(option) => option.name}
+          keyOf={(option) => option.key}
+          countLabel={(shown, total) => `${shown} / ${total}`}
+          seeAllLabel={t('ui.seeAll')}
+        />
         <input
           value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           placeholder={t('builder.filterSeries')}
-          class="h-[26px] min-w-0 flex-1 border border-line-strong bg-bg-0 px-2 text-[13.5px] outline-none focus:border-accent"
+          class="h-8 min-w-0 border border-line-strong bg-bg-0 px-2.5 text-[14px] outline-none focus:border-accent"
         />
-        <span class="num text-[11px] text-text-3">{t('builder.seriesCount', { count: total })}</span>
+        <span class="num text-[11px] text-text-3 sm:pl-1">
+          {t('builder.seriesCount', { count: total })}
+        </span>
       </div>
 
       {total === 0 && <p class="py-10 text-center text-text-3">{t('builder.noSeriesMatch')}</p>}
 
       {filtered.map((group) => {
-        // Al filtrar se abre solo: buscar «Rathalos» y encontrarse cabeceras
-        // cerradas sería pedir dos clics para ver lo que ya se pidió.
-        const expanded = needle ? true : open.has(group.monsterId);
+        // Al filtrar se abre solo: buscar «Rathalos» o elegirlo en el selector y
+        // encontrarse la cabecera cerrada sería pedir dos clics para ver lo que
+        // ya se pidió.
+        const expanded = needle || (monster && monster.key !== 'all')
+          ? true
+          : open.has(group.monsterId);
         return (
           <section key={group.monsterId ?? 'generic'} class="panel">
             <button

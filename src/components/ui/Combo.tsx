@@ -212,8 +212,13 @@ export default function Combo<T>({
                 {group.label} <span class="num opacity-70">{group.items.length}</span>
               </p>
               {group.items.map((item) => {
-                index += 1;
-                const active = index === cursor;
+                // Copia por fila: `index` es un contador que sigue subiendo
+                // mientras se pinta, y leerlo desde el `onMouseEnter` daba
+                // siempre su valor final. Así, al abrirse la lista bajo el
+                // puntero, la primera fila que se tocaba movía el cursor al
+                // último elemento y la lista saltaba al fondo.
+                const position = (index += 1);
+                const active = position === cursor;
                 return (
                   <button
                     key={keyOf(item)}
@@ -221,7 +226,7 @@ export default function Combo<T>({
                     role="option"
                     aria-selected={active}
                     data-cursor={active}
-                    onMouseEnter={() => setCursor(index)}
+                    onMouseEnter={() => setCursor(position)}
                     onClick={() => choose(item)}
                     class={`flex h-[30px] w-full items-center gap-2 px-2 text-left text-[13px] ${
                       active ? 'row-active' : 'hover:bg-bg-3'

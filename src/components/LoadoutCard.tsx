@@ -27,6 +27,13 @@ interface Props {
   t: Translator;
   pinned: Partial<Record<ArmorKind, number>>;
   onUnpin: (kind: ArmorKind) => void;
+  /**
+   * El arma se elige en el panel de la izquierda, el mismo sitio que en modo
+   * buscar. Aquí entra como una pieza más: sus habilidades cuentan y sus
+   * ranuras se suman a las libres, sin que haga falta pedir nada al solver.
+   */
+  weaponId: number | null;
+  onUnpinWeapon: () => void;
   onComplete: () => void;
   /** Si hay objetivos elegidos, completar con el buscador tiene sentido. */
   canComplete: boolean;
@@ -54,16 +61,20 @@ function defaultName(index: CatalogIndex, locale: Locale, armorIds: number[]): s
   return pieces.map((p) => p!.name).join(' + ').slice(0, 60);
 }
 
-export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onComplete, canComplete }: Props) {
+export default function LoadoutCard(props: Props) {
+  const { index, locale, t, pinned, onUnpin, weaponId, onUnpinWeapon, onComplete, canComplete } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
+  const weapon = weaponId != null ? index.weaponById.get(weaponId) ?? null : null;
   const summary = summarizeLoadout(index, {
     pieces: Object.fromEntries(
       ARMOR_KINDS.filter((kind) => pinned[kind] != null)
         .map((kind) => [kind, { armorId: pinned[kind]! }]),
     ),
+    weaponId,
   });
+  const freeSlots = [...summary.freeArmorSlots, ...summary.freeWeaponSlots];
 
   const save = async () => {
     setSaving('guardando');
@@ -74,7 +85,7 @@ export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onCompl
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           name: defaultName(index, locale, armorIds), notes: null,
-          weaponId: null, weaponDecorations: [],
+          weaponId, weaponDecorations: [],
           ...Object.fromEntries(
             ARMOR_KINDS.map((kind) => [
               kind,
@@ -95,7 +106,7 @@ export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onCompl
   return (
     <article
       class="panel bevel-head"
-      style={`border-left: 2px solid var(--slot-${Math.min(3, Math.max(1, summary.freeArmorSlots[0] ?? 1))})`}
+      style={`border-left: 2px solid var(--slot-${Math.min(3, Math.max(1, freeSlots[0] ?? 1))})`}
     >
       <header class="flex min-h-[38px] flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-line bg-panel-head px-3.5 py-1">
         <span class="font-ui text-[16px] uppercase tracking-[0.1em] text-accent-hi">
@@ -127,10 +138,10 @@ export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onCompl
           })}
         </span>
 
-        {summary.freeArmorSlots.length > 0 && (
+        {freeSlots.length > 0 && (
           <span class="flex items-center gap-1.5">
             <span class="font-ui text-[11.5px] uppercase tracking-[0.1em] text-text-3">{t('builder.free')}</span>
-            {summary.freeArmorSlots.map((level, i) => (
+            {freeSlots.map((level, i) => (
               <span key={i} dangerouslySetInnerHTML={{ __html: slotSvg(level, false, true) }} />
             ))}
           </span>
@@ -149,8 +160,11 @@ export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onCompl
               class="font-ui flex h-[26px] items-center border border-line-strong bg-bg-2 px-2.5 text-[12.5px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1"
             >{t('builder.completeWithSearch')}</button>
           )}
+          {/* Guardar pide al menos una pieza de armadura: la API rechaza un set
+              que solo lleve arma, y es mejor no ofrecerlo que fallar al pulsar. */}
           <button
             onClick={save}
+            title={summary.pieceCount === 0 ? t('builder.saveNeedsPiece') : undefined}
             disabled={summary.pieceCount === 0 || saving === 'guardando' || saving === 'guardado'}
             class="font-ui flex h-[26px] items-center border border-line-strong bg-bg-2 px-2.5 text-[12.5px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-40"
           >
@@ -163,6 +177,49 @@ export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onCompl
 
       <div class="grid lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
         <div class="min-w-0 lg:border-r lg:border-line">
+          {/* El arma primero, como en la ficha del juego. Lleva ataque donde las
+              piezas llevan defensa: son las dos cifras que se comparan, y no
+              tiene sentido dejar la columna en blanco. */}
+          {weapon && (
+            <div class="grid min-h-[34px] grid-cols-[64px_26px_minmax(0,1fr)_56px_auto_24px] items-center gap-2 border-b border-line bg-bg-1 px-3 py-[3px]">
+              <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">
+                {t('piece.weapon')}
+              </span>
+              <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+                <span style={gearIconStyle(weapon.kind, 14, 'var(--accent-hi)')} />
+              </span>
+              <span class="min-w-0 truncate text-[14px]">
+                {weapon.name}
+                {weapon.element && (
+                  <span class="num ml-2 text-[11.5px]" style={`color: var(--el-${weapon.element.kind})`}>
+                    {t(`el.${weapon.element.kind}` as never)} {weapon.element.damage}
+                  </span>
+                )}
+                {weapon.affinity !== 0 && (
+                  <span
+                    class="num ml-2 text-[11.5px] text-text-3"
+                    style={weapon.affinity < 0 ? 'color: var(--danger)' : undefined}
+                  >
+                    {t('builder.affinityShort')} {weapon.affinity > 0 ? '+' : ''}{weapon.affinity}%
+                  </span>
+                )}
+              </span>
+              <span class="num text-right text-[12.5px] text-text-2" title={t('builder.attackShort')}>
+                {weapon.attack}
+              </span>
+              <span class="flex gap-[3px]">
+                {weapon.slots.map((level, i) => (
+                  <span key={i} dangerouslySetInnerHTML={{ __html: slotSvg(level, false, true) }} />
+                ))}
+              </span>
+              <button
+                onClick={onUnpinWeapon}
+                aria-label={`${t('builder.unpin')} ${weapon.name}`}
+                class="grid h-6 w-6 place-items-center border border-line bg-bg-2 text-[12px] text-text-3 hover:border-danger hover:text-danger"
+              >✕</button>
+            </div>
+          )}
+
           {ARMOR_KINDS.map((kind) => {
             const piece = pinned[kind] != null ? index.armorById.get(pinned[kind]!) : undefined;
             return (
@@ -198,7 +255,7 @@ export default function LoadoutCard({ index, locale, t, pinned, onUnpin, onCompl
         </div>
 
         <div class="flex min-w-0 flex-col gap-2 border-t border-line p-3 lg:border-t-0">
-          {summary.pieceCount === 0 ? (
+          {summary.pieceCount === 0 && !weapon ? (
             <p class="py-2 text-[12.5px] text-text-3">{t('builder.emptySet')}</p>
           ) : (
             <>

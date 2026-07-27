@@ -248,6 +248,8 @@ export const en: Record<keyof typeof es, string> = {
   'builder.genericSeries': 'No monster',
   'builder.genericSeriesNote': 'Common forge, cosmetic or small-monster series.',
   'builder.filterSeries': 'Filter series or piece…',
+  'builder.filterMonster': 'Filter by monster…',
+  'builder.allMonsters': 'All monsters',
   'builder.seriesCount': '{count} series',
   'builder.seriesPieces': '{count} pieces',
   'builder.yourSet': 'Your set',
@@ -257,6 +259,7 @@ export const en: Record<keyof typeof es, string> = {
   'builder.emptySet': 'Pick pieces from the series below to build your set.',
   'builder.noSeriesMatch': 'No series match.',
   'builder.completeWithSearch': 'Complete with the search',
+  'builder.saveNeedsPiece': 'A set needs at least one armor piece.',
   'builder.slotsShort': 'Slots',
 
   'piece.head': 'Head',
