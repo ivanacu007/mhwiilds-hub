@@ -1,0 +1,12 @@
+---
+import { slotSvg } from '../../lib/ui/glyphs.ts';
+
+interface Props {
+  level: number;
+  occupied?: boolean;
+  compact?: boolean;
+}
+const { level, occupied = false, compact = false } = Astro.props;
+---
+
+<span class="inline-flex shrink-0 align-middle" set:html={slotSvg(level, occupied, compact)} />

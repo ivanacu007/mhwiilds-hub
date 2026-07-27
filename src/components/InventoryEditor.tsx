@@ -2,6 +2,8 @@ import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import Pagination from './Pagination.tsx';
+import Stepper from './ui/Stepper.tsx';
+import { slotSvg } from '../lib/ui/glyphs.ts';
 import { paginate } from '../lib/paginate.ts';
 import { itemIconColor, itemIconPath } from '../lib/catalog/item-icons.ts';
 import { translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
@@ -32,7 +34,8 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
   const [query, setQuery] = useState('');
   const [onlyOwned, setOnlyOwned] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+  // 40 por página: el tamaño que fija el sistema para adornos, armaduras y materiales.
+  const [pageSize, setPageSize] = useState(40);
   const [status, setStatus] = useState<'cargando' | 'listo' | 'guardando' | 'guardado' | 'error'>('cargando');
   const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -248,7 +251,9 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
               value={inventory.decorations[String(deco.id)] ?? 0}
               max={99}
               onChange={(v) => setCount('decorations', deco.id, v)}
-              t={t}
+              labelAdd={t('inventory.addOne')}
+              labelRemove={t('inventory.removeOne')}
+              name={deco.name}
             />
           </Row>
         ))}
@@ -320,7 +325,9 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
               value={inventory.materials[String(item.id)] ?? 0}
               max={9999}
               onChange={(v) => setCount('materials', item.id, v)}
-              t={t}
+              labelAdd={t('inventory.addOne')}
+              labelRemove={t('inventory.removeOne')}
+              name={item.name}
             />
           </Row>
         ))}
@@ -397,48 +404,16 @@ function MaterialIcon({ item }: { item: Catalog['items'][number] }) {
   );
 }
 
+/** Rombo con el dígito impreso: el nivel no depende solo del color. */
 function SlotBadge({ size, kind, t }: { size: number; kind: 'armor' | 'weapon'; t: Translator }) {
   return (
     <span
-      class={`slot-${size} w-10 shrink-0 text-center text-xs font-semibold`}
+      class="flex w-10 shrink-0 items-center justify-center gap-0.5"
       title={kind === 'weapon' ? t('inventory.weaponDeco') : t('inventory.armorDeco')}
     >
-      [{size}]{kind === 'weapon' ? '⚔' : ''}
+      <span dangerouslySetInnerHTML={{ __html: slotSvg(size) }} />
+      {kind === 'weapon' && <span class="text-[10px] text-accent">⚔</span>}
     </span>
   );
 }
 
-function Stepper({ value, max, onChange, t }: { value: number; max: number; onChange: (v: number) => void; t: Translator }) {
-  return (
-    <div class="flex items-center gap-1">
-      <button
-        onClick={() => onChange(Math.max(0, value - 1))}
-        disabled={value === 0}
-        class="h-7 w-7 rounded bg-base-850 text-base-300 hover:bg-base-800 disabled:opacity-30"
-        aria-label={t('inventory.removeOne')}
-      >
-        −
-      </button>
-      <input
-        type="number"
-        value={value}
-        min={0}
-        max={max}
-        onInput={(e) => {
-          const parsed = Number((e.target as HTMLInputElement).value);
-          onChange(Number.isFinite(parsed) ? Math.max(0, Math.min(max, Math.floor(parsed))) : 0);
-        }}
-        class={`h-7 w-14 rounded border border-base-700 bg-base-900 text-center text-sm outline-none focus:border-ember-500 ${
-          value > 0 ? 'text-base-100' : 'text-base-500'
-        }`}
-      />
-      <button
-        onClick={() => onChange(Math.min(max, value + 1))}
-        class="h-7 w-7 rounded bg-base-850 text-base-300 hover:bg-base-800"
-        aria-label={t('inventory.addOne')}
-      >
-        +
-      </button>
-    </div>
-  );
-}

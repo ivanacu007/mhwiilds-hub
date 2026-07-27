@@ -603,6 +603,35 @@ try {
   const homeAnon = await fetch(`${BASE}/`, { redirect: 'manual' });
   check('sin sesión la home sigue siendo la portada', homeAnon.status === 200);
 
+  console.log('\n--- Sistema de diseño ---');
+  const css = (await (await fetch(`${BASE}/entrar`)).text())
+    .match(/\/_astro\/[^"]+\.css/)?.[0];
+  const hoja = css ? await (await fetch(`${BASE}${css}`)).text() : '';
+
+  check('el CSS trae los dos temas',
+    hoja.includes('#0b0a09') && hoja.includes('#f2e9d8'),
+    css ?? 'sin hoja');
+  check('el tema se conmuta por data-theme', hoja.includes('data-theme'));
+  check('respeta prefers-color-scheme', hoja.includes('prefers-color-scheme'));
+  check('define las escalas semánticas',
+    ['--crown-gold', '--slot-2', '--hz-good-bg', '--rarity-6', '--el-fire', '--st-poison']
+      .every((v) => hoja.includes(v)));
+
+  const entrarHtml = await (await fetch(`${BASE}/entrar`)).text();
+  check('el script de tema va antes del CSS',
+    entrarHtml.indexOf('localStorage.getItem(\'theme\')') < entrarHtml.indexOf('.css'),
+    'si va después, la página parpadea');
+  check('la barra trae el selector de tema', entrarHtml.includes('theme-toggle'));
+  check('carga las tipografías del sistema',
+    entrarHtml.includes('Barlow') && entrarHtml.includes('Spectral') && entrarHtml.includes('IBM+Plex+Mono'));
+
+  const { PAGINATION_THRESHOLD, PAGE_SIZES } = await import('../src/lib/paginate.ts');
+  check('el tamaño de página es 40', PAGE_SIZES[0] === 40);
+  check('los monstruos quedan por debajo del umbral',
+    catalog.monsters.length < PAGINATION_THRESHOLD && catalog.charms.length < PAGINATION_THRESHOLD);
+  check('los adornos y materiales lo superan',
+    catalog.decorations.length > PAGINATION_THRESHOLD && catalog.items.length > PAGINATION_THRESHOLD);
+
   console.log('\n--- Iconos de material ---');
   const { ICON_KIND_MAP, itemIconPath, itemIconColor, requiredIconSlugs } =
     await import('../src/lib/catalog/item-icons.ts');

@@ -3,12 +3,13 @@ const t = Astro.locals.t;
 import Base from '../../layouts/Base.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import HunterAvatar from '../../components/HunterAvatar.astro';
+import Crown from '../../components/ui/Crown.astro';
 import Pagination from '../../components/Pagination.astro';
 import { paginate } from '../../lib/paginate.ts';
 import { getMember, displayName } from '../../lib/guild.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../../lib/db.ts';
-import { CROWN_INFO, CROWN_KEYS, crownsOf, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
+import { CROWN_KEYS, crownsOf, sumCounts, tallyCrowns, tallyHunts } from '../../lib/crowns.ts';
 import { MONSTER_VARIANTS } from '../../lib/catalog/monster-icons.ts';
 
 const member = await getMember(Astro.params.id!);
@@ -45,8 +46,6 @@ const crownsInfo = paginate(allWithCrowns.length, Number(Astro.url.searchParams.
 const withCrowns = allWithCrowns.slice(crownsInfo.start, crownsInfo.end);
 
 const isMe = Astro.locals.user?.id === member.id;
-// El color dice el tipo; la ranura (pequeña o grande) va en la etiqueta.
-const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
 ---
 
 <Base title={`${displayName(member)} · Sets de Wilds`} noIndex>
@@ -72,8 +71,11 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
   <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
     {CROWN_KEYS.map((key) => (
       <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
-        <p class="text-xs text-base-500">{t(`crowns.${key}` as any)}</p>
-        <p class="text-lg font-semibold" style={`color:${TIER_COLOR[CROWN_INFO[key].tier]}`}>
+        <p class="flex items-center gap-1.5 text-xs text-base-500">
+          <Crown crown={key} earned />
+          {t(`crowns.${key}` as any)}
+        </p>
+        <p class="num text-lg font-semibold">
           {crowns[key]} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
         </p>
       </div>
@@ -147,11 +149,7 @@ const TIER_COLOR = { silver: '#c9ccd4', gold: '#e0b53c' } as const;
                 <p class="text-[11px] text-base-500">{t(`species.${monster.species}` as any)}</p>
                 <div class="mt-0.5 flex gap-1">
                   {CROWN_KEYS.map((key) => (
-                    <span
-                      class="text-xs"
-                      style={`color:${TIER_COLOR[CROWN_INFO[key].tier]};opacity:${state[key] ? 1 : 0.2}`}
-                      title={t(`crowns.${key}` as any)}
-                    >{CROWN_INFO[key].slot === 'small' ? '♙' : '♔'}</span>
+                    <Crown crown={key} earned={state[key]} label={t(`crowns.${key}` as any)} />
                   ))}
                   {sumCounts(p?.hunted) > 0 && (
                     <span class="ml-1 text-[11px] text-base-500">· {sumCounts(p?.hunted)} {t('crowns.hunted').toLowerCase()}</span>

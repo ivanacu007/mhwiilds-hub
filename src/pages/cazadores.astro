@@ -3,6 +3,7 @@ const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import HunterAvatar from '../components/HunterAvatar.astro';
 import Pagination from '../components/Pagination.astro';
+import Crown from '../components/ui/Crown.astro';
 import { paginate } from '../lib/paginate.ts';
 import { getGuild, listMembers, displayName } from '../lib/guild.ts';
 import { getCatalogIndex } from '../lib/catalog/store.ts';
@@ -66,10 +67,12 @@ const rows = allRows.slice(info.start, info.end);
           </div>
 
           <div class="flex items-center gap-3 text-sm">
-            <span title="Grande oro" class="text-[#e0b53c]">♔ {crowns.largeGold}</span>
-            <span title="Grande plata" class="text-[#c9ccd4]">♔ {crowns.largeSilver}</span>
-            <span title="Pequeña oro" class="text-[#e0b53c]">♙ {crowns.smallGold}</span>
-            <span title="Pequeña plata" class="text-[#c9ccd4]">♙ {crowns.smallSilver}</span>
+            {(['largeGold', 'largeSilver', 'smallGold', 'smallSilver'] as const).map((key) => (
+              <span class="flex items-center gap-1">
+                <Crown crown={key} earned label={t(`crowns.${key}` as never)} />
+                <span class="num">{crowns[key]}</span>
+              </span>
+            ))}
             <span class="text-base-500">{sets} {sets === 1 ? 'set' : 'sets'}</span>
           </div>
         </a>

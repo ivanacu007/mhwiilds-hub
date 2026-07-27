@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
-import Pagination from './Pagination.tsx';
-import { paginate } from '../lib/paginate.ts';
+import { crownSvg } from '../lib/ui/glyphs.ts';
+import Stepper from './ui/Stepper.tsx';
 import { translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import type { Catalog, Monster } from '../lib/catalog/types.ts';
 import {
-  CROWN_INFO, CROWN_KEYS, crownsOf, emptyCounts, emptyCrowns, emptyProgress, sumCounts, tallyCrowns,
-  type CrownKey, type CrownTier,
+  CROWN_KEYS, crownsOf, emptyCounts, emptyCrowns, emptyProgress, sumCounts, tallyCrowns,
+  type CrownKey,
 } from '../lib/crowns.ts';
 import { monsterArtDataUri } from '../lib/monster-art.ts';
 import { MONSTER_VARIANTS, monsterIconPath, type MonsterVariant } from '../lib/catalog/monster-icons.ts';
@@ -33,8 +33,7 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<'todos' | 'faltantes' | 'completos' | 'favoritos'>('todos');
   const [open, setOpen] = useState<number | null>(null);
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
+
   const [status, setStatus] = useState<'cargando' | 'listo' | 'guardando' | 'guardado' | 'error'>('cargando');
 
   useEffect(() => {
@@ -107,8 +106,8 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
     });
   }, [monsters, query, filter, progress, favs]);
 
-  const pageInfo = paginate(matching.length, page, pageSize);
-  const visible = matching.slice(pageInfo.start, pageInfo.end);
+  // Sin paginar nunca: la rejilla existe para ver los 34 de un vistazo.
+  const visible = matching;
 
   if (status === 'cargando') return <p class="py-10 text-center text-base-500">{t('common.loading')}</p>;
   if (!catalog) return <p class="py-10 text-center text-red-300">{t('common.catalogError')}</p>;
@@ -132,14 +131,14 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
       <div class="mb-4 flex flex-wrap gap-2">
         <input
           value={query}
-          onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
+          onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           placeholder={t('crowns.searchMonster')}
           class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
         />
         {(['todos', 'faltantes', 'completos', 'favoritos'] as const).map((f) => (
           <button
             key={f}
-            onClick={() => { setFilter(f); setPage(1); }}
+            onClick={() => setFilter(f)}
             class={`rounded px-3 py-1.5 text-sm capitalize ${
               filter === f ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
             }`}
@@ -165,14 +164,6 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
       {matching.length === 0 && (
         <p class="py-10 text-center text-sm text-base-500">{t('crowns.noneMatch')}</p>
       )}
-
-      <Pagination
-        info={pageInfo}
-        onPage={setPage}
-        onPageSize={(size) => { setPageSize(size); setPage(1); }}
-        label={t('crowns.monsters')}
-        t={t}
-      />
 
       {open != null && (
         <MonsterDialog
@@ -202,50 +193,28 @@ function Stat({ label, value, total, crown, t }: {
   );
 }
 
-const TIER_COLOR: Record<CrownTier, string> = {
-  silver: '#c9ccd4',
-  gold: '#e0b53c',
-};
-
 /**
- * El color dice el tipo (plata u oro) y el alto dice la ranura: la corona
- * pequeña se dibuja achatada y la grande estirada, como en el juego.
+ * La corona la dibuja el glifo compartido: color por tipo, **silueta por dato**.
+ * Plata es contorno de tres puntas y oro sólida de cinco con estrella, así que
+ * se distinguen sin depender del tono.
  */
 function Crown({ crown, earned, dim, t }: {
   crown: CrownKey; earned: boolean; dim?: boolean; t: Translator;
 }) {
-  const { slot, tier } = CROWN_INFO[crown];
-  const label = t(`crowns.${crown}` as never);
-  const small = slot === 'small';
-  const color = earned ? TIER_COLOR[tier] : '#6b7280';
-
   return (
-    <svg
-      viewBox="0 0 24 20"
-      width="14"
-      height={small ? 9 : 12}
-      aria-label={label}
-      style={{
-        opacity: earned ? (dim ? 0.7 : 1) : 0.18,
-        filter: earned && !dim ? 'drop-shadow(0 0 2px rgba(0,0,0,.6))' : undefined,
-      }}
-    >
-      <path
-        d={small ? 'M2 16 L2 8 L7 11 L12 6 L17 11 L22 8 L22 16 Z' : 'M2 16 L2 5 L7 9 L12 2 L17 9 L22 5 L22 16 Z'}
-        fill={color}
-        stroke="rgba(0,0,0,.45)"
-        stroke-width="1"
-        stroke-linejoin="round"
-      />
-      <rect x="2" y="16" width="20" height="2.5" fill={color} />
-    </svg>
+    <span
+      class="inline-flex shrink-0 align-middle"
+      style={{ opacity: earned ? (dim ? 0.7 : 1) : 1 }}
+      role="img"
+      aria-label={t(`crowns.${crown}` as never)}
+      dangerouslySetInnerHTML={{ __html: crownSvg(crown, earned) }}
+    />
   );
 }
 
 /**
- * Muestra las variantes del monstruo una junto a otra. Los templados y
- * arcotemplados no existen para todos, y no hay lista de cuáles: si el archivo
- * falta, la imagen se quita sola y solo queda la normal.
+ * Muestra las variantes del monstruo una junto a otra. Los niveles que existen
+ * los declara la API; los iconos que falten se ocultan solos.
  */
 function VariantStrip({
   monster,
@@ -269,7 +238,7 @@ function VariantStrip({
             alt={`${monster.name} ${t(`variant.${variant}` as never)}`}
             width="56"
             height="56"
-            class="h-14 w-14 rounded-lg object-contain"
+            class="tile h-14 w-14 object-contain"
             style={
               variant === 'normal'
                 ? { backgroundImage: `url("${monsterArtDataUri(monster, 56)}")`, backgroundSize: 'cover' }
@@ -278,7 +247,7 @@ function VariantStrip({
             onError={() => onMissing(variant)}
           />
           {variant !== 'normal' && (
-            <figcaption class="mt-0.5 text-[10px] leading-none text-base-500">
+            <figcaption class="mt-0.5 text-[10px] leading-none text-text-3">
               {t(`variant.${variant}` as never)}
             </figcaption>
           )}
@@ -414,28 +383,28 @@ function MonsterDialog(props: {
         <div class="rounded border border-base-800">
           <div class="flex items-center gap-2 border-b border-base-800 px-2 py-1.5 text-[11px] text-base-500">
             <span class="flex-1">{t('crowns.level')}</span>
-            <span class="w-16 text-center">{t('crowns.hunted')}</span>
-            <span class="w-16 text-center">{t('crowns.captured')}</span>
+            <span class="w-[104px] text-center">{t('crowns.hunted')}</span>
+            <span class="w-[104px] text-center">{t('crowns.captured')}</span>
           </div>
 
           {available.map((variant) => (
             <div key={variant} class="flex items-center gap-2 px-2 py-1.5">
               <span class="flex-1 text-sm">{t(`variant.${variant}` as never)}</span>
-              <input
-                type="number" min="0" value={hunted[variant] || ''}
-                placeholder="0"
-                onInput={(e) => onChange({
-                  hunted: { ...hunted, [variant]: Number((e.target as HTMLInputElement).value) || 0 },
-                })}
-                class="w-16 rounded border border-base-700 bg-base-950 px-1.5 py-1 text-center text-sm outline-none focus:border-ember-500"
+              <Stepper
+                value={hunted[variant]}
+                max={99999}
+                onChange={(v) => onChange({ hunted: { ...hunted, [variant]: v } })}
+                labelAdd={t('crowns.hunted')}
+                labelRemove={t('crowns.hunted')}
+                name={`${t('crowns.hunted')} · ${t(`variant.${variant}` as never)}`}
               />
-              <input
-                type="number" min="0" value={captured[variant] || ''}
-                placeholder="0"
-                onInput={(e) => onChange({
-                  captured: { ...captured, [variant]: Number((e.target as HTMLInputElement).value) || 0 },
-                })}
-                class="w-16 rounded border border-base-700 bg-base-950 px-1.5 py-1 text-center text-sm outline-none focus:border-ember-500"
+              <Stepper
+                value={captured[variant]}
+                max={99999}
+                onChange={(v) => onChange({ captured: { ...captured, [variant]: v } })}
+                labelAdd={t('crowns.captured')}
+                labelRemove={t('crowns.captured')}
+                name={`${t('crowns.captured')} · ${t(`variant.${variant}` as never)}`}
               />
             </div>
           ))}
@@ -443,8 +412,8 @@ function MonsterDialog(props: {
           {(sumCounts(hunted) > 0 || sumCounts(captured) > 0) && (
             <div class="flex items-center gap-2 border-t border-base-800 px-2 py-1.5 text-sm">
               <span class="flex-1 text-base-500">{t('crowns.total')}</span>
-              <strong class="w-16 text-center">{sumCounts(hunted)}</strong>
-              <strong class="w-16 text-center">{sumCounts(captured)}</strong>
+              <strong class="num w-[104px] text-center">{sumCounts(hunted)}</strong>
+              <strong class="num w-[104px] text-center">{sumCounts(captured)}</strong>
             </div>
           )}
         </div>

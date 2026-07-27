@@ -21,7 +21,13 @@ export interface PageInfo {
   to: number;
 }
 
-export const PAGE_SIZES = [25, 50, 100, 200];
+export const PAGE_SIZES = [40, 80, 160];
+
+/**
+ * Por debajo de esto no se pagina: partir una lista corta esconde información
+ * sin ahorrar nada. Los 34 monstruos y los 64 talismanes caen aquí.
+ */
+export const PAGINATION_THRESHOLD = 120;
 
 export function paginate(total: number, rawPage: number, pageSize: number): PageInfo {
   const size = Math.max(1, Math.floor(pageSize) || PAGE_SIZES[0]);
