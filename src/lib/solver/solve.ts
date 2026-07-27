@@ -173,7 +173,35 @@ function prepare(request: SolveRequest, index: CatalogIndex): Prepared {
   const candidates = {} as Record<ArmorKind, Candidate[]>;
   const maxContribByKind = {} as Record<ArmorKind, number[]>;
 
+  const candidateOf = (piece: ArmorPiece): Candidate => {
+    const contrib = zero();
+    for (const grant of piece.skills) {
+      const ti = targetPos.get(grant.skillId);
+      if (ti !== undefined) contrib[ti] += grant.level;
+    }
+    const set = piece.setId != null ? index.armorSetById.get(piece.setId) : undefined;
+    return {
+      piece,
+      contrib,
+      slots: toSlotCounts(piece.slots),
+      setId: piece.setId,
+      groupId: set?.groupId ?? null,
+    };
+  };
+
   for (const kind of ARMOR_KINDS) {
+    // Ranura fijada: esa pieza y ninguna otra. Se salta el inventario, el rango,
+    // el filtro de "aporta algo" y la poda por dominancia — si la fijaste es
+    // porque la quieres puesta, aunque no sume a ningún objetivo.
+    const lockedId = request.locked?.[kind];
+    const lockedPiece = lockedId != null ? index.armorById.get(lockedId) : undefined;
+    if (lockedPiece && lockedPiece.kind === kind) {
+      const only = candidateOf(lockedPiece);
+      candidates[kind] = [only];
+      maxContribByKind[kind] = only.contrib.slice();
+      continue;
+    }
+
     const list: Candidate[] = [];
     for (const piece of index.armorByKind[kind]) {
       if (ownedArmor && !ownedArmor.has(piece.id)) continue;

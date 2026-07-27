@@ -75,6 +75,13 @@ export interface ArmorSet {
   groupId: number | null;
   /** Bonus de grupo: se activa con 3 piezas del mismo grupo. */
   groupBonus: BonusRank[];
+  /**
+   * Monstruo del que sale la serie. NO viene de la API: se deduce cruzando los
+   * materiales de las piezas con los botines de cada monstruo, en
+   * src/lib/catalog/monster-armor.ts. `null` en las series genéricas (Hope,
+   * Bone, cosméticos) y en las de monstruo pequeño, que no están en la lista.
+   */
+  monsterId: number | null;
 }
 
 export interface Decoration {

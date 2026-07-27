@@ -20,6 +20,11 @@ export interface OwnedInventory {
 export interface SolveRequest {
   targets: SkillTarget[];
   inventory: OwnedInventory;
+  /**
+   * Ranuras fijadas a mano: el solver usa esa pieza y no explora las demás de su
+   * ranura. Es lo que permite «quiero este torso, complétame el resto».
+   */
+  locked: Partial<Record<ArmorKind, number>>;
   weaponId: number | null;
   /** Rango de las piezas a considerar. */
   rank: 'all' | 'high' | 'low';

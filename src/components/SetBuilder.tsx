@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
-import { ARMOR_KINDS, type Catalog } from '../lib/catalog/types.ts';
+import { ARMOR_KINDS, indexCatalog, type ArmorKind, type Catalog } from '../lib/catalog/types.ts';
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
 import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import Combo from './ui/Combo.tsx';
+import LoadoutCard from './LoadoutCard.tsx';
+import SeriesBrowser from './SeriesBrowser.tsx';
 import { slotSvg } from '../lib/ui/glyphs.ts';
 import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 
@@ -25,6 +27,11 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   const [onlyOwnedArmor, setOnlyOwnedArmor] = useState(false);
   const [skillTab, setSkillTab] = useState<'armor' | 'weapon'>('armor');
   const [sortBy, setSortBy] = useState<'defense' | 'slots'>('defense');
+  // Dos maneras de llegar a un set: describir lo que quieres y que el solver
+  // busque, u hojear las series del juego y tomar piezas a mano. Las piezas
+  // fijadas valen para las dos: el solver las respeta como restricción.
+  const [mode, setMode] = useState<'solve' | 'browse'>('solve');
+  const [pinned, setPinned] = useState<Partial<Record<ArmorKind, number>>>({});
   // En móvil el panel es una hoja inferior: ocupa toda la altura útil y
   // taparía los resultados si estuviera siempre abierto.
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -73,21 +80,15 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
     };
   }, []);
 
-  const skillById = useMemo(
-    () => new Map((catalog?.skills ?? []).map((s) => [s.id, s])),
-    [catalog],
-  );
-  const decoById = useMemo(
-    () => new Map((catalog?.decorations ?? []).map((d) => [d.id, d])),
-    [catalog],
-  );
-  const armorById = useMemo(
-    () => new Map((catalog?.armor ?? []).map((a) => [a.id, a])),
-    [catalog],
-  );
-  const charmById = useMemo(
-    () => new Map((catalog?.charms ?? []).map((c) => [c.id, c])),
-    [catalog],
+  // Un solo índice en vez de cuatro mapas sueltos: es lo que piden el navegador
+  // de series y `summarizeLoadout`, y ya trae los mismos mapas por id.
+  const index = useMemo(() => (catalog ? indexCatalog(catalog) : null), [catalog]);
+
+  // Con identidad estable: el navegador de series la usa como dependencia de su
+  // agrupación, y un `Set` nuevo en cada render la rehacía entera sin motivo.
+  const ownedArmor = useMemo(
+    () => (onlyOwnedArmor ? new Set<number>(inventory?.armor ?? []) : null),
+    [onlyOwnedArmor, inventory],
   );
 
   /**
@@ -132,6 +133,10 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
   const run = async () => {
     if (!worker.current || targets.length === 0 || !inventory) return;
+    // Buscar siempre lleva a los resultados: el botón sigue a mano mientras se
+    // hojean series, y dejarlo buscar en silencio detrás del navegador era
+    // trabajo que nadie llegaba a ver.
+    setMode('solve');
     setBusy(true);
     setResult(null);
 
@@ -144,6 +149,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
         // null = "considera todo el juego"; útil para planear qué forjar.
         armor: onlyOwnedArmor ? (inventory.armor ?? []) : null,
       },
+      locked: pinned,
       weaponId,
       rank: 'all',
       maxResults: 8,
@@ -172,13 +178,24 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   }, [result, sortBy]);
 
   if (loadError && !catalog) return <p class="py-10 text-center text-red-300">{loadError}</p>;
-  if (!catalog || !inventory) return <p class="py-10 text-center text-text-3">{t('common.loading')}</p>;
+  if (!catalog || !index || !inventory) {
+    return <p class="py-10 text-center text-text-3">{t('common.loading')}</p>;
+  }
+
+  const { skillById, decorationById: decoById, armorById, charmById } = index;
 
   const weapon = weaponId ? catalog.weapons.find((w) => w.id === weaponId) : null;
 
   const armorSkills = skillGroups.find((g) => g.kind === 'armor')?.skills ?? [];
   const weaponSkills = skillGroups.find((g) => g.kind === 'weapon')?.skills ?? [];
   const totalSkills = catalog.skills.filter((s) => s.kind === 'armor' || s.kind === 'weapon').length;
+
+  const pinnedCount = ARMOR_KINDS.filter((kind) => pinned[kind] != null).length;
+  // Volver a tocar la pieza que ya estaba la suelta: es el mismo gesto para
+  // poner y quitar, y evita tener que buscar la ✕ en la otra columna.
+  const pin = (kind: ArmorKind, armorId: number) =>
+    setPinned((prev) => (prev[kind] === armorId ? { ...prev, [kind]: undefined } : { ...prev, [kind]: armorId }));
+  const unpin = (kind: ArmorKind) => setPinned((prev) => ({ ...prev, [kind]: undefined }));
 
   // La fila de cabecera la pinta el servidor; estos botones dependen de los
   // objetivos elegidos, así que se cuelgan ahí desde aquí.
@@ -187,11 +204,31 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   return (
     <div class="grid gap-3.5 lg:grid-cols-[380px_minmax(0,1fr)]">
       {headerSlot && createPortal(
-        <button
-          onClick={() => { setTargets([]); setWeaponId(null); setResult(null); }}
-          disabled={targets.length === 0 && weaponId === null}
-          class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-40"
-        >{t('builder.clear')}</button>,
+        <>
+          {/* El conmutador vive en la fila de cabecera, junto a «Limpiar»: es una
+              decisión de pantalla, no del panel de objetivos. */}
+          {([['solve', t('builder.modeSolve')], ['browse', t('builder.modeBrowse')]] as const).map(
+            ([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setMode(key)}
+                aria-pressed={mode === key}
+                class={`font-ui flex h-7 items-center px-3 text-[13px] uppercase tracking-[0.08em] ${
+                  mode === key
+                    ? 'border border-accent bg-accent-weak text-accent-hi'
+                    : 'border border-line-strong bg-bg-2 text-text-2 hover:bg-bg-3 hover:text-text-1'
+                }`}
+              >{label}</button>
+            ),
+          )}
+          <button
+            onClick={() => {
+              setTargets([]); setWeaponId(null); setResult(null); setPinned({});
+            }}
+            disabled={targets.length === 0 && weaponId === null && pinnedCount === 0}
+            class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-40"
+          >{t('builder.clear')}</button>
+        </>,
         headerSlot,
       )}
 
@@ -226,6 +263,45 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
             class="-mr-1 grid h-6 w-6 place-items-center text-text-3 hover:text-text-1 lg:hidden"
           >✕</button>
         </header>
+
+        {/* Lo fijado restringe la búsqueda, así que en modo buscar tiene que
+            verse desde aquí: si no, salen ocho resultados con la misma pieza y
+            no se entiende por qué. En modo explorar lo enseña la tarjeta del set
+            con más detalle, y repetirlo aquí sobraba. */}
+        {mode === 'solve' && (
+          <div class="shrink-0 border-b border-line">
+            <div class="flex h-[26px] items-center gap-2 bg-panel-head px-3">
+              <h2 class="font-ui text-[12.5px] uppercase tracking-[0.12em] text-text-2">
+                {t('builder.pinnedPieces')}
+              </h2>
+              <span class="num ml-auto text-[11px] text-text-3">
+                {t('builder.pinned', { count: pinnedCount })}
+              </span>
+            </div>
+            {pinnedCount === 0 ? (
+              <p class="px-3 py-2 text-[12px] text-text-3">{t('builder.pinHint')}</p>
+            ) : (
+              <ul>
+                {ARMOR_KINDS.filter((kind) => pinned[kind] != null).map((kind) => (
+                  <li
+                    key={kind}
+                    class="grid min-h-[30px] grid-cols-[22px_minmax(0,1fr)_auto] items-center gap-2 px-3 py-[3px]"
+                  >
+                    <span class="grid h-[20px] w-[20px] place-items-center border border-line-strong bg-tile">
+                      <span style={gearIconStyle(kind, 13, 'var(--accent-hi)')} />
+                    </span>
+                    <span class="min-w-0 truncate text-[13px]">{armorById.get(pinned[kind]!)?.name}</span>
+                    <button
+                      onClick={() => unpin(kind)}
+                      aria-label={`${t('builder.unpin')} ${armorById.get(pinned[kind]!)?.name}`}
+                      class="grid h-5 w-5 place-items-center border border-line bg-bg-2 text-[11px] text-text-3 hover:border-danger hover:text-danger"
+                    >✕</button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div class="flex shrink-0 flex-col gap-2 border-b border-line px-3 py-2.5">
           <Combo
@@ -452,11 +528,33 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
       {/* El hueco evita que la barra fija tape la última tarjeta de set. */}
       <section class="flex min-w-0 flex-col gap-3 max-lg:pb-16">
-        {!result && !busy && (
+        {mode === 'browse' && (
+          <>
+            <LoadoutCard
+              index={index}
+              locale={locale}
+              t={t}
+              pinned={pinned}
+              onUnpin={unpin}
+              onComplete={() => void run()}
+              canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
+            />
+            <SeriesBrowser
+              index={index}
+              locale={locale}
+              t={t}
+              pinned={pinned}
+              onPin={pin}
+              ownedArmor={ownedArmor}
+            />
+          </>
+        )}
+
+        {mode === 'solve' && !result && !busy && (
           <p class="py-16 text-center text-text-3">{t('builder.pickAndSearch')}</p>
         )}
 
-        {result && !result.ok && result.reason === 'falta-arma' && (
+        {mode === 'solve' && result && !result.ok && result.reason === 'falta-arma' && (
           <div class="bevel-head border border-accent bg-accent-weak p-4">
             <h2 class="font-ui mb-1 text-[17px] uppercase tracking-wide text-accent-hi">
               {t('builder.needWeapon')}
@@ -469,7 +567,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
           </div>
         )}
 
-        {result && !result.ok && result.reason === 'sin-solucion' && (
+        {mode === 'solve' && result && !result.ok && result.reason === 'sin-solucion' && (
           <div class="panel bevel-head p-4">
             <h2 class="font-ui mb-1 text-[17px] uppercase tracking-wide">{t('builder.noSolution')}</h2>
             {result.unreachable.length > 0 && (
@@ -498,7 +596,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
           </div>
         )}
 
-        {result?.ok && (
+        {mode === 'solve' && result?.ok && (
           <>
             <div class="flex min-h-8 flex-wrap items-center gap-x-2.5 gap-y-1 border border-line bg-bg-1 px-3 py-[3px]">
               <h2 class="font-ui text-[14px] uppercase tracking-[0.12em]">

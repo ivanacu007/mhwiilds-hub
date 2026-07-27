@@ -1,6 +1,7 @@
 import { gzipSync } from 'node:zlib';
 import { catalogCollection } from '../db.ts';
 import { buildCatalog } from './build.ts';
+import { applyMonsterAttribution } from './monster-armor.ts';
 import { indexCatalog, type Catalog, type CatalogIndex } from './types.ts';
 import { API_LOCALE, DEFAULT_LOCALE, type Locale } from '../i18n/index.ts';
 
@@ -52,6 +53,10 @@ async function ensureLoaded(locale: Locale): Promise<void> {
     const apiLocale = API_LOCALE[locale];
     pending = (async () => {
       const catalog = (await loadFromMongo(apiLocale)) ?? (await bootstrap(apiLocale));
+      // Aquí y no en `buildCatalog`: así los catálogos que ya están en Mongo
+      // ganan la atribución sin volver a sincronizar. Son 194 series contra sus
+      // materiales, una vez por idioma y arranque.
+      applyMonsterAttribution(catalog);
       cached.set(locale, {
         catalog,
         json: JSON.stringify(catalog),

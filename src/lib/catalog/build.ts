@@ -258,6 +258,9 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
     setBonus: bonusRanks(s.bonus),
     groupId: s.groupBonus?.id ?? null,
     groupBonus: bonusRanks(s.groupBonus),
+    // Lo rellena `applyMonsterAttribution` al cargar: necesita los monstruos y
+    // las piezas ya montados, y aquí todavía se están construyendo.
+    monsterId: null,
   }));
 
   const decorations: Decoration[] = rawDecos.map((d) => ({

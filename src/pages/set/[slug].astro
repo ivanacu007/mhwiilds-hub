@@ -3,6 +3,7 @@ const t = Astro.locals.t;
 import Base from '../../layouts/Base.astro';
 import { savedSets } from '../../lib/db.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
+import { summarizeLoadout } from '../../lib/catalog/loadout.ts';
 import { ARMOR_KINDS, type ArmorKind } from '../../lib/catalog/types.ts';
 
 const { slug } = Astro.params;
@@ -24,67 +25,27 @@ const KIND_LABEL: Record<ArmorKind, string> = {
 };
 
 /** Suma en servidor todo lo que aporta el set, para mostrarlo sin JS. */
-const skillTotals = new Map<number, number>();
-const bump = (skillId: number, level: number) =>
-  skillTotals.set(skillId, (skillTotals.get(skillId) ?? 0) + level);
-
-const setCounts = new Map<number, number>();
-const groupCounts = new Map<number, number>();
-let defense = 0;
-
-const pieces = ARMOR_KINDS.map((kind) => {
-  const stored = set[kind];
-  if (!stored) return { kind, piece: null, decorations: [] };
-
-  const piece = index.armorById.get(stored.armorId) ?? null;
-  if (piece) {
-    defense += piece.defense;
-    for (const grant of piece.skills) bump(grant.skillId, grant.level);
-    if (piece.setId != null) {
-      setCounts.set(piece.setId, (setCounts.get(piece.setId) ?? 0) + 1);
-      const groupId = index.armorSetById.get(piece.setId)?.groupId;
-      if (groupId != null) groupCounts.set(groupId, (groupCounts.get(groupId) ?? 0) + 1);
-    }
-  }
-
-  const decorations = stored.decorations
-    .map((d) => index.decorationById.get(d.decorationId))
-    .filter((d) => d != null);
-  for (const deco of decorations) for (const grant of deco!.skills) bump(grant.skillId, grant.level);
-
-  return { kind, piece, decorations };
+const { defense, skills } = summarizeLoadout(index, {
+  pieces: Object.fromEntries(ARMOR_KINDS.map((kind) => [kind, set[kind]])),
+  weaponId: set.weaponId,
+  weaponDecorations: set.weaponDecorations,
+  charmId: set.charmId,
+  charmLevel: set.charmLevel,
 });
 
+const pieces = ARMOR_KINDS.map((kind) => ({
+  kind,
+  piece: set[kind] ? index.armorById.get(set[kind]!.armorId) ?? null : null,
+  decorations: (set[kind]?.decorations ?? [])
+    .map((d) => index.decorationById.get(d.decorationId))
+    .filter((d) => d != null),
+}));
+
 const weapon = set.weaponId != null ? index.weaponById.get(set.weaponId) ?? null : null;
-if (weapon) for (const grant of weapon.skills) bump(grant.skillId, grant.level);
 const weaponDecos = set.weaponDecorations
   .map((d) => index.decorationById.get(d.decorationId))
   .filter((d) => d != null);
-for (const deco of weaponDecos) for (const grant of deco!.skills) bump(grant.skillId, grant.level);
-
 const charm = set.charmId != null ? index.charmById.get(set.charmId) ?? null : null;
-const charmRank = charm?.ranks.find((r) => r.level === set.charmLevel) ?? null;
-if (charmRank) for (const grant of charmRank.skills) bump(grant.skillId, grant.level);
-
-for (const [setId, count] of setCounts) {
-  for (const bonus of index.armorSetById.get(setId)?.setBonus ?? []) {
-    if (count >= bonus.pieces) bump(bonus.skillId, bonus.level);
-  }
-}
-for (const [groupId, count] of groupCounts) {
-  const owner = index.catalog.armorSets.find((s) => s.groupId === groupId);
-  for (const bonus of owner?.groupBonus ?? []) {
-    if (count >= bonus.pieces) bump(bonus.skillId, bonus.level);
-  }
-}
-
-const skills = [...skillTotals.entries()]
-  .map(([skillId, level]) => {
-    const skill = index.skillById.get(skillId);
-    const max = skill?.ranks.reduce((m, r) => Math.max(m, r.level), 0) ?? level;
-    return { name: skill?.name ?? `#${skillId}`, level: Math.min(level, max) };
-  })
-  .sort((a, b) => b.level - a.level || a.name.localeCompare(b.name));
 
 const summary = skills.slice(0, 6).map((s) => `${s.name} ${s.level}`).join(' · ');
 const isOwner = user?.id === set.ownerId;
