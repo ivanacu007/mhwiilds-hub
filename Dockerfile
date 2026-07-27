@@ -1,7 +1,12 @@
 FROM node:24-alpine AS deps
 WORKDIR /srv
 COPY package.json package-lock.json* ./
-RUN npm ci
+# `npm install` y no `npm ci`: el candado se resuelve distinto en macOS que en
+# linux/musl para los fallbacks wasm de tailwind-oxide y rolldown, que declaran
+# rangos flotantes. Con `npm ci` la imagen se negaba a construirse cada vez que
+# el candado se generaba en el portátil, que es siempre. Se sigue respetando el
+# candado para todo lo que sí cuadra; solo se deja de exigir sincronía exacta.
+RUN npm install --no-audit --no-fund
 
 FROM node:24-alpine AS build
 WORKDIR /srv
@@ -21,7 +26,7 @@ ENV HOST=0.0.0.0
 ENV PORT=4321
 
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm install --omit=dev --no-audit --no-fund && npm cache clean --force
 
 COPY --from=build /srv/dist ./dist
 # scripts/ viaja a la imagen para poder correr `npm run sync:catalog`

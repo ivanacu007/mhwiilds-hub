@@ -73,21 +73,25 @@ async function shutdown(code: number): Promise<never> {
 
 try {
   console.log('--- Integridad del proyecto ---');
-  // `npm ci` exige que package.json y el candado estén sincronizados, y es lo
-  // primero que corre la imagen de Docker. En local nunca se nota, porque
-  // `npm run build` reutiliza el node_modules que ya está: el candado se
-  // desincronizó y el fallo salió cinco minutos dentro del build del VPS.
-  // Medio segundo aquí ahorra ese viaje.
-  let candadoOk = true;
-  try {
-    execSync('npm ci --dry-run', { stdio: 'pipe' });
-  } catch (err: any) {
-    candadoOk = false;
-    console.log(String(err.stderr ?? '').split('\n').filter((l: string) =>
-      /Missing:|Invalid:|can only install/.test(l)).slice(0, 6).join('\n'));
-  }
-  check('el candado está sincronizado con package.json', candadoOk,
-    'la imagen de Docker no podrá construirse: corre `npm install`');
+  // Aquí vivía un `npm ci --dry-run`. No servía: el candado se resuelve distinto
+  // en macOS que en linux/musl para los fallbacks wasm, así que daba verde con
+  // el mismo candado que la imagen rechazaba, y en cuanto el candado se generó
+  // en linux empezó a dar rojo en el portátil. La imagen usa `npm install` por
+  // eso mismo. Lo que sí se puede comprobar desde cualquier sistema es que el
+  // candado esté y cubra lo que package.json declara.
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
+  const directas = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies });
+  const sinCandado = directas.filter((name) => !(`node_modules/${name}` in lock.packages));
+  check('el candado cubre todas las dependencias directas', sinCandado.length === 0,
+    sinCandado.join(', '));
+
+  // La imagen no puede volver a `npm ci`: rompía el despliegue cada vez que el
+  // candado se generaba fuera de linux, que es siempre.
+  const dockerfile = readFileSync(new URL('../Dockerfile', import.meta.url), 'utf8');
+  check('la imagen no exige sincronía exacta del candado',
+    !/^\s*RUN npm ci/m.test(dockerfile),
+    'con `npm ci` el build del VPS falla si el candado se generó en macOS');
 
   server = spawn('node', ['dist/server/entry.mjs'], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   server.stdout?.on('data', (b) => process.stdout.write(`  [srv] ${b}`));
