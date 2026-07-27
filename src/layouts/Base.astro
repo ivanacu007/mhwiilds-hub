@@ -3,6 +3,7 @@ import '../styles/global.css';
 import HunterAvatar from '../components/HunterAvatar.astro';
 import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
+import { isAdmin } from '../lib/auth/admin.ts';
 
 interface Props {
   /** La página trae su propia cabecera a sangre y gestiona su relleno. */
@@ -27,6 +28,9 @@ const nav = [
   { href: '/monstruos', label: t('monsters.title') },
   { href: '/coronas', label: t('nav.crowns') },
   { href: '/cazadores', label: t('nav.hunters') },
+  // Al final y solo para quien lo es: la barra ya iba justa con seis, y para
+  // los demás la pantalla no existe.
+  ...(isAdmin(user) ? [{ href: '/admin', label: t('admin.title') }] : []),
 ];
 
 const isActive = (href: string) => path === href || path.startsWith(`${href}/`);

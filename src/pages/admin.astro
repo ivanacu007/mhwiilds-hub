@@ -1,0 +1,242 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
+import SectionHeader from '../components/ui/SectionHeader.astro';
+import { createInvite } from '../lib/auth/invites.ts';
+import {
+  adminConfigured,
+  createResetLink,
+  isAdmin,
+  listAdminMembers,
+  listInvites,
+} from '../lib/auth/admin.ts';
+
+const t = Astro.locals.t;
+const user = Astro.locals.user!;
+
+// El middleware ya exigió sesión; lo que falta es que sea la tuya. Un 404 y no
+// un 403: quien no es admin no tiene por qué enterarse de que la pantalla
+// existe.
+if (!isAdmin(user)) return new Response(t('monsters.notFound'), { status: 404 });
+
+/**
+ * La página atiende sus propios POST en vez de mandar a `/api/`.
+ *
+ * El enlace de restablecimiento lleva un token de un solo uso, y el patrón de
+ * la casa —redirigir con el mensaje en la URL— lo dejaría en el historial del
+ * navegador y en el `Referer`. Así se pinta una vez y no viaja a ningún sitio.
+ */
+let resetUrl: string | null = null;
+let resetName: string | null = null;
+let resetError: string | null = null;
+let creados = 0;
+
+if (Astro.request.method === 'POST') {
+  const form = await Astro.request.formData();
+  const accion = String(form.get('accion') ?? '');
+
+  if (accion === 'invitar') {
+    const cuantas = Math.min(Math.max(Number.parseInt(String(form.get('cuantas') ?? '1'), 10) || 1, 1), 50);
+    const nota = String(form.get('nota') ?? '').trim().slice(0, 80) || null;
+    for (let i = 0; i < cuantas; i++) await createInvite(nota);
+    creados = cuantas;
+  }
+
+  if (accion === 'restablecer') {
+    const resultado = await createResetLink(String(form.get('correo') ?? ''));
+    if (resultado.ok) {
+      resetUrl = resultado.url;
+      resetName = resultado.name;
+    } else {
+      resetError = t(resultado.reason === 'noUser' ? 'admin.noUser' : 'admin.googleOnly');
+    }
+  }
+}
+
+const invites = await listInvites();
+const members = await listAdminMembers();
+const usadas = invites.filter((i) => i.usedByName != null).length;
+
+/** Fechas cortas: la lista se lee de un vistazo, no se audita. */
+const fecha = new Intl.DateTimeFormat(Astro.locals.locale, { day: 'numeric', month: 'short' });
+const hoy = new Date().toDateString();
+const cuando = (date: Date) => (date.toDateString() === hoy ? t('admin.today') : fecha.format(date));
+
+const comoEntra = (m: { hasPassword: boolean; hasGoogle: boolean }) =>
+  m.hasPassword && m.hasGoogle ? t('admin.authBoth')
+  : m.hasGoogle ? t('admin.authGoogle')
+  : t('admin.authPassword');
+---
+
+<Base title={`${t('admin.title')} · ${t('app.name')}`} noIndex flush>
+  <PageHeader title={t('admin.title')} context={t('admin.blurb')} />
+
+  <div class="flex flex-col gap-3 px-4 py-3.5">
+    {!adminConfigured() && (
+      <p class="border border-warn/40 bg-warn/10 px-3 py-2 text-sm text-warn">
+        {t('admin.notConfigured')}
+      </p>
+    )}
+
+    <div class="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div class="flex min-w-0 flex-col gap-2.5">
+        <SectionHeader
+          title={t('admin.invites')}
+          hint={t('admin.invitesHint', { used: usadas, total: invites.length })}
+        />
+
+        <form method="post" class="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="accion" value="invitar" />
+          <label class="flex flex-col gap-1">
+            <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">
+              {t('admin.howMany')}
+            </span>
+            <input
+              name="cuantas" type="number" min="1" max="50" value="1"
+              class="num h-8 w-20 border border-line-strong bg-bg-0 px-2.5 text-[13px] outline-none focus:border-accent"
+            />
+          </label>
+          <label class="flex min-w-0 flex-1 flex-col gap-1">
+            <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">
+              {t('admin.note')}
+            </span>
+            <input
+              name="nota" maxlength="80" placeholder={t('admin.notePlaceholder')}
+              class="h-8 w-full border border-line-strong bg-bg-0 px-2.5 text-[13px] outline-none focus:border-accent"
+            />
+          </label>
+          <button
+            class="font-ui flex h-8 items-center bg-accent px-4 text-[13px] uppercase tracking-[0.08em] text-on-accent hover:bg-accent-hi"
+          >{t('admin.generate')}</button>
+        </form>
+
+        {creados > 0 && (
+          <p class="num border border-ok/40 bg-ok/10 px-3 py-1.5 text-[13px] text-ok">
+            {t('admin.invitesCreated', { count: creados })}
+          </p>
+        )}
+
+        {/* La lista lleva tope de alto: los códigos se acumulan y sin él la de
+            miembros acababa a dos pantallas de scroll. */}
+        {invites.length === 0 ? (
+          <p class="py-4 text-sm text-text-3">{t('admin.noInvites')}</p>
+        ) : (
+          <ul class="flex max-h-[22rem] flex-col overflow-y-auto border border-line-strong bg-bg-1">
+            {invites.map((invite) => (
+              <li class="flex flex-wrap items-center gap-2 border-b border-line-soft px-3 py-2 last:border-0">
+                <span
+                  class:list={[
+                    'num text-[14px] tracking-[0.06em]',
+                    invite.usedByName ? 'text-text-3 line-through' : 'text-text-1',
+                  ]}
+                >{invite.code}</span>
+
+                {invite.note && <span class="text-[13px] text-text-2">{invite.note}</span>}
+
+                <span class="num ml-auto text-[11.5px] text-text-3">
+                  {invite.usedByName
+                    ? t('admin.usedBy', { name: invite.usedByName })
+                    : t('admin.free')}
+                  {' · '}{cuando(invite.usedAt ?? invite.createdAt)}
+                </span>
+
+                {!invite.usedByName && (
+                  <button
+                    type="button"
+                    class="font-ui copiar flex h-6 shrink-0 items-center border border-line bg-bg-2 px-2.5 text-[12px] uppercase tracking-[0.08em] text-text-2 hover:border-accent hover:text-accent-hi"
+                    data-copiar={invite.code}
+                    data-copiado={t('admin.copied')}
+                  >{t('admin.copy')}</button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <SectionHeader title={t('admin.members')} hint={t('admin.memberCount', { count: members.length })} class="mt-1" />
+        <ul class="flex flex-col border border-line-strong bg-bg-1">
+          {members.map((member) => (
+            <li class="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-b border-line-soft px-3 py-2.5 last:border-0">
+              <a href={`/cazador/${member.id}`} class="text-[14px] font-medium hover:text-accent-hi">
+                {member.hunterName || member.name}
+              </a>
+              {member.hr && <span class="num text-[12px] text-text-2">HR {member.hr}</span>}
+              <span class="num ml-auto text-[11.5px] text-text-3">
+                {t('admin.joined', { date: cuando(member.createdAt) })}
+                {' · '}{t('admin.lastSeen', { date: cuando(member.lastLoginAt) })}
+              </span>
+              <span class="num w-full text-[11.5px] text-text-3">
+                {comoEntra(member)}
+                {' · '}{t('admin.setsCount', { count: member.sets })}
+                {' · '}{t('admin.crownsCount', { count: member.crowns })}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <aside class="flex flex-col gap-2.5">
+        <SectionHeader title={t('admin.reset')} />
+        <section class="flex flex-col gap-2 border border-line-strong bg-bg-warm p-3">
+          <p class="text-[13px] leading-[1.5] text-text-2">{t('admin.resetHint')}</p>
+
+          <form method="post" class="flex flex-col gap-2">
+            <input type="hidden" name="accion" value="restablecer" />
+            <label class="flex flex-col gap-1">
+              <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">
+                {t('admin.email')}
+              </span>
+              <input
+                name="correo" type="email" required
+                class="h-8 w-full border border-line-strong bg-bg-0 px-2.5 text-[13px] outline-none focus:border-accent"
+              />
+            </label>
+            <button
+              class="font-ui flex h-8 items-center justify-center border border-line-strong bg-bg-2 px-4 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:border-accent hover:text-accent-hi"
+            >{t('admin.makeLink')}</button>
+          </form>
+
+          {resetError && <p class="text-[13px] text-danger">{resetError}</p>}
+
+          {resetUrl && (
+            <div class="flex flex-col gap-1.5 border-t border-line pt-2">
+              <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-accent-hi">
+                {t('admin.linkFor', { name: resetName! })}
+              </span>
+              {/* Se pinta aquí y no viaja por la URL: un token en el historial
+                  del navegador es un token regalado. */}
+              <code class="num block break-all border border-line bg-bg-0 p-2 text-[11.5px] text-text-1">
+                {resetUrl}
+              </code>
+              <button
+                type="button"
+                class="font-ui copiar flex h-7 items-center justify-center border border-accent bg-accent-weak px-3 text-[12px] uppercase tracking-[0.08em] text-accent-hi"
+                data-copiar={resetUrl}
+                data-copiado={t('admin.copied')}
+              >{t('admin.copy')}</button>
+              <p class="text-[11.5px] leading-[1.45] text-text-3">{t('admin.linkLife')}</p>
+            </div>
+          )}
+        </section>
+      </aside>
+    </div>
+  </div>
+</Base>
+
+<script>
+  // Copiar al portapapeles con confirmación en el propio botón: sin ella no se
+  // sabe si el clic hizo algo, y se acaba copiando dos veces.
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.copiar')) {
+    button.addEventListener('click', async () => {
+      const value = button.dataset.copiar ?? '';
+      try {
+        await navigator.clipboard.writeText(value);
+      } catch {
+        return; // Sin permiso de portapapeles el código sigue a la vista para copiarlo a mano.
+      }
+      const original = button.textContent;
+      button.textContent = button.dataset.copiado ?? original;
+      setTimeout(() => { button.textContent = original; }, 1200);
+    });
+  }
+</script>

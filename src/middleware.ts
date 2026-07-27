@@ -7,6 +7,9 @@ import { LOCALE_COOKIE, isLocale, localeFromHeader, translatorFor } from './lib/
 const PROTECTED = [
   '/inventario', '/armador', '/mis-sets', '/cuenta',
   '/coronas', '/cazadores', '/cazador', '/gremio', '/monstruos',
+  // `/admin` además exige ser admin, y eso lo comprueba la propia página: aquí
+  // solo se garantiza que haya sesión, que es lo que sabe hacer el middleware.
+  '/admin',
 ];
 
 export const onRequest = defineMiddleware(async (context, next) => {

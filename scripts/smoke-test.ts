@@ -58,6 +58,9 @@ const env = {
   PUBLIC_SITE_URL: BASE,
   CATALOG_LOCALE: 'es',
   NODE_ENV: 'production',
+  // El panel de admin se decide por esta variable; la cuenta de prueba es
+  // la primera que registra el recorrido.
+  ADMIN_EMAILS: 'cazador@example.com',
 };
 
 let server: ChildProcess | null = null;
@@ -96,12 +99,29 @@ try {
     `solo es: ${soloEs.join(', ')} | solo en: ${soloEn.join(', ')}`);
   check('ningún texto quedó vacío',
     esKeys.every((k) => (es as any)[k].trim()) && enKeys.every((k) => (en as any)[k].trim()));
-  // Un texto idéntico en ambos suele ser una traducción olvidada; algunos son
-  // legítimos (Normal, HR, Google, el propio nombre de la app), así que solo se
-  // acota el total.
-  const iguales = esKeys.filter((k) => (es as any)[k] === (en as any)[k]);
-  check('casi todo está realmente traducido', iguales.length < 21,
-    `${iguales.length} iguales: ${iguales.slice(0, 8).join(', ')}`);
+  // Un texto idéntico en ambos suele ser una traducción olvidada. Los que
+  // coinciden a propósito —nombres propios, siglas, préstamos que el español
+  // usa tal cual— van listados uno por uno: antes esto era un tope numérico y
+  // cada clave nueva legítima obligaba a subirlo, que es como se acaba
+  // colando una olvidada de verdad.
+  const IDENTICAS_A_PROPOSITO = new Set([
+    'account.accessGoogle', 'account.hr', 'account.hunterId', 'account.hunterName',
+    'admin.authGoogle', 'admin.setsCount', 'admin.title', 'app.name',
+    'builder.res', 'builder.setNumber', 'common.error', 'crowns.total',
+    'finder.material', 'hunters.sets', 'hunters.setsOne', 'inventory.no',
+    'monsters.elemental', 'monsters.material', 'pagination.only',
+    'profile.hunterRank', 'sets.sets', 'species.temnoceran', 'variant.normal',
+  ]);
+  const iguales = esKeys.filter(
+    (k) => (es as any)[k] === (en as any)[k] && !IDENTICAS_A_PROPOSITO.has(k),
+  );
+  check('no hay traducciones olvidadas', iguales.length === 0, iguales.join(', '));
+  // Y al revés: una clave que se traduzca después no debe quedarse en la lista.
+  const yaTraducidas = [...IDENTICAS_A_PROPOSITO].filter(
+    (k) => k in es && (es as any)[k] !== (en as any)[k],
+  );
+  check('la lista de excepciones no tiene sobras', yaTraducidas.length === 0,
+    yaTraducidas.join(', '));
 
   const esPage = await (await fetch(`${BASE}/entrar`, { headers: { 'accept-language': 'es-MX' } })).text();
   check('sirve español por Accept-Language', esPage.includes('lang="es"') && esPage.includes('Entrar'));
@@ -446,6 +466,47 @@ try {
 
   const gremioHtml = await (await fetch(`${BASE}/gremio`, { headers: auth })).text();
   check('el gremio muestra su nombre', gremioHtml.includes('Los Cazadores del Sur'));
+
+  console.log('\n--- Panel de admin ---');
+  const adminHtml = await (await fetch(`${BASE}/admin`, { headers: auth })).text();
+  check('el admin ve su panel',
+    adminHtml.includes(es['admin.invites']) && adminHtml.includes(es['admin.members']));
+
+  // Quien no está en ADMIN_EMAILS no debe siquiera enterarse de que existe.
+  const ajeno = await fetch(`${BASE}/admin`, { headers: { cookie: otherCookie } });
+  check('quien no es admin recibe 404, no un 403', ajeno.status === 404, `${ajeno.status}`);
+
+  const anonAdmin = await fetch(`${BASE}/admin`, { redirect: 'manual' });
+  check('sin sesión ni siquiera llega', (anonAdmin.headers.get('location') ?? '').startsWith('/entrar'));
+
+  const generadas = await (await fetch(`${BASE}/admin`, {
+    method: 'POST', headers: auth,
+    body: new URLSearchParams({ accion: 'invitar', cuantas: '2', nota: 'prueba de humo' }),
+  })).text();
+  const codigos = [...generadas.matchAll(/[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}/g)].map((m) => m[0]);
+  check('genera invitaciones desde el panel',
+    generadas.includes('prueba de humo') && codigos.length >= 2, `${codigos.length} códigos`);
+
+  // El código recién generado tiene que servir de verdad para registrarse.
+  const { inviteIsAvailable } = await import('../src/lib/auth/invites.ts');
+  check('y el código generado es canjeable', await inviteIsAvailable(codigos[0]), codigos[0]);
+
+  // Sin Resend ni Google configurados, este enlace es la única recuperación.
+  const conEnlace = await (await fetch(`${BASE}/admin`, {
+    method: 'POST', headers: auth,
+    body: new URLSearchParams({ accion: 'restablecer', correo: 'cazador@example.com' }),
+  })).text();
+  const enlace = conEnlace.match(/https?:\/\/[^<\s]+\/restablecer\?token=[\w-]+/)?.[0];
+  check('genera enlace de restablecimiento', Boolean(enlace), 'sin él, un olvido deja a alguien fuera');
+  check('y el enlace abre la pantalla de contraseña nueva',
+    enlace != null && (await (await fetch(enlace)).text()).includes('type="password"'));
+
+  const inexistente = await (await fetch(`${BASE}/admin`, {
+    method: 'POST', headers: auth,
+    body: new URLSearchParams({ accion: 'restablecer', correo: 'nadie@example.com' }),
+  })).text();
+  check('un correo sin cuenta no inventa enlace',
+    inexistente.includes(es['admin.noUser']) && !inexistente.includes('/restablecer?token='));
 
   const lista = await (await fetch(`${BASE}/cazadores`, { headers: auth })).text();
   check('la lista muestra al cazador', lista.includes('Ivanhunter'));
