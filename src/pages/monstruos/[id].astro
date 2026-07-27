@@ -1,13 +1,18 @@
 ---
 import Base from '../../layouts/Base.astro';
+import SectionHeader from '../../components/ui/SectionHeader.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import MonsterWeaknesses from '../../components/MonsterWeaknesses.astro';
 import ItemIcon from '../../components/ItemIcon.astro';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { MONSTER_VARIANTS, type MonsterVariant } from '../../lib/catalog/monster-icons.ts';
+import { progress as progressCollection } from '../../lib/db.ts';
+import { CROWN_INFO, emptyProgress, sumCounts } from '../../lib/crowns.ts';
+import { crownSvg } from '../../lib/ui/glyphs.ts';
 import {
   DAMAGE_COLUMNS,
   affinityLabel,
+  affinityTint,
   damageLabel,
   formatMultiplier,
   hitzoneDots,
@@ -27,10 +32,23 @@ const columns = DAMAGE_COLUMNS.filter((key) =>
 );
 
 const resist = splitAffinities(monster.resistances);
+const allResistances = [...resist.elements, ...resist.statuses, ...resist.effects];
 
 const variants = MONSTER_VARIANTS.filter(
   (v) => v !== 'normal' && monster.variants.includes(v),
 ) as MonsterVariant[];
+
+// El progreso del cazador va en la cabecera junto al nombre: la pregunta
+// "¿me falta corona de este?" se hace mirando el monstruo, no la lista.
+const user = Astro.locals.user;
+const doc = user ? await (await progressCollection()).findOne({ _id: user.id }) : null;
+const mine = doc?.monsters?.[String(monster.id)] ?? emptyProgress();
+const hunted = sumCounts(mine.hunted);
+const captured = sumCounts(mine.captured);
+
+/** Posición en el orden del juego, que es como se busca en la guía impresa. */
+const ordered = index.catalog.monsters;
+const position = ordered.findIndex((m) => m.id === monster.id) + 1;
 
 // Las recompensas se agrupan por material: la API las lista por condición y el
 // mismo material sale de varias, así que sin agrupar se repite media tabla.
@@ -43,207 +61,334 @@ const rewards = monster.rewards
     conditions: [...reward.conditions].sort((a, b) => (b.chance ?? 0) - (a.chance ?? 0)),
   }))
   .filter((r) => r.item);
+
+/** Las vías por las que sale algo de este monstruo, para filtrar sin inventar opciones. */
+const rewardKinds = [...new Set(monster.rewards.flatMap((r) => r.conditions.map((c) => c.kind)))];
+
+/**
+ * Qué se le puede romper. No viene como campo: se deduce de que una recompensa
+ * cite una parte, que es justo lo que significa que esa parte se rompe. El
+ * identificador se cambia por el nombre traducido que ya trae la tabla de zonas.
+ */
+const partName = new Map(monster.parts.map((p) => [p.kind, p.name]));
+const breakableParts = [
+  ...new Set(
+    monster.rewards
+      .flatMap((r) => r.conditions)
+      .map((c) => c.part)
+      .filter((part): part is string => part != null)
+      .map((part) => partName.get(part) ?? part),
+  ),
+];
 ---
 
 <Base
   title={`${monster.name} · ${t('monsters.title')}`}
   description={monster.description ?? undefined}
   noIndex
+  flush
 >
-  <p class="mb-3 text-sm">
-    <a href="/monstruos" class="text-base-500 hover:text-ember-400">← {t('monsters.backToList')}</a>
-  </p>
+  {/* Sin fila de cabecera de pantalla: aquí el registro se identifica por la
+      miga de pan, y el nombre del monstruo ya es el título. Repetir «Monstruos»
+      encima solo separaba la ficha de la barra. */}
+  <div class="flex flex-col gap-3 px-4 py-3.5">
+    <nav class="num flex items-center gap-2 text-[11.5px] text-text-3">
+      <a href="/monstruos" class="hover:text-text-1">{t('monsters.breadcrumbAll')}</a>
+      <span aria-hidden="true">▸</span>
+      <span class="text-text-2">{monster.name}</span>
+      <span class="ml-auto">{position} / {ordered.length}</span>
+    </nav>
 
-  <header class="mb-6 flex flex-wrap items-start gap-4">
-    <MonsterIcon monster={monster} size={88} class="tile" />
-    <div class="min-w-0 flex-1">
-      <h1 class="font-guide text-[40px] font-bold leading-none">{monster.name}</h1>
-      <p class="mt-1 font-ui text-[13px] uppercase tracking-wide text-text-3">
-        {t(`species.${monster.species}` as never)}
-        {monster.baseHealth && <> · {t('monsters.health')} {monster.baseHealth.toLocaleString()}</>}
-        {monster.size && <> · {t('monsters.baseSize')} {monster.size.base.toFixed(2)}</>}
-      </p>
-      {monster.description && <p class="mt-2 text-sm text-base-300">{monster.description}</p>}
-    </div>
-  </header>
+    {/* Ficha de identidad: nombre en serif de guía, y a su lado lo único que
+        cambia de un cazador a otro (coronas y cuentas). */}
+    <header class="bevel-lg flex flex-wrap gap-4 border border-line-strong bg-bg-warm p-4">
+      <MonsterIcon monster={monster} size={104} class="shrink-0 border border-line-strong bg-tile" />
 
-  <div class="grid gap-4 lg:grid-cols-2">
-    <section class="rounded border border-base-800 bg-base-900 p-3">
-      <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.weaknesses')}</h2>
-      {monster.weaknesses.length === 0 ? (
-        <p class="text-sm text-base-500">{t('monsters.noWeaknesses')}</p>
-      ) : (
-        <MonsterWeaknesses weaknesses={monster.weaknesses} />
-      )}
+      <div class="flex min-w-0 flex-1 flex-col gap-2">
+        <div class="flex flex-wrap items-end gap-3">
+          <h1 class="font-guide text-[40px] font-bold leading-none">{monster.name}</h1>
+          <p class="font-ui pb-1 text-[14px] uppercase tracking-[0.12em] text-text-3">
+            {t(`species.${monster.species}` as never)}
+            {position > 0 && <> · nº {position}</>}
+          </p>
 
-      {monster.resistances.length > 0 && (
-        <>
-          <h2 class="mb-2 mt-4 text-sm font-medium text-base-300">{t('monsters.resistances')}</h2>
-          <ul class="flex flex-wrap gap-1">
-            {[...resist.elements, ...resist.statuses, ...resist.effects].map((r) => (
-              <li class="rounded bg-base-850 px-2 py-0.5 text-xs text-base-300">
-                {affinityLabel(t, r)}
-                {r.condition && <span class="text-base-500"> · {t('monsters.conditional')}</span>}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </section>
+          {user && (
+            <div class="ml-auto flex items-center gap-2 pb-0.5">
+              {/* Una insignia por tamaño y no cuatro: el oro tapa a la plata,
+                  así que se enseña la corona más alta lograda de cada tamaño. */}
+              {(['smallGold', 'largeGold'] as const).map((gold) => {
+                const silver = gold.replace('Gold', 'Silver') as 'smallSilver' | 'largeSilver';
+                const has = mine.crowns?.[gold] ? gold : mine.crowns?.[silver] ? silver : null;
+                return (
+                  <div class="flex flex-col items-center gap-0.5">
+                    <span set:html={crownSvg(has ?? gold, has !== null)} />
+                    <span
+                      class="num text-[9.5px]"
+                      style={has ? `color: var(--crown-${CROWN_INFO[has].tier})` : 'color: var(--text-3)'}
+                    >
+                      {has ? t(CROWN_INFO[gold].slot === 'small' ? 'crowns.slotSmall' : 'crowns.slotLarge') : '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-    <section class="rounded border border-base-800 bg-base-900 p-3">
-      {monster.locations.length > 0 && (
-        <>
-          <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.locations')}</h2>
-          <ul class="mb-4 flex flex-wrap gap-1">
-            {monster.locations.map((l) => (
-              <li class="rounded bg-base-850 px-2 py-0.5 text-xs">
-                {l.name}
-                {l.zones && <span class="text-base-500"> · {t('monsters.zones', { count: l.zones })}</span>}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+        <div class="flex flex-wrap items-center gap-1.5">
+          {monster.locations.map((l) => (
+            <span class="border border-chip-line bg-chip px-[9px] py-[3px] text-[13px] text-text-2">
+              {l.name}
+              {l.zones && <span class="text-text-3"> · {t('monsters.zones', { count: l.zones })}</span>}
+            </span>
+          ))}
+          {user && (
+            <span class="num ml-auto flex items-center gap-3 text-[12px] text-text-2">
+              <span>{t('crowns.hunted')} <span class="text-text-1">{hunted}</span></span>
+              <span>{t('crowns.captured')} <span class="text-text-1">{captured}</span></span>
+            </span>
+          )}
+        </div>
 
-      {variants.length > 0 && (
-        <>
-          <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.variants')}</h2>
-          <div class="mb-4 flex flex-wrap gap-2">
-            {variants.map((variant) => (
-              <div class="flex flex-col items-center gap-1">
-                <MonsterIcon monster={monster} variant={variant} size={44} />
-                <span class="text-[11px] text-base-500">{t(`variant.${variant}` as never)}</span>
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-
-      {monster.tips && (
-        <>
-          <h2 class="mb-2 text-sm font-medium text-base-300">{t('monsters.tips')}</h2>
-          <p class="text-sm text-base-300">{monster.tips}</p>
-        </>
-      )}
-    </section>
-  </div>
-
-  {monster.parts.length > 0 && (
-    <section class="mt-4 rounded border border-base-800 bg-base-900 p-3">
-      <h2 class="text-sm font-medium text-base-300">{t('monsters.hitzones')}</h2>
-      <p class="mb-2 text-xs text-base-500">{t('monsters.hitzonesHint')}</p>
-
-      {/* Se recorre en horizontal con la columna de parte fija: sin ella no se
-          sabe qué fila se está leyendo. No se rota ni se parte en tarjetas
-          porque el objetivo es comparar entre columnas. */}
-      <div class="overflow-x-auto">
-        <table class="table-dense w-full min-w-[34rem]">
-          <thead>
-            <tr>
-              <th class="col-sticky px-2 text-left">{t('monsters.part')}</th>
-              {columns.map((key) => (
-                <th class="min-w-10 px-1 text-center">{damageLabel(t, key)}</th>
-              ))}
-              <th class="px-2 text-right">{t('monsters.essence')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {monster.parts.map((part) => (
-              <tr>
-                <td class="col-sticky whitespace-nowrap px-2 text-sm">
-                  {part.name}
-                  {part.health && <span class="num ml-1.5 text-[11px] text-text-3">{part.health}</span>}
-                </td>
-                {columns.map((key) => {
-                  const value = part.multipliers[key] ?? 0;
-                  return (
-                    <td class={`num min-w-10 px-1 text-center text-sm ${hitzoneTone(value)}`}>
-                      {formatMultiplier(part.multipliers[key])}
-                      <span class="ml-0.5 text-[9px] opacity-70">{hitzoneDots(value)}</span>
-                    </td>
-                  );
-                })}
-                <td class="px-2 text-right text-xs">
-                  {part.kinsectEssence ? t(`es.${part.kinsectEssence}` as never) : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Las variantes que el monstruo no tiene no se listan en gris: se
+            omiten. Ofrecer "Archicurtido" en uno que no lo tiene es mentir. */}
+        <div class="mt-0.5 flex flex-wrap gap-1">
+          {(['normal', ...variants] as MonsterVariant[]).map((variant) => {
+            const active = variant === 'normal';
+            const seen = (mine.hunted?.[variant] ?? 0) + (mine.captured?.[variant] ?? 0) > 0;
+            return (
+              <span
+                class:list={[
+                  'font-ui flex h-[30px] items-center gap-1.5 px-3 text-[13.5px] uppercase tracking-[0.1em]',
+                  active
+                    ? 'border border-accent bg-accent-weak text-accent-hi'
+                    : 'border border-line bg-chip text-text-2',
+                ]}
+              >
+                {t(`variant.${variant}` as never)}
+                {user && !seen && (
+                  <span class="num text-[10.5px] text-text-3">{t('monsters.unseen')}</span>
+                )}
+              </span>
+            );
+          })}
+        </div>
       </div>
-    </section>
-  )}
+    </header>
 
-  {rewards.length > 0 && (
-    <section class="mt-4 rounded border border-base-800 bg-base-900 p-3">
-      <div class="mb-3 flex flex-wrap items-center gap-2">
-        <h2 class="text-sm font-medium text-base-300">{t('monsters.rewards')}</h2>
+    {/* `items-start` o la columna corta se estira hasta la altura de la otra y
+        deja un socavón en blanco antes de las recompensas. */}
+    <div class="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_300px]">
+      <div class="flex min-w-0 flex-col gap-2.5">
+        <SectionHeader title={t('monsters.weaknesses')} />
+        {monster.weaknesses.length === 0 ? (
+          <p class="text-sm text-text-3">{t('monsters.noWeaknesses')}</p>
+        ) : (
+          <MonsterWeaknesses weaknesses={monster.weaknesses} resistances={monster.resistances} />
+        )}
+
+        {monster.parts.length > 0 && (
+          <>
+            <SectionHeader
+              title={t('monsters.hitzones')}
+              hint={t('monsters.hitzonesHint')}
+              note="0 · 1–20 · 21–40 · 41–60 · 61+"
+              class="mt-1"
+            />
+            {/* Se recorre en horizontal con la columna de parte fija: sin ella no se
+                sabe qué fila se está leyendo. No se rota ni se parte en tarjetas
+                porque el objetivo es comparar entre columnas. */}
+            <div class="overflow-x-auto border border-line-strong bg-bg-1">
+              <table class="table-dense w-full min-w-[34rem]">
+                <thead>
+                  <tr>
+                    <th class="col-sticky px-2.5 text-left">{t('monsters.part')}</th>
+                    {columns.map((key) => (
+                      <th class="w-[62px] px-1 text-center">{damageLabel(t, key)}</th>
+                    ))}
+                    <th class="px-2.5 text-right">{t('monsters.essence')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {monster.parts.map((part) => (
+                    <tr>
+                      <td class="col-sticky whitespace-nowrap px-2.5 text-[13.5px]">
+                        {part.name}
+                        {part.health && <span class="num ml-1.5 text-[11px] text-text-3">{part.health}</span>}
+                      </td>
+                      {columns.map((key) => {
+                        const value = part.multipliers[key] ?? 0;
+                        return (
+                          <td class={`num px-1 text-center text-[13px] ${hitzoneTone(value)}`}>
+                            {formatMultiplier(part.multipliers[key])}
+                            <span class="ml-0.5 text-[9px] opacity-70">{hitzoneDots(value)}</span>
+                          </td>
+                        );
+                      })}
+                      <td class="px-2.5 text-right text-xs">
+                        {part.kinsectEssence ? t(`es.${part.kinsectEssence}` as never) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      <aside class="flex flex-col gap-2.5">
+        {(monster.description || monster.tips || breakableParts.length > 0) && (
+          <section class="flex flex-col gap-2 border border-line-strong bg-bg-warm p-3">
+            <h2 class="font-guide text-[18px] font-semibold">{t('monsters.fieldNotes')}</h2>
+            {monster.description && (
+              <p class="text-[13.5px] leading-[1.55] text-text-2">{monster.description}</p>
+            )}
+            {monster.tips && (
+              <p class="text-[13.5px] leading-[1.55] text-text-2">{monster.tips}</p>
+            )}
+            {breakableParts.length > 0 && (
+              <div class="flex flex-col gap-1 border-t border-line pt-1.5">
+                <h3 class="font-ui text-[12px] uppercase tracking-[0.12em] text-text-3">
+                  {t('monsters.breakable')}
+                </h3>
+                <p class="text-[13px] text-text-2">{breakableParts.join(' · ')}</p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {allResistances.length > 0 && (
+          <section class="flex flex-col gap-2 border border-line bg-bg-1 p-3">
+            <h2 class="font-ui text-[12.5px] uppercase tracking-[0.12em] text-text-3">
+              {t('monsters.resistances')}
+            </h2>
+            <div class="flex flex-col gap-1.5">
+              {allResistances.map((r) => (
+                <div class="flex items-center gap-2 text-[13px] text-text-2">
+                  <span
+                    class="h-3.5 w-3.5 shrink-0"
+                    style={`background: ${affinityTint(r)}; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%)`}
+                    aria-hidden="true"
+                  ></span>
+                  {affinityLabel(t, r)}
+                  {r.condition && <span class="num ml-auto text-text-3">{t('monsters.conditional')}</span>}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Los niveles ya salen como pastillas en la cabecera, con su marca de
+            «no visto»; repetirlos aquí con su icono era decir dos veces lo
+            mismo y estiraba la columna por debajo de la tabla. */}
+      </aside>
+    </div>
+
+    {rewards.length > 0 && (
+      <>
+        <SectionHeader
+          title={t('monsters.rewards')}
+          hint={`${t('monsters.oneCard')} · ${rewards.length}`}
+          class="mt-1"
+        >
+          <Fragment slot="actions">
+            {/* El filtro por vía es de marcado, no de JavaScript: son botones de
+                radio con `:checked` moviendo el estilo. El script solo oculta
+                tarjetas, así que sin él siguen viéndose todas. */}
+            {[null, ...rewardKinds].map((kind, i) => (
+              <label class="cursor-pointer">
+                <input type="radio" name="via" value={kind ?? ''} checked={i === 0} class="peer sr-only" />
+                <span class="flex h-6 items-center border border-line bg-bg-2 px-2.5 text-[12.5px] text-text-2 peer-checked:border-accent peer-checked:bg-accent-weak peer-checked:text-accent-hi">
+                  {kind ? t(`cd.${kind}` as never) : t('monsters.rewardsAll')}
+                </span>
+              </label>
+            ))}
+          </Fragment>
+        </SectionHeader>
+
         <input
           id="filtro-materiales"
           type="search"
           placeholder={t('monsters.searchMaterial')}
-          class="ml-auto w-full max-w-56 rounded border border-base-700 bg-base-950 px-2 py-1 text-sm outline-none focus:border-ember-500"
+          class="h-8 w-full max-w-72 border border-line-strong bg-bg-0 px-2.5 text-[13px] outline-none focus:border-accent"
         />
-      </div>
 
-      <div id="materiales" class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {rewards.map(({ item, conditions }) => (
-          <article
-            class="rounded border border-base-800 bg-base-950 p-2"
-            data-nombre={item!.name.toLowerCase()}
-          >
-            <h3 class="mb-1.5 flex items-center gap-1.5 text-sm font-medium">
-              <ItemIcon item={item!} size={20} />
-              <span class="min-w-0 flex-1 truncate">{item!.name}</span>
-            </h3>
-            <ul class="space-y-0.5">
-              {conditions.map((condition) => (
-                <li class="flex items-baseline gap-2 text-xs">
-                  <span class="min-w-0 flex-1 text-base-300">
-                    {t(`cd.${condition.kind}` as never)}
-                    {condition.rank && (
-                      <span class="text-base-500"> · {t(`rk.${condition.rank}` as never)}</span>
-                    )}
-                    {condition.quantity > 1 && <span class="text-base-500"> · ×{condition.quantity}</span>}
+        {/* `items-start`: un material con un solo origen no tiene por qué medir
+            lo que el de siete de su fila, y estirado dejaba media tarjeta vacía. */}
+        <div id="materiales" class="grid items-start gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+          {rewards.map(({ item, conditions }) => (
+            <article
+              class="bevel border border-line-strong bg-bg-2"
+              data-nombre={item!.name.toLowerCase()}
+              data-vias={conditions.map((c) => c.kind).join(' ')}
+            >
+              <h3 class="flex items-center gap-2.5 border-b border-line px-3 py-[9px]">
+                <ItemIcon item={item!} size={28} />
+                <span class="min-w-0 flex-1 truncate text-[14.5px] font-medium">{item!.name}</span>
+                {item!.rarity != null && (
+                  <span class="num text-[11px]" style={`color: var(--rarity-${item!.rarity})`}>
+                    R{item!.rarity}
                   </span>
-                  <span
-                    class:list={[
-                      'shrink-0 tabular-nums',
-                      (condition.chance ?? 0) >= 50 ? 'text-jade-400' : 'text-base-300',
-                    ]}
-                  >
-                    {condition.chance != null ? `${condition.chance}%` : '—'}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </div>
+                )}
+              </h3>
+              <ul>
+                {conditions.map((condition) => (
+                  <li class="flex h-[26px] items-center gap-2 border-b border-line-soft px-3 text-[13px] text-text-2 last:border-0">
+                    {/* La parte va en el rótulo o dos roturas distintas del mismo
+                        material salen como dos filas gemelas al 100 %. */}
+                    <span class="min-w-0 truncate">
+                      {t(`cd.${condition.kind}` as never)}
+                      {condition.part && (
+                        <span class="text-text-3"> · {partName.get(condition.part) ?? condition.part}</span>
+                      )}
+                      {condition.rank && (
+                        <span class="text-text-3"> · {t(`rk.${condition.rank}` as never)}</span>
+                      )}
+                      {condition.quantity > 1 && <span class="text-text-3"> · ×{condition.quantity}</span>}
+                    </span>
+                    <span class="num ml-auto text-text-1">
+                      {condition.chance != null ? `${condition.chance}%` : '—'}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </article>
+          ))}
+        </div>
 
-      <p id="sin-materiales" class="hidden py-6 text-center text-sm text-base-500">
-        {t('monsters.noMaterials')}
-      </p>
-    </section>
-  )}
+        <p id="sin-materiales" class="hidden py-6 text-center text-sm text-text-3">
+          {t('monsters.noMaterials')}
+        </p>
+      </>
+    )}
+  </div>
 </Base>
 
 <script>
   // Filtro en cliente: son ~15 tarjetas por monstruo, no hace falta ir al servidor.
+  // Nombre y vía se combinan, porque "escama" + "rotura" es una pregunta real.
   const input = document.getElementById('filtro-materiales') as HTMLInputElement | null;
   const grid = document.getElementById('materiales');
   const vacio = document.getElementById('sin-materiales');
+  const vias = document.querySelectorAll<HTMLInputElement>('input[name="via"]');
 
-  input?.addEventListener('input', () => {
-    const q = input.value.trim().toLowerCase();
+  function aplicar() {
+    const q = input?.value.trim().toLowerCase() ?? '';
+    const via = [...vias].find((r) => r.checked)?.value ?? '';
     let visibles = 0;
+
     for (const card of grid?.children ?? []) {
-      const nombre = (card as HTMLElement).dataset.nombre ?? '';
-      const ok = !q || nombre.includes(q);
-      (card as HTMLElement).hidden = !ok;
+      const el = card as HTMLElement;
+      const ok =
+        (!q || (el.dataset.nombre ?? '').includes(q)) &&
+        (!via || (el.dataset.vias ?? '').split(' ').includes(via));
+      el.hidden = !ok;
       if (ok) visibles++;
     }
     vacio?.classList.toggle('hidden', visibles > 0);
-  });
+  }
+
+  input?.addEventListener('input', aplicar);
+  vias.forEach((radio) => radio.addEventListener('change', aplicar));
 </script>

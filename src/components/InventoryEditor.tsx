@@ -174,7 +174,7 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
   const visible = rows.slice(pageInfo.start, pageInfo.end);
 
   if (status === 'cargando') {
-    return <p class="py-10 text-center text-base-500">{t('common.loadingCatalog')}</p>;
+    return <p class="py-10 text-center text-text-3">{t('common.loadingCatalog')}</p>;
   }
   if (status === 'error' && !catalog) {
     return <p class="py-10 text-center text-red-300">{errorText}</p>;
@@ -197,7 +197,7 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
             key={key}
             onClick={() => { setTab(key); setQuery(''); setPage(1); }}
             class={`rounded px-3 py-1.5 text-sm transition-colors ${
-              tab === key ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
+              tab === key ? 'bg-accent text-bg-0' : 'bg-bg-2 text-text-2 hover:bg-bg-3'
             }`}
           >
             {label}
@@ -205,7 +205,7 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
           </button>
         ))}
 
-        <span class="ml-auto text-xs text-base-500">
+        <span class="ml-auto text-xs text-text-3">
           {status === 'guardando' && t('builder.saving')}
           {status === 'guardado' && t('builder.saved')}
           {status === 'error' && <span class="text-red-300">{errorText}</span>}
@@ -217,9 +217,9 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
           value={query}
           onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
           placeholder={tab === 'adornos' ? t('inventory.searchDecorations') : t('inventory.search')}
-          class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="min-w-0 flex-1 rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
-        <label class="flex items-center gap-2 rounded border border-base-700 px-3 text-sm text-base-300">
+        <label class="flex items-center gap-2 rounded border border-line-strong px-3 text-sm text-text-2">
           <input
             type="checkbox"
             checked={onlyOwned}
@@ -230,14 +230,14 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
       </div>
 
       {tab === 'adornos' && (
-        <p class="mb-3 text-xs text-base-500">
+        <p class="mb-3 text-xs text-text-3">
           {t('inventory.decoCount', { count: ownedDecoCount })}
         </p>
       )}
 
-      <div class="divide-y divide-base-850 rounded border border-base-800">
+      <div class="divide-y divide-bg-2 rounded border border-bg-3">
         {rows.length === 0 && (
-          <p class="px-3 py-6 text-center text-sm text-base-500">{t('inventory.nothingMatches')}</p>
+          <p class="px-3 py-6 text-center text-sm text-text-3">{t('inventory.nothingMatches')}</p>
         )}
 
         {tab === 'adornos' && (visible as Catalog['decorations']).map((deco) => (
@@ -273,7 +273,7 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
               <div class="flex gap-1">
                 <button
                   onClick={() => setCount('charms', charm.id, 0)}
-                  class={`rounded px-2 py-1 text-xs ${owned === 0 ? 'bg-base-700 text-base-100' : 'bg-base-850 text-base-500 hover:bg-base-800'}`}
+                  class={`rounded px-2 py-1 text-xs ${owned === 0 ? 'bg-line-strong text-text-1' : 'bg-bg-2 text-text-3 hover:bg-bg-3'}`}
                 >
                   {t('inventory.no')}
                 </button>
@@ -282,13 +282,13 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
                     key={rank.level}
                     onClick={() => setCount('charms', charm.id, rank.level)}
                     class={`rounded px-2 py-1 text-xs ${
-                      owned === rank.level ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
+                      owned === rank.level ? 'bg-accent text-bg-0' : 'bg-bg-2 text-text-2 hover:bg-bg-3'
                     }`}
                   >
                     {rank.level}
                   </button>
                 ))}
-                {maxRank > 1 && <span class="self-center pl-1 text-xs text-base-500">{t('inventory.rank')}</span>}
+                {maxRank > 1 && <span class="self-center pl-1 text-xs text-text-3">{t('inventory.rank')}</span>}
               </div>
             </Row>
           );
@@ -301,9 +301,9 @@ export default function InventoryEditor({ locale }: { locale: Locale }) {
             subtitle={`${piece.kind} · def ${piece.defense} · ${
               piece.skills.map((s) => `${skillName.get(s.skillId)} ${s.level}`).join(', ') || t('inventory.noSkills')
             }`}
-            badge={<span class="text-xs text-base-500">{piece.slots.map((s) => `[${s}]`).join('') || '—'}</span>}
+            badge={<span class="text-xs text-text-3">{piece.slots.map((s) => `[${s}]`).join('') || '—'}</span>}
           >
-            <label class="flex cursor-pointer items-center gap-2 text-sm text-base-300">
+            <label class="flex cursor-pointer items-center gap-2 text-sm text-text-2">
               <input
                 type="checkbox"
                 checked={inventory.armor.includes(piece.id)}
@@ -356,11 +356,11 @@ function Row(props: {
   children: ComponentChildren;
 }) {
   return (
-    <div class="flex items-center gap-3 px-3 py-2 hover:bg-base-900">
+    <div class="flex items-center gap-3 px-3 py-2 hover:bg-bg-1">
       {props.badge}
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm">{props.title}</p>
-        {props.subtitle && <p class="truncate text-xs text-base-500">{props.subtitle}</p>}
+        {props.subtitle && <p class="truncate text-xs text-text-3">{props.subtitle}</p>}
       </div>
       {props.children}
     </div>

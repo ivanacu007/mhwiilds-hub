@@ -24,6 +24,7 @@
   --panel-blur: 0px;
 
   --line: #d6c7ac;
+  --line-soft: #e3d6bd;
   --line-strong: #b39b77;
 
   --text-1: #241b12;
@@ -39,6 +40,20 @@
   --warn: #9b5310;
   --danger: #a3302b;
   --tile-bg: #e7d9be;
+  --panel-head: #efe0c6;
+  --bg-warm: #f7ecd8;
+  --accent-deep: #8a4f12;
+  --on-accent: #fbf6ec;
+
+  /* Pastilla sobre la tarjeta de pergamino: aquí sobresale, en oscuro se hunde. */
+  --chip-bg: #fffdf8;
+  --chip-line: #d6c7ac;
+
+  /* La matriz de zonas: papel plano, cabecera un tono más apagada y retícula
+     del color del propio papel para que manden los tramos de color. */
+  --table-bg: #fffdf8;
+  --table-head: #efe5d2;
+  --table-grid: #fffdf8;
 
   /* En claro el panel es papel: sombra corta, sin halo. */
   --shadow-1: 0 1px 2px rgb(60 40 16 / 0.14);
@@ -66,7 +81,7 @@
   --el-ice: #116873;  --el-dragon: #63389b;
 
   --st-poison: #6a2e9b; --st-paralysis: #756000;
-  --st-sleep: #2a5e8c;  --st-blast: #8e4e12;
+  --st-sleep: #2a5e8c;  --st-blastblight: #8e4e12;
 }
 
 /* --------------------------------------------------------------- oscuro --- */
@@ -82,6 +97,7 @@
     --panel-blur: 12px;
 
     --line: #3a342d;
+    --line-soft: #241f1b;
     --line-strong: #574e43;
 
     --text-1: #f3ede4;
@@ -97,6 +113,17 @@
     --warn: #e0803a;
     --danger: #d2564e;
     --tile-bg: #221d18;
+    --panel-head: #1f1a16;
+    --bg-warm: #1a1512;
+    --accent-deep: #c9832b;
+    --on-accent: #1a1206;
+
+    --chip-bg: #221d18;
+    --chip-line: #574e43;
+
+    --table-bg: #131110;
+    --table-head: #1c1917;
+    --table-grid: rgb(11 10 9 / 0.5);
 
     /* En oscuro el panel emite: borde y halo en vez de sombra. */
     --shadow-1: 0 0 0 1px rgb(255 196 107 / 0.08);
@@ -124,7 +151,7 @@
     --el-ice: #6fd6e0;  --el-dragon: #b98ce0;
 
     --st-poison: #a96fd8; --st-paralysis: #e8d24a;
-    --st-sleep: #7fb6e8;  --st-blast: #e8a33d;
+    --st-sleep: #7fb6e8;  --st-blastblight: #e8a33d;
   }
 }
 
@@ -140,6 +167,7 @@
   --panel-blur: 12px;
 
   --line: #3a342d;
+  --line-soft: #241f1b;
   --line-strong: #574e43;
 
   --text-1: #f3ede4;
@@ -155,6 +183,17 @@
   --warn: #e0803a;
   --danger: #d2564e;
   --tile-bg: #221d18;
+  --panel-head: #1f1a16;
+  --bg-warm: #1a1512;
+  --accent-deep: #c9832b;
+  --on-accent: #1a1206;
+
+  --chip-bg: #221d18;
+  --chip-line: #574e43;
+
+  --table-bg: #131110;
+  --table-head: #1c1917;
+  --table-grid: rgb(11 10 9 / 0.5);
 
   --shadow-1: 0 0 0 1px rgb(255 196 107 / 0.08);
   --shadow-2: 0 0 0 1px rgb(255 196 107 / 0.1), 0 6px 20px rgb(0 0 0 / 0.5);
@@ -181,7 +220,7 @@
   --el-ice: #6fd6e0;  --el-dragon: #b98ce0;
 
   --st-poison: #a96fd8; --st-paralysis: #e8d24a;
-  --st-sleep: #7fb6e8;  --st-blast: #e8a33d;
+  --st-sleep: #7fb6e8;  --st-blastblight: #e8a33d;
 }
 
 /* --------------------------------------------------- tokens no temáticos --- */
@@ -215,6 +254,7 @@
   --color-bg-2: var(--bg-2);
   --color-bg-3: var(--bg-3);
   --color-line: var(--line);
+  --color-line-soft: var(--line-soft);
   --color-line-strong: var(--line-strong);
   --color-text-1: var(--text-1);
   --color-text-2: var(--text-2);
@@ -227,33 +267,17 @@
   --color-warn: var(--warn);
   --color-danger: var(--danger);
   --color-tile: var(--tile-bg);
+  --color-chip: var(--chip-bg);
+  --color-chip-line: var(--chip-line);
+  --color-panel-head: var(--panel-head);
+  --color-bg-warm: var(--bg-warm);
+  --color-accent-deep: var(--accent-deep);
+  --color-on-accent: var(--on-accent);
 
   --font-ui: var(--font-ui);
   --font-text: var(--font-text);
   --font-guide: var(--font-guide);
   --font-num: var(--font-num);
-
-  /**
-   * Nombres de la paleta anterior apuntando a los tokens nuevos.
-   *
-   * Existen para que las ~1400 clases repartidas por las pantallas queden
-   * temáticas de golpe en vez de migrarlas a mano de una sentada, que es donde
-   * se cuelan los errores. Se van retirando al rehacer cada pantalla.
-   */
-  --color-base-950: var(--bg-0);
-  --color-base-900: var(--bg-1);
-  --color-base-850: var(--bg-2);
-  --color-base-800: var(--bg-3);
-  --color-base-700: var(--line-strong);
-  --color-base-600: var(--text-3);
-  --color-base-500: var(--text-3);
-  --color-base-300: var(--text-2);
-  --color-base-100: var(--text-1);
-  --color-ember-500: var(--accent);
-  --color-ember-400: var(--accent-hi);
-  --color-ember-300: var(--accent-hi);
-  --color-jade-500: var(--ok);
-  --color-jade-400: var(--ok);
 }
 
 html {
@@ -322,17 +346,28 @@ body {
   top: 0;
   z-index: 2;
   height: 26px;
-  background: var(--bg-2);
+  background: var(--table-head);
   border-bottom: 1px solid var(--line);
+  /* Separa columna de columna también en la cabecera: sin ella los rótulos de
+     nueve tipos de daño se leen como una frase. */
+  border-left: 1px solid var(--line-soft);
   font-family: var(--font-ui);
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-3);
   font-weight: 600;
 }
 
-.table-dense tbody td { height: var(--row-data); border-bottom: 1px solid var(--line); }
+/**
+ * La retícula del cuerpo va del color de la propia mesa, no del borde del
+ * panel: los tramos de color son el dato, y una rejilla fuerte los trocea.
+ */
+.table-dense tbody td {
+  height: var(--row-data);
+  border-bottom: 1px solid var(--table-grid);
+  border-left: 1px solid var(--table-grid);
+}
 .table-dense tbody tr:hover td { background: var(--bg-3); }
 
 /** La columna fija lleva sombra a la derecha como pista de que hay más. */
@@ -340,10 +375,15 @@ body {
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--bg-1);
+  background: var(--table-bg);
+  border-left: 0;
+  letter-spacing: 0.1em;
   box-shadow: 6px 0 6px -6px rgb(0 0 0 / 0.45);
 }
+.table-dense tbody .col-sticky { border-bottom: 1px solid var(--line-soft); }
 .table-dense thead .col-sticky { z-index: 3; }
+/* El hover no puede pasar por debajo de la columna fija, que lleva fondo propio. */
+.table-dense tbody tr:hover .col-sticky { background: var(--bg-3); }
 
 /** Tramos de la matriz de zonas. El número no pierde contraste en ninguno. */
 .hz-0    { background: var(--hz-0-bg);    color: var(--hz-0-fg); }
@@ -357,4 +397,22 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/*
+ * Barra superior. El filete ámbar de arriba es el remate del registro de menú
+ * del juego y va en los dos temas; la sombra sólo en claro, porque sobre
+ * pergamino un panel no puede separarse del fondo brillando.
+ */
+.topbar {
+  background: var(--panel-glass);
+  backdrop-filter: blur(var(--panel-blur));
+  box-shadow: inset 0 2px 0 var(--accent), 0 1px 3px rgb(60 40 16 / 0.12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .topbar { box-shadow: inset 0 2px 0 var(--accent); }
+}
+:root[data-theme='dark'] .topbar { box-shadow: inset 0 2px 0 var(--accent); }
+:root[data-theme='light'] .topbar {
+  box-shadow: inset 0 2px 0 var(--accent), 0 1px 3px rgb(60 40 16 / 0.12);
 }

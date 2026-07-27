@@ -2,7 +2,8 @@
 const t = Astro.locals.t;
 import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
-import { getGuild, listMembers, displayName } from '../lib/guild.ts';
+import PageHeader from '../components/PageHeader.astro';
+import { getGuild, guildName, listMembers, displayName } from '../lib/guild.ts';
 
 const guild = await getGuild();
 const members = await listMembers();
@@ -10,47 +11,54 @@ const error = readFlash(t, Astro.url.searchParams.get('error'));
 const aviso = readFlash(t, Astro.url.searchParams.get('aviso'));
 
 const editor = guild.updatedBy ? members.find((m) => m.id === guild.updatedBy) : null;
+const nombre = guildName(t, guild);
 ---
 
-<Base title={`${guild.name} · Sets de Wilds`} noIndex>
+<Base title={`${nombre} · ${t('app.name')}`} noIndex flush>
+  <PageHeader
+    title={nombre}
+    context={[
+      members.length === 1 ? t('guild.memberOne') : t('guild.members', { count: members.length }),
+      editor && t('guild.lastEditedBy', { name: displayName(editor) }),
+    ].filter(Boolean).join(' · ')}
+  />
+
+  <div class="px-4 py-3.5">
   <div class="mx-auto max-w-lg">
-    <h1 class="mb-1 text-2xl font-semibold">{guild.name}</h1>
-    {guild.motto && <p class="mb-1 text-sm italic text-base-300">«{guild.motto}»</p>}
-    <p class="mb-6 text-sm text-base-500">
-      {members.length} {members.length === 1 ? 'cazador' : 'cazadores'}
-      {editor && ` · última edición por ${displayName(editor)}`}
-    </p>
+    {guild.motto && <p class="mb-5 text-sm italic text-text-2">«{guild.motto}»</p>}
 
     {error && (
       <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
     )}
     {aviso && (
-      <p class="mb-4 rounded border border-jade-500/40 bg-jade-500/10 px-3 py-2 text-sm text-jade-400">{aviso}</p>
+      <p class="mb-4 rounded border border-ok/40 bg-ok/10 px-3 py-2 text-sm text-ok">{aviso}</p>
     )}
 
     <form method="post" action="/api/guild" class="space-y-3">
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('guild.name')}</span>
+        <span class="mb-1 block text-sm text-text-2">{t('guild.name')}</span>
         <input
-          name="name" value={guild.name} required minlength="2" maxlength="50"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          name="name" value={guild.name ?? ''} placeholder={t('guild.unnamed')}
+          required minlength="2" maxlength="50"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('guild.motto')} <span class="text-base-500">{t('account.optional')}</span></span>
+        <span class="mb-1 block text-sm text-text-2">{t('guild.motto')} <span class="text-text-3">{t('account.optional')}</span></span>
         <input
           name="motto" value={guild.motto ?? ''} maxlength="140"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
       </label>
-      <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+      <button class="w-full rounded bg-accent px-4 py-2.5 font-medium text-bg-0 hover:bg-accent-hi">
 {t('account.save')}</button>
-      <p class="text-xs text-base-500">
+      <p class="text-xs text-text-3">
         {t('guild.anyoneCanEdit')}
       </p>
     </form>
 
-    <a href="/cazadores" class="mt-6 block text-center text-sm text-ember-400 underline">
+    <a href="/cazadores" class="mt-6 block text-center text-sm text-accent-hi underline">
 {t('guild.viewHunters')}</a>
+  </div>
   </div>
 </Base>

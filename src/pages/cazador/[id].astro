@@ -1,6 +1,7 @@
 ---
 const t = Astro.locals.t;
 import Base from '../../layouts/Base.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import HunterAvatar from '../../components/HunterAvatar.astro';
 import Crown from '../../components/ui/Crown.astro';
@@ -48,21 +49,24 @@ const withCrowns = allWithCrowns.slice(crownsInfo.start, crownsInfo.end);
 const isMe = Astro.locals.user?.id === member.id;
 ---
 
-<Base title={`${displayName(member)} · Sets de Wilds`} noIndex>
+<Base title={`${displayName(member)} · ${t('app.name')}`} noIndex flush>
+  <PageHeader title={t('hunters.title')} />
+
+  <div class="px-4 py-3.5">
   <header class="mb-6 flex items-start gap-4">
     <HunterAvatar hunter={member} size={72} />
     <div>
     <h1 class="text-2xl font-semibold">{displayName(member)}</h1>
-    <p class="mt-1 text-sm text-base-500">
+    <p class="mt-1 text-sm text-text-3">
       {member.hr ? t('profile.hunterRank', { hr: member.hr }) : t('profile.noHr')}
-      {member.hunterId && <> · Hunter ID <code class="text-base-300">{member.hunterId}</code></>}
+      {member.hunterId && <> · Hunter ID <code class="text-text-2">{member.hunterId}</code></>}
       {member.hunterName && member.hunterName !== member.name && <> · {member.name}</>}
     </p>
     {isMe && (
       <p class="mt-2 text-sm">
-        <a href="/cuenta" class="text-ember-400 underline">{t('account.editProfileShort')}</a>
-        <span class="text-base-700"> · </span>
-        <a href="/coronas" class="text-ember-400 underline">{t('profile.recordCrowns')}</a>
+        <a href="/cuenta" class="text-accent-hi underline">{t('account.editProfileShort')}</a>
+        <span class="text-line-strong"> · </span>
+        <a href="/coronas" class="text-accent-hi underline">{t('profile.recordCrowns')}</a>
       </p>
     )}
     </div>
@@ -70,29 +74,29 @@ const isMe = Astro.locals.user?.id === member.id;
 
   <section class="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-5">
     {CROWN_KEYS.map((key) => (
-      <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
-        <p class="flex items-center gap-1.5 text-xs text-base-500">
+      <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
+        <p class="flex items-center gap-1.5 text-xs text-text-3">
           <Crown crown={key} earned />
           {t(`crowns.${key}` as any)}
         </p>
         <p class="num text-lg font-semibold">
-          {crowns[key]} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
+          {crowns[key]} <span class="text-sm font-normal text-text-3">/ {crowns.total}</span>
         </p>
       </div>
     ))}
-    <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
-      <p class="text-xs text-base-500">{t('profile.completeCrowns')}</p>
+    <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
+      <p class="text-xs text-text-3">{t('profile.completeCrowns')}</p>
       <p class="text-lg font-semibold">
-        {crowns.complete} <span class="text-sm font-normal text-base-500">/ {crowns.total}</span>
+        {crowns.complete} <span class="text-sm font-normal text-text-3">/ {crowns.total}</span>
       </p>
     </div>
   </section>
 
   {hunts.totalHunted + hunts.totalCaptured > 0 && (
     <section class="mb-6">
-      <h2 class="mb-2 text-sm font-medium text-base-300">{t('profile.hunts')}</h2>
-      <div class="overflow-hidden rounded border border-base-800 bg-base-900">
-        <div class="flex items-center gap-2 border-b border-base-800 px-3 py-1.5 text-xs text-base-500">
+      <h2 class="mb-2 text-sm font-medium text-text-2">{t('profile.hunts')}</h2>
+      <div class="overflow-hidden rounded border border-bg-3 bg-bg-1">
+        <div class="flex items-center gap-2 border-b border-bg-3 px-3 py-1.5 text-xs text-text-3">
           <span class="flex-1">{t('crowns.level')}</span>
           <span class="w-20 text-right">{t('crowns.hunted')}</span>
           <span class="w-20 text-right">{t('crowns.captured')}</span>
@@ -104,8 +108,8 @@ const isMe = Astro.locals.user?.id === member.id;
             <span class="w-20 text-right">{hunts.captured[variant]}</span>
           </div>
         ))}
-        <div class="flex items-center gap-2 border-t border-base-800 px-3 py-1.5 text-sm">
-          <span class="flex-1 text-base-500">{t('crowns.total')}</span>
+        <div class="flex items-center gap-2 border-t border-bg-3 px-3 py-1.5 text-sm">
+          <span class="flex-1 text-text-3">{t('crowns.total')}</span>
           <strong class="w-20 text-right">{hunts.totalHunted}</strong>
           <strong class="w-20 text-right">{hunts.totalCaptured}</strong>
         </div>
@@ -115,12 +119,12 @@ const isMe = Astro.locals.user?.id === member.id;
 
   {favorites.length > 0 && (
     <section class="mb-6">
-      <h2 class="mb-2 text-sm font-medium text-base-300">{t('profile.favorites')}</h2>
+      <h2 class="mb-2 text-sm font-medium text-text-2">{t('profile.favorites')}</h2>
       <div class="flex flex-wrap gap-2">
         {favorites.map((monster) => (
           <div class="flex w-24 flex-col items-center gap-1 text-center">
             <MonsterIcon monster={monster!} size={64} />
-            <span class="text-xs leading-tight text-base-300">{monster!.name}</span>
+            <span class="text-xs leading-tight text-text-2">{monster!.name}</span>
           </div>
         ))}
       </div>
@@ -128,13 +132,13 @@ const isMe = Astro.locals.user?.id === member.id;
   )}
 
   <section class="mb-6">
-    <h2 class="mb-2 text-sm font-medium text-base-300">
+    <h2 class="mb-2 text-sm font-medium text-text-2">
       {t('profile.crownsEarned')}
-      {allWithCrowns.length > 0 && <span class="text-base-500"> ({allWithCrowns.length})</span>}
+      {allWithCrowns.length > 0 && <span class="text-text-3"> ({allWithCrowns.length})</span>}
     </h2>
 
     {allWithCrowns.length === 0 ? (
-      <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
+      <p class="rounded border border-bg-3 bg-bg-1 px-3 py-4 text-center text-sm text-text-3">
         {t('profile.noCrowns')}
       </p>
     ) : (
@@ -142,17 +146,17 @@ const isMe = Astro.locals.user?.id === member.id;
         {withCrowns.map(({ monster, state }) => {
           const p = progress[String(monster.id)];
           return (
-            <div class="flex items-center gap-2 rounded border border-base-800 bg-base-900 p-2">
+            <div class="flex items-center gap-2 rounded border border-bg-3 bg-bg-1 p-2">
               <MonsterIcon monster={monster} size={44} />
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm">{monster.name}</p>
-                <p class="text-[11px] text-base-500">{t(`species.${monster.species}` as any)}</p>
+                <p class="text-[11px] text-text-3">{t(`species.${monster.species}` as any)}</p>
                 <div class="mt-0.5 flex gap-1">
                   {CROWN_KEYS.map((key) => (
                     <Crown crown={key} earned={state[key]} label={t(`crowns.${key}` as any)} />
                   ))}
                   {sumCounts(p?.hunted) > 0 && (
-                    <span class="ml-1 text-[11px] text-base-500">· {sumCounts(p?.hunted)} {t('crowns.hunted').toLowerCase()}</span>
+                    <span class="ml-1 text-[11px] text-text-3">· {sumCounts(p?.hunted)} {t('crowns.hunted').toLowerCase()}</span>
                   )}
                 </div>
               </div>
@@ -166,9 +170,9 @@ const isMe = Astro.locals.user?.id === member.id;
   </section>
 
   <section>
-    <h2 class="mb-2 text-sm font-medium text-base-300">{t('profile.sharedSets')}</h2>
+    <h2 class="mb-2 text-sm font-medium text-text-2">{t('profile.sharedSets')}</h2>
     {setsTotal === 0 ? (
-      <p class="rounded border border-base-800 bg-base-900 px-3 py-4 text-center text-sm text-base-500">
+      <p class="rounded border border-bg-3 bg-bg-1 px-3 py-4 text-center text-sm text-text-3">
         {t('profile.noPublicSets')}
       </p>
     ) : (
@@ -177,7 +181,7 @@ const isMe = Astro.locals.user?.id === member.id;
           <li>
             <a
               href={`/set/${set.slug}`}
-              class="block rounded border border-base-800 bg-base-900 px-3 py-2 text-sm hover:border-ember-500/50 hover:bg-base-850"
+              class="block rounded border border-bg-3 bg-bg-1 px-3 py-2 text-sm hover:border-accent/50 hover:bg-bg-2"
             >
               {set.name}
             </a>
@@ -188,4 +192,5 @@ const isMe = Astro.locals.user?.id === member.id;
 
     <Pagination info={setsInfo} param="s" label={t('sets.sets')} />
   </section>
+  </div>
 </Base>

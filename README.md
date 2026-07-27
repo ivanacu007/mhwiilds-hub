@@ -1,4 +1,4 @@
-# Sets de Wilds
+# Wilds Hub
 
 Armador de sets de Monster Hunter Wilds que solo propone lo que **de verdad tienes**.
 Multiusuario, con cuentas, y cada set guardado tiene un enlace público para compartir.

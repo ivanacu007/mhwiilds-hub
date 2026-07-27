@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import { ARMOR_KINDS, type Catalog } from '../lib/catalog/types.ts';
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
 import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import Combo from './ui/Combo.tsx';
 import { slotSvg } from '../lib/ui/glyphs.ts';
+import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 
 const KIND_KEY = {
   head: 'piece.head', chest: 'piece.chest', arms: 'piece.arms',
@@ -23,6 +25,9 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   const [onlyOwnedArmor, setOnlyOwnedArmor] = useState(false);
   const [skillTab, setSkillTab] = useState<'armor' | 'weapon'>('armor');
   const [sortBy, setSortBy] = useState<'defense' | 'slots'>('defense');
+  // En móvil el panel es una hoja inferior: ocupa toda la altura útil y
+  // taparía los resultados si estuviera siempre abierto.
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [result, setResult] = useState<SolveResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -167,80 +172,121 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   }, [result, sortBy]);
 
   if (loadError && !catalog) return <p class="py-10 text-center text-red-300">{loadError}</p>;
-  if (!catalog || !inventory) return <p class="py-10 text-center text-base-500">{t('common.loading')}</p>;
+  if (!catalog || !inventory) return <p class="py-10 text-center text-text-3">{t('common.loading')}</p>;
 
   const weapon = weaponId ? catalog.weapons.find((w) => w.id === weaponId) : null;
 
   const armorSkills = skillGroups.find((g) => g.kind === 'armor')?.skills ?? [];
   const weaponSkills = skillGroups.find((g) => g.kind === 'weapon')?.skills ?? [];
-  const visibleSkills = skillTab === 'armor' ? armorSkills : weaponSkills;
   const totalSkills = catalog.skills.filter((s) => s.kind === 'armor' || s.kind === 'weapon').length;
 
+  // La fila de cabecera la pinta el servidor; estos botones dependen de los
+  // objetivos elegidos, así que se cuelgan ahí desde aquí.
+  const headerSlot = typeof document === 'undefined' ? null : document.getElementById('page-actions');
+
   return (
-    <div class="grid gap-4 lg:grid-cols-[380px_1fr]">
-      {/* Panel fijo: la lista de resultados es larga y hay que poder cambiar un
-          objetivo sin subir. `self-start` evita que la columna se estire, que es
-          lo que impediría que `sticky` hiciera nada. */}
-      <aside class="lg:sticky lg:top-16 lg:max-h-[calc(100vh-5rem)] lg:self-start lg:overflow-y-auto lg:pr-1">
-        <section class="panel bevel">
-          <header class="flex items-baseline gap-2 border-b border-line px-3 py-2">
-            <h2 class="font-ui text-[15px] uppercase tracking-[0.08em] text-accent-hi">
-              {t('builder.wantedSkills')}
-            </h2>
-            <span class="num ml-auto text-[12px] text-text-3">
-              {t('builder.targetCount', { shown: targets.length, total: totalSkills })}
-            </span>
-          </header>
+    <div class="grid gap-3.5 lg:grid-cols-[380px_minmax(0,1fr)]">
+      {headerSlot && createPortal(
+        <button
+          onClick={() => { setTargets([]); setWeaponId(null); setResult(null); }}
+          disabled={targets.length === 0 && weaponId === null}
+          class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-40"
+        >{t('builder.clear')}</button>,
+        headerSlot,
+      )}
 
-          <div class="px-3 py-2">
-            <Combo
-              placeholder={t('builder.filterSkills')}
-              groups={[{
-                label: skillTab === 'armor' ? t('builder.armorSkills') : t('builder.weaponSkills'),
-                items: visibleSkills,
-              }]}
-              value={null}
-              onPick={(skill) => addSkill(skill.id)}
-              render={(skill) => skill.name}
-              meta={(skill) => `${t('builder.max')} ${skill.ranks.reduce((m, r) => Math.max(m, r.level), 1)}`}
-              keyOf={(skill) => skill.id}
-              countLabel={(shown, total) => `${shown} / ${total}`}
-            />
+      {/* Un solo panel para objetivos y arma: son la misma pregunta ("qué
+          quiero"), y partirlos en dos cajas hacía que el botón de buscar
+          quedara flotando sin dueño. Va fijo porque la lista de resultados es
+          larga y hay que poder subir un nivel sin volver arriba. */}
+      {/* Por debajo de 1024 el panel es una hoja inferior: a esa anchura no
+          caben dos columnas, y dejarlo arriba obligaba a subir cada vez para
+          cambiar un nivel. El resumen queda siempre visible en la barra. */}
+      <div
+        onClick={() => setSheetOpen(false)}
+        class={`fixed inset-0 z-30 bg-black/60 lg:hidden ${sheetOpen ? '' : 'hidden'}`}
+        aria-hidden="true"
+      />
 
-            {/* Dos pestañas y no una lista mezclada: las de arma solo salen del
-                arma, así que decidir en cuál se busca es parte del problema. */}
-            <div class="mt-2 flex items-center gap-1">
-              {([['armor', armorSkills.length], ['weapon', weaponSkills.length]] as const).map(
-                ([kind, count]) => (
-                  <button
-                    key={kind}
-                    onClick={() => setSkillTab(kind)}
-                    class={`bevel-sm font-ui px-2.5 py-1 text-[12px] uppercase tracking-wide ${
-                      skillTab === kind
-                        ? 'border border-accent bg-accent-weak text-accent-hi'
-                        : 'border border-line text-text-3 hover:text-text-1'
-                    }`}
-                  >
-                    {kind === 'armor' ? t('builder.armorSkills') : t('builder.weaponSkills')}
-                    <span class="num ml-1.5 opacity-70">{count}</span>
-                  </button>
-                ),
-              )}
-              <label class="ml-auto flex cursor-pointer items-center gap-1.5 text-[12px] text-text-2">
-                <input
-                  type="checkbox"
-                  checked={onlyOwnedArmor}
-                  onChange={(e) => setOnlyOwnedArmor((e.target as HTMLInputElement).checked)}
-                />
-                {t('builder.onlyForged')}
-              </label>
-            </div>
+      <aside
+        class={`panel bevel-head z-40 flex flex-col max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:max-h-[85vh] lg:sticky lg:top-[52px] lg:max-h-[calc(100vh-64px)] lg:self-start ${
+          sheetOpen ? '' : 'max-lg:hidden'
+        }`}
+      >
+        <header class="flex h-8 shrink-0 items-center gap-2 border-b border-accent bg-panel-head px-3">
+          <h2 class="font-ui text-[14px] uppercase tracking-[0.12em] text-accent-hi">
+            {t('builder.wantedSkills')}
+          </h2>
+          <span class="num ml-auto text-[11px] text-text-3">
+            {t('builder.targetCount', { shown: targets.length, total: totalSkills })}
+          </span>
+          <button
+            onClick={() => setSheetOpen(false)}
+            aria-label={t('builder.closePanel')}
+            class="-mr-1 grid h-6 w-6 place-items-center text-text-3 hover:text-text-1 lg:hidden"
+          >✕</button>
+        </header>
+
+        <div class="flex shrink-0 flex-col gap-2 border-b border-line px-3 py-2.5">
+          <Combo
+            placeholder={t('builder.filterSkills')}
+            groups={[
+              { label: t('builder.armorSkills'), items: armorSkills },
+              { label: t('builder.weaponSkills'), items: weaponSkills },
+            ]}
+            browseGroup={skillTab === 'armor' ? t('builder.armorSkills') : t('builder.weaponSkills')}
+            value={null}
+            onPick={(skill) => addSkill(skill.id)}
+            render={(skill) => skill.name}
+            meta={(skill) => `${t('builder.max')} ${skill.ranks.reduce((m, r) => Math.max(m, r.level), 1)}`}
+            keyOf={(skill) => skill.id}
+            countLabel={(shown, total) => `${shown} / ${total}`}
+            seeAllLabel={t('ui.seeAll')}
+          />
+
+          {/* Dos pestañas y no una lista mezclada: las de arma solo salen del
+              arma, así que decidir en cuál se busca es parte del problema. */}
+          <div class="flex items-center gap-1">
+            {([['armor', armorSkills.length], ['weapon', weaponSkills.length]] as const).map(
+              ([kind, count]) => (
+                <button
+                  key={kind}
+                  onClick={() => setSkillTab(kind)}
+                  class={`font-ui flex h-[26px] items-center px-2.5 text-[12.5px] uppercase tracking-[0.08em] ${
+                    skillTab === kind
+                      ? 'border border-accent bg-accent-weak text-accent-hi'
+                      : 'border border-line bg-bg-2 text-text-2 hover:text-text-1'
+                  }`}
+                >
+                  {kind === 'armor' ? t('builder.tabArmor') : t('builder.tabWeapon')} {count}
+                </button>
+              ),
+            )}
+            <label class="ml-auto flex cursor-pointer items-center gap-1.5 text-[12.5px] text-text-2">
+              <input
+                type="checkbox"
+                checked={onlyOwnedArmor}
+                onChange={(e) => setOnlyOwnedArmor((e.target as HTMLInputElement).checked)}
+                class="peer sr-only"
+              />
+              <span
+                class={`grid h-3.5 w-3.5 place-items-center border text-[10px] font-bold peer-focus-visible:outline peer-focus-visible:outline-accent ${
+                  onlyOwnedArmor ? 'border-ok bg-ok text-bg-0' : 'border-line-strong text-transparent'
+                }`}
+                aria-hidden="true"
+              >✓</span>
+              {t('builder.onlyForged')}
+            </label>
           </div>
+        </div>
 
+        {/* Lo único que crece es la lista de objetivos: el arma y el botón se
+            quedan siempre visibles al fondo del panel. */}
+        <div class="min-h-0 flex-1 overflow-y-auto">
           {targets.length === 0 ? (
-            <p class="px-3 pb-3 text-center text-[12px] text-text-3">{t('builder.addSkillHint')}</p>
+            <p class="px-3 py-4 text-center text-[12px] text-text-3">{t('builder.addSkillHint')}</p>
           ) : (
-            <ul class="border-t border-line">
+            <ul>
               {targets.map((target) => {
                 const skill = skillById.get(target.skillId);
                 const max = skill?.ranks.reduce((m, r) => Math.max(m, r.level), 1) ?? 1;
@@ -250,121 +296,168 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
                 return (
                   <li
                     key={target.skillId}
-                    class="flex h-8 items-center gap-2 border-b border-line px-3 last:border-0"
+                    class="grid min-h-[38px] grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-line-soft px-3 py-[3px]"
                   >
-                    <span class="min-w-0 flex-1 truncate text-[13px]">{skill?.name}</span>
-                    {skill?.kind === 'weapon' && (
-                      <span class="shrink-0 text-[11px] text-accent" title={t('builder.weaponSkills')}>⚔</span>
-                    )}
-                    <button
-                      onClick={() => setLevel(Math.max(1, target.level - 1))}
-                      disabled={target.level <= 1}
-                      aria-label={`− ${skill?.name}`}
-                      class="grid h-[22px] w-[22px] place-items-center border border-line text-text-2 hover:bg-bg-3 disabled:opacity-30"
-                    >−</button>
-                    <span class="num w-9 text-center text-[13px]">
-                      {target.level}<span class="text-text-3">/{max}</span>
+                    <span class="min-w-0 truncate text-[14px]">
+                      {skill?.name}
+                      {/* Marca de familia: estas habilidades solo salen del arma,
+                          y sin avisar aquí el buscador falla con «falta arma»
+                          sin que se entienda por qué. El glifo ⚔ que había se
+                          dibujaba como una «×» y se confundía con el botón de
+                          quitar, que está en la misma fila. */}
+                      {skill?.kind === 'weapon' && (
+                        <span class="num ml-1.5 text-[10px] uppercase text-text-3">
+                          {t('builder.tabWeapon')}
+                        </span>
+                      )}
                     </span>
-                    <button
-                      onClick={() => setLevel(Math.min(max, target.level + 1))}
-                      disabled={target.level >= max}
-                      aria-label={`+ ${skill?.name}`}
-                      class="grid h-[22px] w-[22px] place-items-center border border-line text-text-2 hover:bg-bg-3 disabled:opacity-30"
-                    >+</button>
+                    <span class="flex items-center gap-1">
+                      <button
+                        onClick={() => setLevel(Math.max(1, target.level - 1))}
+                        disabled={target.level <= 1}
+                        aria-label={`− ${skill?.name}`}
+                        class="grid h-6 w-6 place-items-center border border-line-strong bg-bg-2 text-[14px] leading-none text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-45"
+                      >−</button>
+                      <span class="num w-[34px] text-center text-[13.5px] text-accent-hi">
+                        {target.level}<span class="text-text-3">/{max}</span>
+                      </span>
+                      <button
+                        onClick={() => setLevel(Math.min(max, target.level + 1))}
+                        disabled={target.level >= max}
+                        aria-label={`+ ${skill?.name}`}
+                        class="grid h-6 w-6 place-items-center border border-line-strong bg-bg-2 text-[14px] leading-none text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-45"
+                      >+</button>
+                    </span>
                     <button
                       onClick={() => setTargets((list) => list.filter((x) => x.skillId !== target.skillId))}
                       aria-label={`${t('builder.remove')} ${skill?.name}`}
-                      class="grid h-[22px] w-[22px] place-items-center text-text-3 hover:text-danger"
+                      class="grid h-6 w-6 place-items-center border border-line bg-bg-2 text-[12px] text-text-3 hover:border-danger hover:text-danger"
                     >✕</button>
                   </li>
                 );
               })}
             </ul>
           )}
-        </section>
+        </div>
 
-        <section class="panel bevel mt-3">
-          <header class="flex items-baseline gap-2 border-b border-line px-3 py-2">
-            <h2 class="font-ui text-[15px] uppercase tracking-[0.08em] text-accent-hi">
-              {t('piece.weapon')}
-            </h2>
-            <span class="ml-auto font-ui text-[12px] uppercase tracking-wide text-text-3">
-              {t('builder.optional')}
-            </span>
-          </header>
+        <div class="flex h-[30px] shrink-0 items-center gap-2 border-y border-line bg-panel-head px-3">
+          <h2 class="font-ui text-[13.5px] uppercase tracking-[0.12em] text-text-2">{t('piece.weapon')}</h2>
+          <span class="num ml-auto text-[11px] text-text-3">{t('builder.optional')}</span>
+        </div>
 
-          <div class="px-3 py-2">
-            {weapon ? (
-              <div class="flex items-center gap-2">
-                <div class="min-w-0 flex-1">
-                  <p class="truncate text-[14px]">{weapon.name}</p>
-                  <p class="num text-[12px] text-text-3">
-                    ATQ {weapon.attack}
-                    {weapon.element && ` · ${t(`el.${weapon.element.kind}` as never)} ${weapon.element.damage}`}
-                    {weapon.affinity !== 0 && ` · ${weapon.affinity > 0 ? '+' : ''}${weapon.affinity}%`}
-                  </p>
-                </div>
-                <span class="flex shrink-0 gap-0.5">
+        <div class="flex shrink-0 flex-col gap-2 px-3 py-2.5">
+          {/* Los 14 tipos como mosaico y no como desplegable: se reconocen por
+              su icono antes que por el nombre, y así se ve de un vistazo cuál
+              está filtrando. */}
+          <div class="grid grid-cols-7 gap-1">
+            {weaponKinds.map((kind) => {
+              const on = weaponKind === kind;
+              return (
+                <button
+                  key={kind}
+                  onClick={() => setWeaponKind(on ? '' : kind)}
+                  title={t(`wk.${kind}` as never)}
+                  aria-label={t(`wk.${kind}` as never)}
+                  aria-pressed={on}
+                  class={`grid h-[30px] place-items-center border ${
+                    on ? 'border-accent bg-accent-weak' : 'border-line bg-bg-2 hover:border-line-strong'
+                  }`}
+                >
+                  <span style={gearIconStyle(kind, 21, `var(${on ? '--accent-hi' : '--text-3'})`)} />
+                </button>
+              );
+            })}
+          </div>
+
+          {weapon ? (
+            <div class="flex flex-col gap-2">
+              <div class="flex h-8 items-center gap-2 border border-line-strong bg-bg-0 px-2.5">
+                <span class="min-w-0 flex-1 truncate text-[14px]">{weapon.name}</span>
+                <button
+                  onClick={() => setWeaponId(null)}
+                  aria-label={t('builder.remove')}
+                  class="num shrink-0 text-[11px] text-text-3 hover:text-danger"
+                >✕</button>
+              </div>
+              <div class="num flex items-center gap-2 text-[11.5px] text-text-2">
+                <span>{t('builder.attackShort')} {weapon.attack}</span>
+                {weapon.element && (
+                  <span style={`color: var(--el-${weapon.element.kind})`}>
+                    {t(`el.${weapon.element.kind}` as never)} {weapon.element.damage}
+                  </span>
+                )}
+                {weapon.affinity !== 0 && (
+                  <span style={weapon.affinity < 0 ? 'color: var(--danger)' : undefined}>
+                    {t('builder.affinityShort')} {weapon.affinity > 0 ? '+' : ''}{weapon.affinity}%
+                  </span>
+                )}
+                <span class="ml-auto flex gap-[3px]">
                   {weapon.slots.map((level, i) => (
                     <span key={i} dangerouslySetInnerHTML={{ __html: slotSvg(level, false, true) }} />
                   ))}
                 </span>
-                <button
-                  onClick={() => setWeaponId(null)}
-                  aria-label={t('builder.remove')}
-                  class="grid h-[22px] w-[22px] place-items-center text-text-3 hover:text-danger"
-                >✕</button>
               </div>
-            ) : (
-              <>
-                <select
-                  value={weaponKind}
-                  onChange={(e) => setWeaponKind((e.target as HTMLSelectElement).value)}
-                  class="mb-2 h-8 w-full rounded-[2px] border border-line bg-bg-1 px-2 text-[13px] outline-none focus:border-accent"
-                >
-                  <option value="">{t('builder.allWeaponKinds')}</option>
-                  {weaponKinds.map((kind) => (
-                    <option key={kind} value={kind}>{t(`wk.${kind}` as never)}</option>
-                  ))}
-                </select>
-                <Combo
-                  placeholder={t('builder.filterWeapons')}
-                  groups={[{ label: t('piece.weapon'), items: weaponMatches }]}
-                  value={null}
-                  onPick={(w) => setWeaponId(w.id)}
-                  render={(w) => w.name}
-                  meta={(w) => w.slots.map((sl) => `[${sl}]`).join('') || '—'}
-                  keyOf={(w) => w.id}
-                  countLabel={(shown, total) => `${shown} / ${total}`}
-                />
-                <p class="mt-1.5 text-[12px] leading-snug text-text-3">{t('builder.weaponHelp')}</p>
-              </>
-            )}
-          </div>
-        </section>
+            </div>
+          ) : (
+            <div class="flex flex-col gap-2">
+              <Combo
+                placeholder={t('builder.filterWeapons')}
+                groups={[{ label: t('piece.weapon'), items: weaponMatches }]}
+                value={null}
+                onPick={(w) => setWeaponId(w.id)}
+                render={(w) => w.name}
+                meta={(w) => w.slots.map((sl) => `[${sl}]`).join('') || '—'}
+                keyOf={(w) => w.id}
+                countLabel={(shown, total) => `${shown} / ${total}`}
+                seeAllLabel={t('ui.seeAll')}
+              />
+            </div>
+          )}
+        </div>
 
+        <div class="shrink-0 border-t border-line p-3">
+          <button
+            onClick={run}
+            disabled={busy || targets.length === 0}
+            class="bevel font-ui h-10 w-full border border-accent-hi text-[16px] font-semibold uppercase tracking-[0.14em] disabled:opacity-40"
+            style="background: linear-gradient(180deg, var(--accent), var(--accent-deep)); color: var(--on-accent)"
+          >
+            {busy ? t('builder.searching') : t('builder.search')}
+          </button>
+          {result?.ok && (
+            <p class="num mt-[7px] text-[11px] text-text-3">
+              {t('builder.searchTime', { ms: result.elapsedMs })}
+            </p>
+          )}
+        </div>
+      </aside>
+
+      <div class="fixed inset-x-0 bottom-0 z-20 flex items-center gap-2 border-t border-accent bg-bg-1 px-3 py-2 lg:hidden">
+        <button
+          onClick={() => setSheetOpen(true)}
+          class="font-ui flex h-9 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2"
+        >
+          {t('builder.wantedSkills')}
+          <span class="num ml-2 text-accent-hi">{targets.length}</span>
+        </button>
         <button
           onClick={run}
           disabled={busy || targets.length === 0}
-          class="bevel font-ui mt-3 w-full bg-accent py-2.5 text-[15px] uppercase tracking-[0.08em] text-bg-0 hover:bg-accent-hi disabled:opacity-40"
+          class="bevel font-ui h-9 flex-1 border border-accent-hi text-[14px] font-semibold uppercase tracking-[0.12em] disabled:opacity-40"
+          style="background: linear-gradient(180deg, var(--accent), var(--accent-deep)); color: var(--on-accent)"
         >
           {busy ? t('builder.searching') : t('builder.search')}
         </button>
+      </div>
 
-        {result?.ok && (
-          <p class="num mt-1.5 text-center text-[11px] text-text-3">
-            {t('builder.searchTime', { ms: result.elapsedMs })}
-          </p>
-        )}
-      </aside>
-
-      <section>
+      {/* El hueco evita que la barra fija tape la última tarjeta de set. */}
+      <section class="flex min-w-0 flex-col gap-3 max-lg:pb-16">
         {!result && !busy && (
           <p class="py-16 text-center text-text-3">{t('builder.pickAndSearch')}</p>
         )}
 
         {result && !result.ok && result.reason === 'falta-arma' && (
-          <div class="bevel border border-accent bg-accent-weak p-4">
+          <div class="bevel-head border border-accent bg-accent-weak p-4">
             <h2 class="font-ui mb-1 text-[17px] uppercase tracking-wide text-accent-hi">
               {t('builder.needWeapon')}
             </h2>
@@ -377,7 +470,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
         )}
 
         {result && !result.ok && result.reason === 'sin-solucion' && (
-          <div class="panel bevel p-4">
+          <div class="panel bevel-head p-4">
             <h2 class="font-ui mb-1 text-[17px] uppercase tracking-wide">{t('builder.noSolution')}</h2>
             {result.unreachable.length > 0 && (
               <p class="mb-3 text-sm text-text-2">
@@ -407,16 +500,16 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
         {result?.ok && (
           <>
-            <div class="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line pb-2">
-              <h2 class="font-ui text-[17px] uppercase tracking-[0.06em]">
+            <div class="flex min-h-8 flex-wrap items-center gap-x-2.5 gap-y-1 border border-line bg-bg-1 px-3 py-[3px]">
+              <h2 class="font-ui text-[14px] uppercase tracking-[0.12em]">
                 {t('builder.results', { count: sorted.length })}
               </h2>
-              <p class="text-[13px] text-text-3">
+              <p class="num text-[11px] text-text-3">
                 {t('builder.ofCombos', { count: result.searched.toLocaleString(INTL_LOCALE[locale]) })}
                 {result.truncated && t('builder.truncated')}
               </p>
-              <div class="ml-auto flex items-center gap-1">
-                <span class="font-ui text-[12px] uppercase tracking-wide text-text-3">
+              <div class="ml-auto flex items-center gap-1.5">
+                <span class="font-ui text-[12.5px] uppercase tracking-[0.08em] text-text-3">
                   {t('builder.sortBy')}
                 </span>
                 {([['defense', t('builder.sortDefense')], ['slots', t('builder.sortSlots')]] as const).map(
@@ -424,10 +517,10 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
                     <button
                       key={key}
                       onClick={() => setSortBy(key)}
-                      class={`bevel-sm font-ui px-2 py-1 text-[12px] uppercase tracking-wide ${
+                      class={`flex h-[26px] items-center px-2.5 text-[13px] ${
                         sortBy === key
                           ? 'border border-accent bg-accent-weak text-accent-hi'
-                          : 'border border-line text-text-3 hover:text-text-1'
+                          : 'border border-line-strong bg-bg-2 text-text-1 hover:bg-bg-3'
                       }`}
                     >{label}</button>
                   ),
@@ -439,21 +532,19 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               <p class="py-10 text-center text-text-3">{t('builder.noneMatch')}</p>
             )}
 
-            <div class="space-y-3">
-              {sorted.map((solution, i) => (
-                <SolutionCard
-                  key={i}
-                  index={i + 1}
-                  solution={solution}
-                  armorById={armorById}
-                  decoById={decoById}
-                  charmById={charmById}
-                  skillById={skillById}
-                  targets={targets}
-                  t={t}
-                />
-              ))}
-            </div>
+            {sorted.map((solution, i) => (
+              <SolutionCard
+                key={i}
+                index={i + 1}
+                solution={solution}
+                armorById={armorById}
+                decoById={decoById}
+                charmById={charmById}
+                skillById={skillById}
+                targets={targets}
+                t={t}
+              />
+            ))}
           </>
         )}
       </section>
@@ -506,24 +597,31 @@ function SolutionCard(props: {
   const freeSlots = [...solution.freeArmorSlots, ...solution.freeWeaponSlots];
 
   return (
-    <article class="panel bevel" style="box-shadow: inset 2px 0 0 var(--accent), var(--shadow-2)">
-      {/* Cabecera: lo que decide entre un set y otro va aquí, no repartido. */}
-      <header class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-line px-3 py-2">
-        <span class="font-ui text-[15px] uppercase tracking-[0.08em] text-accent-hi">
+    <article
+      class="panel bevel-head"
+      style={`border-left: 2px solid var(--slot-${Math.min(3, Math.max(1, freeSlots[0] ?? 1))})`}
+    >
+      {/* Cabecera: lo que decide entre un set y otro va aquí, no repartido por
+          la tarjeta. Defensa y ranuras libres son las dos cifras que se
+          comparan de un set al siguiente, así que van en monoespaciada. */}
+      <header class="flex min-h-[38px] flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-line bg-panel-head px-3.5 py-1">
+        <span class="font-ui text-[16px] uppercase tracking-[0.1em] text-accent-hi">
           {t('builder.setNumber', { n: index })}
-        </span>
-        <span class="font-ui text-[12px] uppercase tracking-wide text-text-3">
-          {t('builder.defense')} <strong class="num ml-0.5 text-[15px] text-text-1">{solution.defense}</strong>
         </span>
 
         <span class="flex items-baseline gap-1.5">
-          <span class="font-ui text-[12px] uppercase tracking-wide text-text-3">{t('builder.res')}</span>
+          <span class="font-ui text-[11.5px] uppercase tracking-[0.1em] text-text-3">{t('builder.defense')}</span>
+          <span class="num text-[15px] text-text-1">{solution.defense}</span>
+        </span>
+
+        <span class="flex items-baseline gap-1.5">
+          <span class="font-ui text-[11.5px] uppercase tracking-[0.1em] text-text-3">{t('builder.res')}</span>
           {RES_ORDER.map((element) => {
             const value = solution.resistances[element] ?? 0;
             return (
               <span
                 key={element}
-                class="num text-[13px]"
+                class="num text-[12.5px]"
                 title={t(`el.${element}` as never)}
                 style={`color: var(--el-${element}); opacity: ${value === 0 ? 0.4 : 1}`}
               >
@@ -534,25 +632,25 @@ function SolutionCard(props: {
         </span>
 
         {freeSlots.length > 0 && (
-          <span class="flex items-center gap-1">
-            <span class="font-ui text-[12px] uppercase tracking-wide text-text-3">{t('builder.free')}</span>
+          <span class="flex items-center gap-1.5">
+            <span class="font-ui text-[11.5px] uppercase tracking-[0.1em] text-text-3">{t('builder.free')}</span>
             {freeSlots.map((level, i) => (
               <span key={i} dangerouslySetInnerHTML={{ __html: slotSvg(level, false, true) }} />
             ))}
           </span>
         )}
 
-        <div class="ml-auto flex items-center gap-1">
+        <div class="ml-auto flex items-center gap-1.5">
           {slug && (
             <a
               href={`/set/${slug}`}
-              class="bevel-sm font-ui border border-line px-2 py-1 text-[12px] uppercase tracking-wide hover:bg-bg-3"
+              class="font-ui flex h-[26px] items-center border border-accent bg-accent-weak px-2.5 text-[12.5px] uppercase tracking-[0.08em] text-accent-hi"
             >{t('builder.viewLink')}</a>
           )}
           <button
             onClick={save}
             disabled={saving === 'guardando' || saving === 'guardado'}
-            class="bevel-sm font-ui border border-line px-2 py-1 text-[12px] uppercase tracking-wide hover:bg-bg-3 disabled:opacity-40"
+            class="font-ui flex h-[26px] items-center border border-line-strong bg-bg-2 px-2.5 text-[12.5px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1 disabled:opacity-40"
           >
             {saving === 'guardado' ? t('builder.saved')
               : saving === 'guardando' ? t('builder.saving')
@@ -561,8 +659,11 @@ function SolutionCard(props: {
         </div>
       </header>
 
-      <div class="grid gap-3 p-3 lg:grid-cols-[1fr_260px]">
-        <ul>
+      <div class="grid lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        {/* Rejilla de columnas fijas y no `flex`: los nombres de pieza varían
+            mucho de largo, y sin columnas la defensa y las ranuras bailaban de
+            renglón en renglón. */}
+        <div class="min-w-0 lg:border-r lg:border-line">
           {ARMOR_KINDS.map((kind) => {
             const piece = armorById.get(solution.pieces[kind].armorId);
             if (!piece) return null;
@@ -570,13 +671,19 @@ function SolutionCard(props: {
               solution.pieces[kind].decorations.map((d) => [d.slotIndex, d.decorationId]),
             );
             return (
-              <li key={kind} class="flex h-8 items-center gap-2 border-b border-line last:border-0">
-                <span class="font-ui w-16 shrink-0 text-[11px] uppercase tracking-wide text-text-3">
+              <div
+                key={kind}
+                class="grid min-h-[34px] grid-cols-[64px_26px_minmax(0,1fr)_56px_auto] items-center gap-2 border-b border-line-soft px-3 py-[3px]"
+              >
+                <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">
                   {t(KIND_KEY[kind])}
                 </span>
-                <span class="min-w-0 flex-1 truncate text-[14px]">{piece.name}</span>
-                <span class="num shrink-0 text-[13px] text-text-2">{piece.defense}</span>
-                <span class="flex w-16 shrink-0 justify-end gap-0.5">
+                <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+                  <span style={gearIconStyle(kind, 14, 'var(--text-2)')} />
+                </span>
+                <span class="min-w-0 truncate text-[14px]">{piece.name}</span>
+                <span class="num text-right text-[12.5px] text-text-2">{piece.defense}</span>
+                <span class="flex gap-[3px]">
                   {piece.slots.map((level, i) => (
                     <span
                       key={i}
@@ -585,56 +692,71 @@ function SolutionCard(props: {
                     />
                   ))}
                 </span>
-              </li>
+              </div>
             );
           })}
 
           {solution.charmId && (
-            <li class="flex h-8 items-center gap-2">
-              <span class="font-ui w-16 shrink-0 text-[11px] uppercase tracking-wide text-text-3">
+            <div class="grid min-h-[34px] grid-cols-[64px_26px_minmax(0,1fr)_56px_auto] items-center gap-2 bg-bg-1 px-3 py-[3px]">
+              <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">
                 {t('piece.charm')}
               </span>
-              <span class="min-w-0 flex-1 truncate text-[14px]">
+              <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+                <span style={gearIconStyle('charm', 14, 'var(--crown-gold)')} />
+              </span>
+              <span class="min-w-0 truncate text-[14px]">
                 {charmById.get(solution.charmId)?.name} {solution.charmLevel}
               </span>
-            </li>
+              <span class="num text-right text-[12.5px] text-text-3">—</span>
+              <span></span>
+            </div>
           )}
-        </ul>
+        </div>
 
-        <div>
-          <h3 class="font-ui mb-1 text-[11px] uppercase tracking-wide text-text-3">
+        <div class="flex min-w-0 flex-col gap-2 border-t border-line p-3 lg:border-t-0">
+          <h3 class="font-ui text-[12px] uppercase tracking-[0.12em] text-text-3">
             {t('builder.achieved')}
           </h3>
-          <div class="mb-3 flex flex-wrap gap-1">
+          <div class="flex flex-wrap gap-1">
             {Object.entries(solution.skills)
               .map(([id, level]) => ({ id: Number(id), skill: skillById.get(Number(id)), level }))
               .filter((x) => x.skill)
+              // Lo pedido primero: en un set de 20 habilidades, las 5 que se
+              // buscaban se perdían entre las que salen de regalo.
               .sort((a, b) => {
                 const at = targets.some((x) => x.skillId === a.id) ? 0 : 1;
                 const bt = targets.some((x) => x.skillId === b.id) ? 0 : 1;
                 return at - bt || b.level - a.level;
               })
               .map((entry) => {
-                const isTarget = targets.some((x) => x.skillId === entry.id);
+                const target = targets.find((x) => x.skillId === entry.id);
                 const max = entry.skill!.ranks.reduce((m, r) => Math.max(m, r.level), 1);
+                // Un objetivo servido a medias se marca en ámbar de aviso: es
+                // la única forma de ver que este set no cumple sin recontar.
+                const short = target !== undefined && entry.level < target.level;
                 return (
                   <span
                     key={entry.id}
-                    class={`bevel-sm px-1.5 py-0.5 text-[12px] ${
-                      isTarget ? 'bg-accent-weak text-accent-hi' : 'bg-bg-3 text-text-2'
-                    }`}
+                    class="inline-flex items-center gap-1.5 border px-2 py-[3px] text-[12.5px]"
+                    style={
+                      short
+                        ? 'background: color-mix(in srgb, var(--warn) 12%, transparent); border-color: var(--warn); color: var(--warn)'
+                        : 'background: var(--bg-3); border-color: var(--line); color: var(--text-2)'
+                    }
                   >
                     {entry.skill!.name}
-                    <span class="num ml-1 opacity-80">{entry.level}/{max}</span>
+                    <span class="num text-[11px]" style={short ? undefined : 'color: var(--accent-hi)'}>
+                      {entry.level}/{target ? target.level : max}
+                    </span>
                   </span>
                 );
               })}
           </div>
 
-          <h3 class="font-ui mb-1 text-[11px] uppercase tracking-wide text-text-3">
+          <h3 class="font-ui mt-0.5 text-[12px] uppercase tracking-[0.12em] text-text-3">
             {t('builder.placedDecos')}
           </h3>
-          <ul class="space-y-0.5 text-[12px] text-text-2">
+          <ul class="text-[12.5px] leading-[1.35] text-text-2">
             {ARMOR_KINDS.flatMap((kind) => solution.pieces[kind].decorations)
               .concat(solution.weaponDecorations)
               .map((d, i) => (

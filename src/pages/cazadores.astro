@@ -1,11 +1,12 @@
 ---
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
 import HunterAvatar from '../components/HunterAvatar.astro';
 import Pagination from '../components/Pagination.astro';
 import Crown from '../components/ui/Crown.astro';
 import { paginate } from '../lib/paginate.ts';
-import { getGuild, listMembers, displayName } from '../lib/guild.ts';
+import { getGuild, guildName, listMembers, displayName } from '../lib/guild.ts';
 import { getCatalogIndex } from '../lib/catalog/store.ts';
 import { progress as progressCollection, savedSets } from '../lib/db.ts';
 import { tallyCrowns } from '../lib/crowns.ts';
@@ -44,23 +45,27 @@ const info = paginate(allRows.length, Number(Astro.url.searchParams.get('p') ?? 
 const rows = allRows.slice(info.start, info.end);
 ---
 
-<Base title={`${t('hunters.title')} · ${guild.name}`} noIndex>
-  <div class="mb-5 flex flex-wrap items-baseline gap-x-3">
-    <h1 class="text-2xl font-semibold">{t('hunters.title')}</h1>
-    <a href="/gremio" class="text-sm text-base-500 hover:text-ember-400">{guild.name}</a>
-  </div>
+<Base title={`${t('hunters.title')} · ${guildName(t, guild)}`} noIndex flush>
+  <PageHeader title={t('hunters.title')}>
+    <a
+      slot="actions"
+      href="/gremio"
+      class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1"
+    >{guildName(t, guild)}</a>
+  </PageHeader>
 
+  <div class="px-4 py-3.5">
   <ul class="space-y-2">
     {rows.map(({ member, crowns, sets }) => (
       <li>
         <a
           href={`/cazador/${member.id}`}
-          class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded border border-base-800 bg-base-900 px-3 py-2.5 transition-colors hover:border-ember-500/50 hover:bg-base-850"
+          class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2.5 transition-colors hover:border-accent/50 hover:bg-bg-2"
         >
           <HunterAvatar hunter={member} size={40} />
           <div class="min-w-0 flex-1">
             <p class="truncate font-medium">{displayName(member)}</p>
-            <p class="text-xs text-base-500">
+            <p class="text-xs text-text-3">
               {member.hr ? `HR ${member.hr}` : 'sin HR'}
               {member.hunterId && ` · ${member.hunterId}`}
             </p>
@@ -73,7 +78,7 @@ const rows = allRows.slice(info.start, info.end);
                 <span class="num">{crowns[key]}</span>
               </span>
             ))}
-            <span class="text-base-500">{sets} {sets === 1 ? 'set' : 'sets'}</span>
+            <span class="text-text-3">{sets} {sets === 1 ? 'set' : 'sets'}</span>
           </div>
         </a>
       </li>
@@ -81,8 +86,9 @@ const rows = allRows.slice(info.start, info.end);
   </ul>
 
   {allRows.length === 0 && (
-    <p class="py-10 text-center text-sm text-base-500">{t('hunters.empty')}</p>
+    <p class="py-10 text-center text-sm text-text-3">{t('hunters.empty')}</p>
   )}
 
   <Pagination info={info} label={t('hunters.hunters')} />
+  </div>
 </Base>

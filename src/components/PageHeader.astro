@@ -1,0 +1,23 @@
+---
+/**
+ * Fila de cabecera de pantalla: título, contexto y acciones.
+ *
+ * Va pegada bajo la barra y comparte su filete: las dos juntas forman el
+ * armazón de menú del sistema. El contexto va en monoespaciada porque son
+ * cifras, y el título en condensada.
+ */
+interface Props {
+  title: string;
+  context?: string;
+}
+const { title, context } = Astro.props;
+---
+
+<div class="flex min-h-[42px] flex-wrap items-center gap-3 border-b border-line bg-bg-1 px-4 py-1">
+  <h1 class="font-ui text-[20px] uppercase tracking-[0.06em] text-text-1">{title}</h1>
+  {context && <p class="num text-[11.5px] text-text-3">{context}</p>}
+  {/* `id` fijo para que una isla pueda colgar aquí sus acciones: los botones
+      que dependen de estado de cliente no pueden pintarse en el servidor, pero
+      en la maqueta viven en esta fila. */}
+  <div id="page-actions" class="ml-auto flex gap-1.5"><slot name="actions" /></div>
+</div>

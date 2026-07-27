@@ -149,7 +149,8 @@ export interface ProgressDoc {
  */
 export interface GuildDoc {
   _id: 'current';
-  name: string;
+  /** `null` mientras nadie lo nombre: el rótulo lo pone la vista, traducido. */
+  name: string | null;
   motto: string | null;
   updatedBy: string | null;
   updatedAt: Date;

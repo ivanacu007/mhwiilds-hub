@@ -1,14 +1,14 @@
 ---
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
 import InventoryEditor from '../components/InventoryEditor.tsx';
 ---
 
 <Base title={`${t('nav.inventory')} · ${t('app.name')}`} noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">{t('inventory.title')}</h1>
-  <p class="mb-5 text-sm text-base-500">
-    {t('inventory.blurb')}
-  </p>
+  <PageHeader title={t('inventory.title')} context={t('inventory.blurb')} />
 
-  <InventoryEditor client:only="preact" locale={Astro.locals.locale} />
+  <div class="px-4 py-3.5">
+    <InventoryEditor client:only="preact" locale={Astro.locals.locale} />
+  </div>
 </Base>

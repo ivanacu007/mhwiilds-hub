@@ -1,14 +1,20 @@
 ---
 import type { MonsterAffinity } from '../lib/catalog/types.ts';
-import { affinityLabel, splitAffinities } from '../lib/monster-info.ts';
+import {
+  affinityLabel,
+  affinityMatrix,
+  affinityTint,
+  splitAffinities,
+  type AffinityCell,
+} from '../lib/monster-info.ts';
 
 interface Props {
   weaknesses: MonsterAffinity[];
   resistances?: MonsterAffinity[];
   /**
    * Compacto: una línea por grupo, para que las ~8 debilidades de un monstruo
-   * quepan en la tarjeta de la lista sin robarle alto. Suelto: una por renglón,
-   * que es como se lee en la ficha de detalle.
+   * quepan en la tarjeta de la lista sin robarle alto. Suelto: tres bloques con
+   * jerarquía propia, que es como se lee en la ficha de detalle.
    */
   dense?: boolean;
 }
@@ -32,6 +38,28 @@ const groups = [
 
 const allResistances = [...resist.elements, ...resist.statuses, ...resist.effects];
 const MAX_STARS = 3;
+
+/**
+ * En la ficha se enseña el repertorio entero, no solo lo que la API menciona:
+ * con una única debilidad elemental —el caso de 30 de los 34 monstruos— la
+ * columna ancha quedaba con una fila suelta, y «no le entra» era una respuesta
+ * que había que deducir del silencio.
+ */
+const blocks = [
+  { kind: 'element', label: t('monsters.elemental'), primary: true },
+  { kind: 'status', label: t('monsters.statuses'), primary: false },
+  { kind: 'effect', label: t('monsters.effects'), primary: false },
+].map((block) => ({
+  ...block,
+  cells: affinityMatrix(block.kind, weaknesses, resistances),
+}));
+
+/** Inicial dentro del rombo: identifica el elemento sin depender del color. */
+const initial = (label: string) => label.slice(0, 1).toUpperCase();
+
+/** El tinte solo se gasta en lo que sí es debilidad; lo demás no compite. */
+const cellTint = (cell: AffinityCell) =>
+  cell.level > 0 ? affinityTint(cell) : 'var(--text-3)';
 ---
 
 {dense ? (
@@ -62,27 +90,81 @@ const MAX_STARS = 3;
     )}
   </dl>
 ) : (
-  <>
-    {weak.elements.length === 0 && (
-      <p class="mb-3 text-sm text-text-3">{t('monsters.noElemental')}</p>
-    )}
+  /* Lo elemental manda: es lo que decide con qué arma se va a la caza, así que
+     lleva más ancho, filas más altas y filete de color. Estados y efectos son
+     consulta secundaria y van más apretados. */
+  <div class="grid gap-2.5 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)] lg:items-start">
+    {blocks.map((block) => (
+      <section
+        class:list={[
+          'flex flex-col gap-2 bg-bg-1 px-3 py-2.5',
+          block.primary ? 'border border-line-strong' : 'border border-line',
+        ]}
+      >
+        <h3
+          class:list={[
+            'font-ui text-[12.5px] uppercase tracking-[0.12em]',
+            block.primary ? 'text-text-2' : 'text-text-3',
+          ]}
+        >
+          {block.label}
+          {block.primary && <span class="text-text-3"> · {t('monsters.primary')}</span>}
+        </h3>
 
-    {groups.map((group) => (
-      <div class="mb-3">
-        <h3 class="mb-1 text-xs uppercase tracking-wide text-text-3">{group.label}</h3>
-        <ul class="space-y-1">
-          {group.list.map((w) => (
-            <li class="flex items-center gap-2 text-sm">
-              <span class="w-28 shrink-0">{affinityLabel(t, w)}</span>
-              <span class={group.accent ? 'text-accent' : 'text-text-2'}>
-                {'★'.repeat(w.level ?? 0)}
-                <span class="text-text-3">{'★'.repeat(MAX_STARS - (w.level ?? 0))}</span>
-              </span>
-              {w.condition && <span class="text-xs text-text-3">({w.condition})</span>}
-            </li>
-          ))}
-        </ul>
-      </div>
+        <div class:list={['flex flex-col', block.primary ? 'gap-[5px]' : 'gap-1']}>
+          {block.cells.map((cell) => {
+            const tint = cellTint(cell);
+            const label = affinityLabel(t, cell);
+            /* Tres estados y tres respuestas distintas en el mismo sitio:
+               estrellas si es debilidad, «resiste» si le rebota y un guion si
+               ni una cosa ni la otra. */
+            const verdict =
+              cell.level > 0 ? (
+                <>
+                  {'★'.repeat(cell.level)}
+                  <span class="text-text-3">{'★'.repeat(MAX_STARS - cell.level)}</span>
+                </>
+              ) : cell.resists ? (
+                t('monsters.resists')
+              ) : (
+                '—'
+              );
+
+            return block.primary ? (
+              <div
+                class="flex h-[30px] items-center gap-2 bg-bg-2 px-2"
+                style={`border-left: 3px solid ${cell.level > 0 ? tint : 'var(--line)'}`}
+              >
+                {/* El rombo va siempre relleno: recortar un borde de 1 px con
+                    `clip-path` deja cuatro motas en las esquinas, no un rombo. */}
+                <span
+                  class="num grid h-5 w-5 place-items-center text-[11px] font-bold"
+                  style={`background: ${cell.level > 0 ? tint : 'var(--line)'}; color: ${
+                    cell.level > 0 ? 'var(--bg-0)' : 'var(--text-3)'
+                  }; clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%)`}
+                  aria-hidden="true"
+                >{initial(label)}</span>
+                <span class:list={['text-[14px]', cell.level === 0 && 'text-text-3']}>{label}</span>
+                <span class="num ml-auto text-[13px] tracking-[0.08em]" style={`color: ${tint}`}>
+                  {verdict}
+                </span>
+              </div>
+            ) : (
+              <div class="flex min-h-[26px] items-center gap-[7px] px-1.5 py-[3px]">
+                <span
+                  class="num grid h-4 w-4 place-items-center border text-[10px]"
+                  style={`border-color: ${tint}; color: ${tint}`}
+                  aria-hidden="true"
+                >{initial(label)}</span>
+                <span class:list={['text-[13px]', cell.level > 0 ? 'text-text-2' : 'text-text-3']}>
+                  {label}
+                </span>
+                <span class="num ml-auto text-[11.5px]" style={`color: ${tint}`}>{verdict}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
     ))}
-  </>
+  </div>
 )}

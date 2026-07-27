@@ -5,6 +5,8 @@ import LanguageSwitcher from '../components/LanguageSwitcher.astro';
 import ThemeToggle from '../components/ThemeToggle.astro';
 
 interface Props {
+  /** La página trae su propia cabecera a sangre y gestiona su relleno. */
+  flush?: boolean;
   title: string;
   description?: string;
   /** Metadatos para el preview al pegar el enlace en WhatsApp o Discord. */
@@ -13,7 +15,7 @@ interface Props {
   noIndex?: boolean;
 }
 
-const { title, description, ogTitle, ogDescription, noIndex } = Astro.props;
+const { title, description, ogTitle, ogDescription, noIndex, flush = false } = Astro.props;
 const user = Astro.locals.user;
 const t = Astro.locals.t;
 const path = Astro.url.pathname;
@@ -26,6 +28,8 @@ const nav = [
   { href: '/coronas', label: t('nav.crowns') },
   { href: '/cazadores', label: t('nav.hunters') },
 ];
+
+const isActive = (href: string) => path === href || path.startsWith(`${href}/`);
 ---
 
 <!doctype html>
@@ -61,17 +65,17 @@ const nav = [
   </head>
   <body class="min-h-screen flex flex-col">
     {/* 48 px fijos y cristal: es la única superficie translúcida junto al panel
-        del armador y los diálogos. El desenfoque nunca baja a las filas. */}
-    {/* 48 px con cristal. El rombo y el logotipo condensado son el registro de
-        menú; la sección activa va en caja biselada, no en relleno plano. */}
+        del armador y los diálogos, y el desenfoque nunca baja a las filas. El
+        rombo y el logotipo condensado son el registro de menú; el filete ámbar
+        de arriba es su remate. La sección activa se marca con tinte y filete,
+        no con caja: la caja compite con el propio marco del panel. */}
     <header
-      class="sticky top-0 z-40 border-b border-line"
-      style="background: var(--panel-glass); backdrop-filter: blur(var(--panel-blur))"
+      class="topbar sticky top-0 z-40 border-b border-line"
     >
       <div class="mx-auto flex h-12 max-w-[1360px] items-center gap-1 px-4">
-        <a href="/" class="mr-3 flex shrink-0 items-center gap-2">
+        <a href="/" class="mr-3.5 flex shrink-0 items-center">
           <span
-            class="h-[14px] w-[14px] bg-accent"
+            class="mr-1.5 h-4 w-4 bg-accent"
             style="clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%)"
           ></span>
           <span class="font-ui text-[15px] uppercase tracking-[0.14em] text-text-1">
@@ -80,58 +84,132 @@ const nav = [
         </a>
 
         {user && (
-          <nav class="flex items-center gap-0.5">
-            {nav.map((item) => (
-              <a
-                href={item.href}
-                class:list={[
-                  'bevel-sm font-ui px-3 py-1.5 text-[13px] uppercase tracking-[0.08em] transition-colors',
-                  path === item.href || path.startsWith(`${item.href}/`)
-                    ? 'border border-accent bg-accent-weak text-accent-hi'
-                    : 'border border-transparent text-text-2 hover:text-text-1',
-                ]}
+          <>
+            {/* Medido: con logotipo, controles y avatar la fila entera pide
+                972 px en inglés y 1014 en español. En `lg` (1024) el español
+                quedaría a diez píxeles del borde, así que la nav completa
+                aparece en `xl` y por debajo se pliega en un desplegable.
+                Antes no se plegaba y empujaba la página a scroll horizontal. */}
+            <nav class="hidden items-center xl:flex">
+              {nav.map((item) => (
+                <a
+                  href={item.href}
+                  class="font-ui flex h-[34px] items-center whitespace-nowrap px-[11px] text-[14px] uppercase tracking-[0.06em] transition-colors"
+                  style={
+                    isActive(item.href)
+                      ? 'background: var(--accent-weak); border-bottom: 2px solid var(--accent); color: var(--accent-hi)'
+                      : 'color: var(--text-2)'
+                  }
+                >
+                  {item.label}
+                </a>
+              ))}
+            </nav>
+
+            {/* `details` y no un botón con estado: el menú abre y cierra sin
+                JavaScript, y el navegador ya anuncia si está desplegado. */}
+            <details id="nav-menu" class="xl:hidden">
+              <summary
+                class="font-ui grid h-[34px] w-[34px] cursor-pointer list-none place-items-center border border-line-strong text-[15px] text-text-2 [&::-webkit-details-marker]:hidden"
+                title={t('nav.menu')}
+                aria-label={t('nav.menu')}
               >
-                {item.label}
-              </a>
-            ))}
-          </nav>
+                <span aria-hidden="true">☰</span>
+              </summary>
+
+              {/* Opaco, como la lista de `Combo`: el cristal del sistema es
+                  para paneles que flotan sobre su propia pantalla, y aquí a
+                  0 px de desenfoque en claro se transparentaba el texto. */}
+              <div
+                class="absolute inset-x-0 top-full flex flex-col border-b border-line-strong bg-bg-2"
+                style="box-shadow: var(--shadow-2)"
+              >
+                {nav.map((item) => (
+                  <a
+                    href={item.href}
+                    class="font-ui flex h-11 items-center px-4 text-[14px] uppercase tracking-[0.06em]"
+                    style={
+                      isActive(item.href)
+                        ? 'background: var(--accent-weak); box-shadow: inset 3px 0 0 var(--accent); color: var(--accent-hi)'
+                        : 'color: var(--text-2)'
+                    }
+                  >
+                    {item.label}
+                  </a>
+                ))}
+                {/* Salir vive aquí abajo: en la fila estrecha no cabe junto al
+                    avatar, y esconderlo del todo dejaría sin salida. */}
+                <form method="post" action="/api/auth/logout" class="border-t border-line">
+                  <button
+                    class="font-ui flex h-11 w-full items-center px-4 text-[14px] uppercase tracking-[0.06em] text-text-3"
+                  >
+                    {t('nav.signOut')}
+                  </button>
+                </form>
+              </div>
+            </details>
+          </>
         )}
 
         <div class="ml-auto flex items-center gap-2">
           <LanguageSwitcher />
           <ThemeToggle />
           {user ? (
-            <>
-              <a href="/cuenta" class="flex items-center gap-2 pl-1">
-                <HunterAvatar hunter={user} size={26} />
-                <span class="hidden font-ui text-[13px] uppercase tracking-wide text-text-2 sm:inline">
+            <div class="flex items-center gap-[7px] border-l border-line pl-2">
+              <a href="/cuenta" class="flex items-center gap-[7px]">
+                <HunterAvatar hunter={user} size={28} />
+                {/* Un Hunter Name puede medir 40 caracteres: sin tope estira la barra. */}
+                <span class="font-ui hidden max-w-[22ch] truncate text-[13.5px] text-text-2 sm:inline">
                   {user.hunterName ?? user.name}
-                  {user.hr && <span class="num ml-1.5 text-text-3">HR {user.hr}</span>}
+                  {user.hr && <span class="num"> · HR {user.hr}</span>}
                 </span>
               </a>
-              <form method="post" action="/api/auth/logout">
-                <button class="font-ui px-2 py-1 text-[12px] uppercase tracking-wide text-text-3 hover:text-text-1">
+              <form method="post" action="/api/auth/logout" class="hidden xl:block">
+                <button class="font-ui px-1 text-[12px] uppercase tracking-wide text-text-3 hover:text-text-1">
                   {t('nav.signOut')}
                 </button>
               </form>
-            </>
+            </div>
           ) : (
             <a
               href="/entrar"
-              class="bevel-sm font-ui bg-accent px-3 py-1.5 text-[13px] uppercase tracking-wide text-bg-0 hover:bg-accent-hi"
+              class="font-ui flex h-7 items-center bg-accent px-3 text-[13px] uppercase tracking-wide text-bg-0 hover:bg-accent-hi"
             >{t('nav.signIn')}</a>
           )}
         </div>
       </div>
     </header>
 
-    <main class="mx-auto w-full max-w-[1360px] flex-1 px-4 py-6">
+    <script>
+      // El desplegable se cierra solo al tocar fuera o con Escape: `details` no
+      // lo hace por su cuenta y quedarse abierto tapa media pantalla.
+      const menu = document.getElementById('nav-menu') as HTMLDetailsElement | null;
+
+      document.addEventListener('click', (event) => {
+        if (menu?.open && !menu.contains(event.target as Node)) menu.open = false;
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && menu?.open) {
+          menu.open = false;
+          menu.querySelector('summary')?.focus();
+        }
+      });
+    </script>
+
+    <main
+      class:list={[
+        'mx-auto w-full max-w-[1360px] flex-1',
+        // Las pantallas con `PageHeader` ponen su propio relleno: la fila de
+        // cabecera tiene que pegarse a la barra y llegar a los dos bordes.
+        !flush && 'px-4 py-6',
+      ]}
+    >
       <slot />
     </main>
 
-    <footer class="border-t border-base-800 px-4 py-4 text-center text-xs text-base-500">
+    <footer class="border-t border-bg-3 px-4 py-4 text-center text-xs text-text-3">
       {t('footer.dataFrom')}
-      <a href="https://docs.wilds.mhdb.io/" class="underline hover:text-base-300" rel="noopener">wilds.mhdb.io</a>.
+      <a href="https://docs.wilds.mhdb.io/" class="underline hover:text-text-2" rel="noopener">wilds.mhdb.io</a>.
       {t('footer.disclaimer')}
     </footer>
   </body>

@@ -1,22 +1,33 @@
 import { guild, users } from './db.ts';
 import type { GuildDoc, UserDoc } from './models.ts';
 import type { MonsterVariant } from './catalog/monster-icons.ts';
+import type { Translator } from './i18n/index.ts';
 
-const DEFAULT_NAME = 'Gremio sin nombre';
-
-/** Siempre devuelve un gremio: si nadie lo ha nombrado, uno por defecto. */
+/**
+ * Siempre devuelve un gremio; sin nombre si nadie lo ha puesto.
+ *
+ * El hueco es `null` y no un texto por defecto: guardar «Gremio sin nombre» en
+ * el documento metía copia de interfaz —y en un solo idioma— dentro del dato, y
+ * salía en español aunque la sesión fuera en inglés. El rótulo lo pone la vista
+ * con `guildName`.
+ */
 export async function getGuild(): Promise<GuildDoc> {
   const collection = await guild();
   const doc = await collection.findOne({ _id: 'current' });
   return (
     doc ?? {
       _id: 'current',
-      name: DEFAULT_NAME,
+      name: null,
       motto: null,
       updatedBy: null,
       updatedAt: new Date(),
     }
   );
+}
+
+/** Cómo se le llama al gremio en pantalla, con su rótulo traducido si no tiene nombre. */
+export function guildName(t: Translator, doc: { name: string | null }): string {
+  return doc.name || t('guild.unnamed');
 }
 
 export async function setGuild(
@@ -28,7 +39,7 @@ export async function setGuild(
   await collection.replaceOne(
     { _id: 'current' },
     {
-      name: name.trim().slice(0, 50) || DEFAULT_NAME,
+      name: name.trim().slice(0, 50) || null,
       motto: motto?.trim().slice(0, 140) || null,
       updatedBy,
       updatedAt: new Date(),

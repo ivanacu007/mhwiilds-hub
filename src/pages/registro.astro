@@ -18,7 +18,7 @@ const googleReady = googleConfigured();
 <Base title={`${t('auth.createAccount')} · ${t('app.name')}`} noIndex>
   <div class="mx-auto max-w-sm">
     <h1 class="mb-2 text-2xl font-semibold">{t('auth.createAccount')}</h1>
-    <p class="mb-6 text-sm text-base-500">
+    <p class="mb-6 text-sm text-text-3">
       {t('auth.inviteOnly')}
     </p>
 
@@ -32,74 +32,74 @@ const googleReady = googleConfigured();
         <form method="get" action="/api/auth/google" class="space-y-2">
           <input
             name="invite" value={invite} required placeholder={t('auth.inviteCode')}
-            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
+            class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-accent"
           />
-          <button class="flex w-full items-center justify-center gap-2 rounded border border-base-700 bg-base-850 px-4 py-2.5 text-sm font-medium hover:bg-base-800">
+          <button class="flex w-full items-center justify-center gap-2 rounded border border-line-strong bg-bg-2 px-4 py-2.5 text-sm font-medium hover:bg-bg-3">
 {t('auth.createGoogle')}</button>
         </form>
-        <p class="mt-2 text-xs text-base-500">
+        <p class="mt-2 text-xs text-text-3">
           {t('auth.googleAfterHint')}
         </p>
-        <div class="my-4 flex items-center gap-3 text-xs text-base-500">
-          <span class="h-px flex-1 bg-base-800"></span>{t('auth.orEmail')}<span class="h-px flex-1 bg-base-800"></span>
+        <div class="my-4 flex items-center gap-3 text-xs text-text-3">
+          <span class="h-px flex-1 bg-bg-3"></span>{t('auth.orEmail')}<span class="h-px flex-1 bg-bg-3"></span>
         </div>
       </>
     )}
 
     <form method="post" action="/api/auth/register" class="space-y-3">
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('auth.inviteCode')}</span>
+        <span class="mb-1 block text-sm text-text-2">{t('auth.inviteCode')}</span>
         <input
           name="invite" value={invite} required placeholder="XXXX-XXXX-XXXX"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 font-mono tracking-wider uppercase outline-none focus:border-accent"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('auth.yourName')}</span>
+        <span class="mb-1 block text-sm text-text-2">{t('auth.yourName')}</span>
         <input
           name="name" value={name} required minlength="2" maxlength="40" autocomplete="nickname"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">
-          {t('account.hunterName')} <span class="text-base-500">{t('account.optional')}</span>
+        <span class="mb-1 block text-sm text-text-2">
+          {t('account.hunterName')} <span class="text-text-3">{t('account.optional')}</span>
         </span>
         <input
           name="hunterName" value={hunterName} maxlength="40" placeholder={t('account.hunterNamePlaceholder')}
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
-        <span class="mt-1 block text-xs text-base-500">
+        <span class="mt-1 block text-xs text-text-3">
           {t('account.noHunterName')}
         </span>
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('auth.email')}</span>
+        <span class="mb-1 block text-sm text-text-2">{t('auth.email')}</span>
         <input
           type="email" name="email" value={email} required autocomplete="email"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
       </label>
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('auth.password')}</span>
+        <span class="mb-1 block text-sm text-text-2">{t('auth.password')}</span>
         <input
           type="password" name="password" required minlength="10" autocomplete="new-password"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
-        <span class="mt-1 block text-xs text-base-500">{t('auth.passwordHint')}</span>
+        <span class="mt-1 block text-xs text-text-3">{t('auth.passwordHint')}</span>
       </label>
-      <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+      <button class="w-full rounded bg-accent px-4 py-2.5 font-medium text-bg-0 hover:bg-accent-hi">
 {t('auth.createAccount')}</button>
     </form>
 
     {!googleReady && (
-      <p class="mt-4 rounded border border-base-800 bg-base-900 px-3 py-2 text-xs text-base-500">
+      <p class="mt-4 rounded border border-bg-3 bg-bg-1 px-3 py-2 text-xs text-text-3">
         {t('auth.googleNotConfigured')}
       </p>
     )}
 
-    <p class="mt-6 text-center text-sm text-base-500">
-      {t('auth.haveAccountQ')} <a href="/entrar" class="text-ember-400 underline">{t('auth.signInHere')}</a>
+    <p class="mt-6 text-center text-sm text-text-3">
+      {t('auth.haveAccountQ')} <a href="/entrar" class="text-accent-hi underline">{t('auth.signInHere')}</a>
     </p>
   </div>
 </Base>

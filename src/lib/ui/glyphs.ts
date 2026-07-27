@@ -8,39 +8,41 @@
 import type { CrownKey } from '../crowns.ts';
 
 /**
- * Corona.
+ * Corona, con la misma silueta que usa el juego.
  *
- * El color refuerza, pero **el dato es la silueta**: plata son tres puntas en
- * contorno y oro cinco puntas sólidas con estrella. Así se distinguen para
- * quien no separa esos dos tonos, y también impresas en blanco y negro.
- * El tamaño distingue pequeña de grande: 14 px contra 18.
+ * Reparte la información como la maqueta: **la forma dice el tamaño** (tres
+ * picos la pequeña, cinco la grande) y **el color dice el metal** (plata u
+ * oro). Antes lo tenía al revés —la plata era un contorno de tres picos y el
+ * oro una forma distinta— y la plata no parecía una corona.
+ *
+ * Sin lograr, la misma silueta en el gris de vacío: el hueco se lee igual que
+ * la pieza que falta en el álbum, no como una corona apagada.
  */
+const CROWN_SHAPE = {
+  small: {
+    width: 18,
+    height: 13,
+    clip: 'polygon(0 100%, 0 42%, 25% 64%, 50% 8%, 75% 64%, 100% 42%, 100% 100%)',
+  },
+  large: {
+    width: 24,
+    height: 17,
+    clip: 'polygon(0 100%, 0 34%, 18% 58%, 34% 6%, 50% 40%, 66% 6%, 82% 58%, 100% 34%, 100% 100%)',
+  },
+} as const;
+
 export function crownSvg(crown: CrownKey, earned: boolean): string {
   const gold = crown === 'smallGold' || crown === 'largeGold';
   const large = crown === 'largeSilver' || crown === 'largeGold';
-  const size = large ? 18 : 14;
+  const shape = large ? CROWN_SHAPE.large : CROWN_SHAPE.small;
   const color = earned
     ? `var(${gold ? '--crown-gold' : '--crown-silver'})`
     : 'var(--crown-empty)';
 
-  // Cinco puntas para el oro, tres para la plata.
-  const path = gold
-    ? 'M2 17 L2 5 L6.5 9 L12 2 L17.5 9 L22 5 L22 17 Z'
-    : 'M3 17 L3 7 L12 2.5 L21 7 L21 17 Z';
-
-  const star = gold
-    ? `<path d="M12 6.4 L13 9 L15.7 9 L13.5 10.6 L14.4 13.2 L12 11.6 L9.6 13.2 L10.5 10.6 L8.3 9 L11 9 Z" fill="${
-        earned ? 'var(--bg-0)' : 'none'
-      }" opacity="${earned ? 0.55 : 0}"/>`
-    : '';
-
-  return [
-    `<svg viewBox="0 0 24 20" width="${size}" height="${Math.round((size * 20) / 24)}" aria-hidden="true">`,
-    `<path d="${path}" fill="${gold && earned ? color : 'none'}" stroke="${color}" stroke-width="${gold ? 1 : 1.6}" stroke-linejoin="round"/>`,
-    star,
-    `<rect x="${gold ? 2 : 3}" y="17" width="${gold ? 20 : 18}" height="2.4" fill="${gold && earned ? color : 'none'}" stroke="${color}" stroke-width="${gold ? 0 : 1.2}"/>`,
-    `</svg>`,
-  ].join('');
+  return (
+    `<span style="display:inline-block;width:${shape.width}px;height:${shape.height}px;` +
+    `background:${color};clip-path:${shape.clip}" aria-hidden="true"></span>`
+  );
 }
 
 /**

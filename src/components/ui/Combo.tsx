@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 
 /**
  * Selector navegable.
@@ -29,6 +30,16 @@ interface Props<T> {
   disabled?: boolean;
   /** «12 / 179» junto al campo, para saber cuánto se está filtrando. */
   countLabel?: (shown: number, total: number) => string;
+  /** Pista de que el campo abre la lista completa; se muestra cerrado. */
+  seeAllLabel?: string;
+  /**
+   * Grupo que se muestra al hojear sin escribir. Al buscar se miran todos.
+   *
+   * Sin esto, filtrar por pestaña también recortaba la búsqueda: «Attack Boost»
+   * está clasificada como habilidad de arma, así que buscarla desde la pestaña
+   * de armadura devolvía «—» sin decir que existe al lado.
+   */
+  browseGroup?: string;
 }
 
 function normalize(text: string): string {
@@ -36,29 +47,77 @@ function normalize(text: string): string {
 }
 
 export default function Combo<T>({
-  label, placeholder, groups, value, onPick, render, meta, keyOf, disabled, countLabel,
+  label, placeholder, groups, value, onPick, render, meta, keyOf, disabled, countLabel, seeAllLabel,
+  browseGroup,
 }: Props<T>) {
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const [cursor, setCursor] = useState(0);
   const box = useRef<HTMLDivElement>(null);
   const listBox = useRef<HTMLDivElement>(null);
+  const field = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<
+    { left: number; width: number; below: number; above: number; up: boolean } | null
+  >(null);
 
   useEffect(() => {
     const outside = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      // La lista vive fuera del componente (ver abajo), así que hay que
+      // preguntarle también a ella antes de cerrar.
+      if (box.current?.contains(target) || listBox.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener('mousedown', outside);
     return () => document.removeEventListener('mousedown', outside);
   }, []);
 
+  /**
+   * La lista se dibuja en el `body`, no dentro del componente.
+   *
+   * El panel que la contiene lleva `clip-path` para el bisel, y un `clip-path`
+   * recorta a todos sus descendientes: con el panel corto (que es como está
+   * antes de elegir nada) la lista salía cortada por abajo y no se veía. Ni
+   * `absolute` ni `fixed` escapan de ahí, así que se saca del árbol y se
+   * coloca a mano sobre el campo.
+   */
+  useEffect(() => {
+    if (!open) return;
+
+    const place = () => {
+      const node = field.current;
+      if (!node) return;
+      const r = node.getBoundingClientRect();
+      // Si abajo no caben las 320 px de lista, se abre hacia arriba.
+      const room = window.innerHeight - r.bottom;
+      setRect({
+        left: r.left,
+        width: r.width,
+        below: r.bottom,
+        above: window.innerHeight - r.top,
+        up: room < 340 && r.top > room,
+      });
+    };
+
+    place();
+    window.addEventListener('scroll', place, true);
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+    };
+  }, [open]);
+
   const needle = normalize(query.trim());
   const filtered = useMemo(
     () =>
       groups
+        // Al hojear se respeta el grupo elegido; al buscar se miran todos, y
+        // el encabezado de cada grupo dice de dónde salió cada resultado.
+        .filter((g) => !!needle || !browseGroup || g.label === browseGroup)
         .map((g) => ({ ...g, items: g.items.filter((i) => !needle || normalize(render(i)).includes(needle)) }))
         .filter((g) => g.items.length > 0),
-    [groups, needle],
+    [groups, needle, browseGroup],
   );
 
   const flat = useMemo(() => filtered.flatMap((g) => g.items), [filtered]);
@@ -104,7 +163,16 @@ export default function Combo<T>({
     <div ref={box} class="relative">
       {label && <label class="mb-1 block font-ui text-xs uppercase tracking-wide text-text-3">{label}</label>}
 
-      <div class="flex items-center gap-2">
+      {/* La lupa y el «ver todas» no son adorno: el campo abre la lista entera
+          al enfocarlo, y sin decirlo nadie lo intenta. Al abrirse, ese hueco
+          pasa a mostrar cuánto se está filtrando. */}
+      <div
+        ref={field}
+        class={`flex h-8 items-center gap-2 border bg-bg-0 px-2.5 ${
+          open ? 'border-accent' : 'border-line-strong'
+        } ${disabled ? 'opacity-40' : ''}`}
+      >
+        <span class="num shrink-0 text-[12px] text-text-3" aria-hidden="true">⌕</span>
         <input
           value={query}
           disabled={disabled}
@@ -115,19 +183,25 @@ export default function Combo<T>({
           onFocus={() => setOpen(true)}
           onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setOpen(true); }}
           onKeyDown={onKey}
-          class="h-8 min-w-0 flex-1 rounded-[2px] border border-line bg-bg-1 px-2 text-[13px] outline-none focus:border-accent disabled:opacity-40"
+          class="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-text-3"
         />
-        {countLabel && open && (
-          <span class="num shrink-0 text-[11px] text-text-3">{countLabel(flat.length, total)}</span>
-        )}
+        <span class="num shrink-0 text-[11px] text-text-3">
+          {open && countLabel ? countLabel(flat.length, total) : seeAllLabel}
+        </span>
       </div>
 
-      {open && !disabled && (
+      {open && !disabled && rect && createPortal(
         <div
           id="combo-list"
           ref={listBox}
           role="listbox"
-          class="panel absolute z-30 mt-1 max-h-80 w-full overflow-y-auto"
+          class="fixed z-50 max-h-80 overflow-y-auto border border-line-strong bg-bg-2"
+          style={{
+            boxShadow: 'var(--shadow-2)',
+            left: rect.left,
+            width: rect.width,
+            ...(rect.up ? { bottom: rect.above + 4 } : { top: rect.below + 4 }),
+          }}
         >
           {filtered.length === 0 && (
             <p class="px-2 py-3 text-center text-xs text-text-3">—</p>
@@ -160,7 +234,8 @@ export default function Combo<T>({
               })}
             </div>
           ))}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

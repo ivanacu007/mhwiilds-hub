@@ -19,22 +19,22 @@ const error = readFlash(t, Astro.url.searchParams.get('error'));
       <form method="post" action="/api/auth/reset" class="space-y-3">
         <input type="hidden" name="token" value={token} />
         <label class="block">
-          <span class="mb-1 block text-sm text-base-300">{t('auth.newPassword')}</span>
+          <span class="mb-1 block text-sm text-text-2">{t('auth.newPassword')}</span>
           <input
             type="password" name="password" required minlength="10" autocomplete="new-password"
-            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+            class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
           />
-          <span class="mt-1 block text-xs text-base-500">{t('auth.passwordHint')}</span>
+          <span class="mt-1 block text-xs text-text-3">{t('auth.passwordHint')}</span>
         </label>
-        <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+        <button class="w-full rounded bg-accent px-4 py-2.5 font-medium text-bg-0 hover:bg-accent-hi">
 {t('auth.saveAndEnter')}</button>
-        <p class="text-xs text-base-500">
+        <p class="text-xs text-text-3">
           {t('auth.resetClosesSessions')}
         </p>
       </form>
     ) : (
-      <p class="text-sm text-base-300">
-        {t('auth.noToken')} <a href="/entrar" class="text-ember-400 underline">{t('auth.signInScreen')}</a>.
+      <p class="text-sm text-text-2">
+        {t('auth.noToken')} <a href="/entrar" class="text-accent-hi underline">{t('auth.signInScreen')}</a>.
       </p>
     )}
   </div>

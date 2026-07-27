@@ -42,30 +42,30 @@ function hrefFor(page: number): string {
 
 {info.total > 0 && (
   <div class="mt-4 flex h-[34px] flex-wrap items-center gap-2 text-sm">
-    <span class="text-xs text-base-500">{summary(info, label)}</span>
+    <span class="text-xs text-text-3">{summary(info, label)}</span>
 
     {info.totalPages > 1 && (
       <nav class="ml-auto flex flex-wrap items-center gap-1" aria-label={t('pagination.label')}>
         {info.hasPrev ? (
-          <a href={hrefFor(info.page - 1)} class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850">
+          <a href={hrefFor(info.page - 1)} class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2">
 {t('pagination.previous')}</a>
         ) : (
-          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">{t('pagination.previous')}</span>
+          <span class="rounded border border-bg-3 px-2 py-1 text-xs text-text-3">{t('pagination.previous')}</span>
         )}
 
         {pageNumbers(info.page, info.totalPages).map((entry) =>
           entry === '…' ? (
-            <span class="px-1 text-xs text-base-600">…</span>
+            <span class="px-1 text-xs text-text-3">…</span>
           ) : (
             <a href={hrefFor(entry)} class={linkClass(entry === info.page)}>{entry}</a>
           ),
         )}
 
         {info.hasNext ? (
-          <a href={hrefFor(info.page + 1)} class="rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850">
+          <a href={hrefFor(info.page + 1)} class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2">
 {t('pagination.next')}</a>
         ) : (
-          <span class="rounded border border-base-800 px-2 py-1 text-xs text-base-600">{t('pagination.next')}</span>
+          <span class="rounded border border-bg-3 px-2 py-1 text-xs text-text-3">{t('pagination.next')}</span>
         )}
       </nav>
     )}

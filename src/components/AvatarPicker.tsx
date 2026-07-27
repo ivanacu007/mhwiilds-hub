@@ -89,7 +89,7 @@ export default function AvatarPicker({ monsterId, variant, locale }: Props) {
           <button
             type="button"
             onClick={() => setOpen((v) => !v)}
-            class="rounded border border-base-700 px-3 py-1.5 text-sm hover:bg-base-850"
+            class="rounded border border-line-strong px-3 py-1.5 text-sm hover:bg-bg-2"
           >
             {current ? t('account.change') : t('account.pickMonster')}
           </button>
@@ -97,12 +97,12 @@ export default function AvatarPicker({ monsterId, variant, locale }: Props) {
             <button
               type="button"
               onClick={() => { save(null, 'normal'); setOpen(false); }}
-              class="ml-2 text-sm text-base-500 hover:text-red-300"
+              class="ml-2 text-sm text-text-3 hover:text-red-300"
             >
               {t('account.remove')}
             </button>
           )}
-          <p class="mt-1 text-xs text-base-500">
+          <p class="mt-1 text-xs text-text-3">
             {current
               ? `${current.name}${effectiveVariant === 'normal' ? '' : ` · ${t(`variant.${effectiveVariant}` as never)}`}`
               : t('account.avatarFallback')}
@@ -122,8 +122,8 @@ export default function AvatarPicker({ monsterId, variant, locale }: Props) {
               onClick={() => save(current.id, v)}
               class={`flex items-center gap-2 rounded border px-2 py-1.5 text-xs ${
                 selectedVariant === v
-                  ? 'border-ember-500 bg-ember-500/10 text-ember-300'
-                  : 'border-base-700 text-base-300 hover:bg-base-850'
+                  ? 'border-accent bg-accent/10 text-accent-hi'
+                  : 'border-line-strong text-text-2 hover:bg-bg-2'
               }`}
             >
               <Preview
@@ -140,12 +140,12 @@ export default function AvatarPicker({ monsterId, variant, locale }: Props) {
       )}
 
       {open && (
-        <div class="mt-3 rounded border border-base-800 bg-base-950 p-2">
+        <div class="mt-3 rounded border border-bg-3 bg-bg-0 p-2">
           <input
             value={query}
             onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setPage(1); }}
             placeholder={t('crowns.searchMonster')}
-            class="mb-2 w-full rounded border border-base-700 bg-base-900 px-3 py-1.5 text-sm outline-none focus:border-ember-500"
+            class="mb-2 w-full rounded border border-line-strong bg-bg-1 px-3 py-1.5 text-sm outline-none focus:border-accent"
           />
           <div class="grid max-h-64 grid-cols-[repeat(auto-fill,minmax(4rem,1fr))] gap-1 overflow-y-auto">
             {visible.map((monster) => (
@@ -153,13 +153,13 @@ export default function AvatarPicker({ monsterId, variant, locale }: Props) {
                 key={monster.id}
                 type="button"
                 onClick={() => { save(monster.id, selectedVariant); setOpen(false); }}
-                class={`flex flex-col items-center gap-0.5 rounded p-1 hover:bg-base-850 ${
-                  selected === monster.id ? 'bg-ember-500/15' : ''
+                class={`flex flex-col items-center gap-0.5 rounded p-1 hover:bg-bg-2 ${
+                  selected === monster.id ? 'bg-accent/15' : ''
                 }`}
                 title={monster.name}
               >
                 <Preview monster={monster} variant="normal" size={40} round={false} />
-                <span class="line-clamp-1 text-[10px] text-base-500">{monster.name}</span>
+                <span class="line-clamp-1 text-[10px] text-text-3">{monster.name}</span>
               </button>
             ))}
           </div>
@@ -187,7 +187,7 @@ function Preview({
   if (!monster) {
     return (
       <span
-        class="flex shrink-0 items-center justify-center rounded-full bg-base-800 text-base-500 ring-1 ring-base-700"
+        class="flex shrink-0 items-center justify-center rounded-full bg-bg-3 text-text-3 ring-1 ring-line-strong"
         style={{ width: size, height: size }}
       >
         ?
@@ -197,7 +197,7 @@ function Preview({
 
   return (
     <span
-      class={`block shrink-0 overflow-hidden ring-1 ring-base-700 ${round ? 'rounded-full' : 'rounded'}`}
+      class={`block shrink-0 overflow-hidden ring-1 ring-line-strong ${round ? 'rounded-full' : 'rounded'}`}
       style={{
         width: size,
         height: size,

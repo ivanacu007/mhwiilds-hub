@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import MonsterIcon from '../../components/MonsterIcon.astro';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import MonsterWeaknesses from '../../components/MonsterWeaknesses.astro';
@@ -21,22 +22,26 @@ const matching = index.catalog.monsters.filter(
 const monsters = matching;
 ---
 
-<Base title={`${t('monsters.title')} · ${t('app.name')}`} noIndex>
-  <h1 class="font-guide mb-1 text-[30px] font-bold leading-tight">{t('monsters.title')}</h1>
-  <p class="mb-5 text-sm text-base-500">{t('monsters.blurb')}</p>
+<Base title={`${t('monsters.title')} · ${t('app.name')}`} noIndex flush>
+  <PageHeader
+    title={t('monsters.title')}
+    context={t('monsters.blurb')}
+  >
+    {/* Búsqueda por GET: la página es de servidor y así el resultado se comparte. */}
+    <form method="get" slot="actions" class="flex gap-1.5">
+      <input
+        name="q"
+        value={query}
+        placeholder={t('monsters.search')}
+        class="h-7 min-w-0 border border-line-strong bg-bg-0 px-2 text-[13px] outline-none focus:border-accent"
+      />
+      <button class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1">
+        {t('monsters.search').replace('…', '')}
+      </button>
+    </form>
+  </PageHeader>
 
-  {/* Búsqueda por GET: la página es de servidor y así el resultado se comparte. */}
-  <form method="get" class="mb-4 flex gap-2">
-    <input
-      name="q"
-      value={query}
-      placeholder={t('monsters.search')}
-      class="h-8 min-w-0 flex-1 rounded-[2px] border border-line bg-bg-1 px-2 text-[13px] outline-none focus:border-accent"
-    />
-    <button class="font-ui h-8 border border-line px-3 text-[13px] uppercase tracking-wide hover:bg-bg-3">
-      {t('monsters.search').replace('…', '')}
-    </button>
-  </form>
+  <div class="px-4 py-3.5">
 
   {/* auto-fill con mínimo de 232 px: la tarjeta manda sobre el número de
       columnas, así el bloque de debilidades nunca se estrangula. */}
@@ -61,12 +66,16 @@ const monsters = matching;
   </ul>
 
   {matching.length === 0 && (
-    <p class="py-10 text-center text-sm text-base-500">{t('monsters.noneMatch')}</p>
+    <p class="py-10 text-center text-sm text-text-3">{t('monsters.noneMatch')}</p>
   )}
 
-  {monsters.length > 0 && (
-    <p class="num mt-4 text-xs text-text-3">
-      {t('pagination.only', { total: monsters.length, label: t('monsters.monsters') })}
-    </p>
-  )}
+
+    {/* Esta lista no se pagina, pero sí lleva el recuento al pie: es la única
+        pantalla donde se ve el bestiario entero de una pasada. */}
+    {monsters.length > 0 && (
+      <p class="num mt-4 text-xs text-text-3">
+        {t('pagination.only', { total: monsters.length, label: t('monsters.monsters') })}
+      </p>
+    )}
+  </div>
 </Base>

@@ -1,6 +1,7 @@
 ---
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
 import Pagination from '../components/Pagination.astro';
 import { paginate } from '../lib/paginate.ts';
 import { INTL_LOCALE } from '../lib/i18n/index.ts';
@@ -23,13 +24,15 @@ const sets = await collection
 const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/, '');
 ---
 
-<Base title={`${t('sets.title')} · ${t('app.name')}`} noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">{t('sets.title')}</h1>
-  <p class="mb-5 text-sm text-base-500">
-    {total === 0
+<Base title={`${t('sets.title')} · ${t('app.name')}`} noIndex flush>
+  <PageHeader
+    title={t('sets.title')}
+    context={total === 0
       ? t('sets.empty')
       : total === 1 ? t('sets.countOne') : t('sets.count', { count: total })}
-  </p>
+  />
+
+  <div class="px-4 py-3.5">
 
   <ul
     class="space-y-2"
@@ -37,10 +40,10 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
     data-error={t('common.error')}
   >
     {sets.map((set) => (
-      <li class="flex flex-wrap items-center gap-3 rounded border border-base-800 bg-base-900 px-3 py-2.5">
+      <li class="flex flex-wrap items-center gap-3 rounded border border-bg-3 bg-bg-1 px-3 py-2.5">
         <div class="min-w-0 flex-1">
-          <a href={`/set/${set.slug}`} class="font-medium hover:text-ember-300">{set.name}</a>
-          <p class="text-xs text-base-500">
+          <a href={`/set/${set.slug}`} class="font-medium hover:text-accent-hi">{set.name}</a>
+          <p class="text-xs text-text-3">
             {new Date(set.updatedAt).toLocaleDateString(INTL_LOCALE[Astro.locals.locale], { day: 'numeric', month: 'short', year: 'numeric' })}
             {!set.isPublic && ` · ${t('sets.private')}`}
             {set.clonedFrom && ` · ${t('sets.cloned')}`}
@@ -48,12 +51,12 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
         </div>
 
         <button
-          class="copiar-enlace rounded border border-base-700 px-2 py-1 text-xs hover:bg-base-850"
+          class="copiar-enlace rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
           data-url={`${site}/set/${set.slug}`}
         >
 {t('sets.copyLink')}</button>
         <button
-          class="borrar rounded border border-base-700 px-2 py-1 text-xs text-base-300 hover:bg-red-950 hover:text-red-200"
+          class="borrar rounded border border-line-strong px-2 py-1 text-xs text-text-2 hover:bg-red-950 hover:text-red-200"
           data-id={set._id}
           data-confirm={t('sets.confirmDelete', { name: set.name })}
         >
@@ -63,6 +66,7 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
   </ul>
 
   <Pagination info={info} label={t('sets.sets')} />
+  </div>
 </Base>
 
 <script>

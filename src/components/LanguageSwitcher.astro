@@ -11,7 +11,7 @@ const t = Astro.locals.t;
 const back = Astro.url.pathname + Astro.url.search;
 ---
 
-<div class="flex items-center gap-0.5" role="group" aria-label={t('nav.language')}>
+<div class="flex h-7 border border-line-strong" role="group" aria-label={t('nav.language')}>
   {LOCALES.map((locale) => (
     <form method="post" action="/api/language">
       <input type="hidden" name="lang" value={locale} />
@@ -21,10 +21,8 @@ const back = Astro.url.pathname + Astro.url.search;
         aria-current={locale === current ? 'true' : undefined}
         title={LOCALE_LABEL[locale]}
         class:list={[
-          'font-ui h-[26px] w-[30px] text-[12px] uppercase tracking-wide transition-colors',
-          locale === current
-            ? 'bg-accent font-semibold text-bg-0'
-            : 'border border-line text-text-3 hover:text-text-1',
+          'num grid h-full w-8 place-items-center text-[12px] uppercase transition-colors',
+          locale === current ? 'bg-accent text-bg-0' : 'text-text-2 hover:text-text-1',
         ]}
       >
         {locale}

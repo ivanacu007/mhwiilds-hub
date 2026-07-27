@@ -109,18 +109,18 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
   // Sin paginar nunca: la rejilla existe para ver los 34 de un vistazo.
   const visible = matching;
 
-  if (status === 'cargando') return <p class="py-10 text-center text-base-500">{t('common.loading')}</p>;
+  if (status === 'cargando') return <p class="py-10 text-center text-text-3">{t('common.loading')}</p>;
   if (!catalog) return <p class="py-10 text-center text-red-300">{t('common.catalogError')}</p>;
 
   const tally = tallyCrowns(monsters, progress);
 
   return (
     <div>
-      <div class="mb-4 flex flex-wrap items-center gap-3 rounded border border-base-800 bg-base-900 px-3 py-2">
+      <div class="mb-4 flex flex-wrap items-center gap-3 rounded border border-bg-3 bg-bg-1 px-3 py-2">
         {CROWN_KEYS.map((key) => (
           <Stat key={key} label={t(`crowns.${key}` as never)} value={tally[key]} total={tally.total} crown={key} t={t} />
         ))}
-        <span class="ml-auto text-xs text-base-500">
+        <span class="ml-auto text-xs text-text-3">
           {t('crowns.complete', { done: tally.complete, total: tally.total })}
           {status === 'guardando' && t('crowns.saving')}
           {status === 'guardado' && t('crowns.saved')}
@@ -133,14 +133,14 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
           value={query}
           onInput={(e) => setQuery((e.target as HTMLInputElement).value)}
           placeholder={t('crowns.searchMonster')}
-          class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+          class="min-w-0 flex-1 rounded border border-line-strong bg-bg-1 px-3 py-2 text-sm outline-none focus:border-accent"
         />
         {(['todos', 'faltantes', 'completos', 'favoritos'] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             class={`rounded px-3 py-1.5 text-sm capitalize ${
-              filter === f ? 'bg-ember-500 text-base-950' : 'bg-base-850 text-base-300 hover:bg-base-800'
+              filter === f ? 'bg-accent text-bg-0' : 'bg-bg-2 text-text-2 hover:bg-bg-3'
             }`}
           >
             {t(FILTER_KEY[f])}
@@ -162,7 +162,7 @@ export default function CrownTracker({ favorites, locale }: { favorites: number[
       </div>
 
       {matching.length === 0 && (
-        <p class="py-10 text-center text-sm text-base-500">{t('crowns.noneMatch')}</p>
+        <p class="py-10 text-center text-sm text-text-3">{t('crowns.noneMatch')}</p>
       )}
 
       {open != null && (
@@ -186,9 +186,9 @@ function Stat({ label, value, total, crown, t }: {
   return (
     <span class="flex items-center gap-1.5 text-sm">
       <Crown crown={crown} earned t={t} />
-      <span class="text-base-300">{label}</span>
+      <span class="text-text-2">{label}</span>
       <strong>{value}</strong>
-      <span class="text-base-500">/{total}</span>
+      <span class="text-text-3">/{total}</span>
     </span>
   );
 }
@@ -270,7 +270,7 @@ function MonsterTile(props: {
   return (
     <button
       onClick={onOpen}
-      class="group flex flex-col items-center gap-1 rounded-lg border border-base-800 bg-base-900 p-2 text-center transition-colors hover:border-ember-500/60 hover:bg-base-850"
+      class="group flex flex-col items-center gap-1 rounded-lg border border-bg-3 bg-bg-1 p-2 text-center transition-colors hover:border-accent/60 hover:bg-bg-2"
     >
       <span class="relative">
         <img
@@ -284,11 +284,11 @@ function MonsterTile(props: {
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0'; }}
         />
         {isFavorite && (
-          <span class="absolute -right-1 -top-1 text-xs text-ember-400" title={t('crowns.favorite')}>★</span>
+          <span class="absolute -right-1 -top-1 text-xs text-accent-hi" title={t('crowns.favorite')}>★</span>
         )}
       </span>
 
-      <span class="line-clamp-2 text-xs leading-tight text-base-300 group-hover:text-base-100">
+      <span class="line-clamp-2 text-xs leading-tight text-text-2 group-hover:text-text-1">
         {monster.name}
       </span>
 
@@ -335,7 +335,7 @@ function MonsterDialog(props: {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-base-700 bg-base-900 p-4">
+      <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border border-line-strong bg-bg-1 p-4">
         <div class="mb-3 flex items-start gap-3">
           <VariantStrip
             monster={monster}
@@ -347,14 +347,14 @@ function MonsterDialog(props: {
           />
           <div class="min-w-0 flex-1">
             <h2 class="text-lg font-semibold">{monster.name}</h2>
-            <p class="text-xs text-base-500">
+            <p class="text-xs text-text-3">
               {t(`species.${monster.species}` as never)}
             </p>
           </div>
           <button onClick={onToggleFavorite} class="text-lg" title={t('crowns.favorite')}>
-            <span class={isFavorite ? 'text-ember-400' : 'text-base-700'}>★</span>
+            <span class={isFavorite ? 'text-accent-hi' : 'text-line-strong'}>★</span>
           </button>
-          <button onClick={onClose} class="text-base-500 hover:text-base-100" aria-label={t('crowns.close')}>×</button>
+          <button onClick={onClose} class="text-text-3 hover:text-text-1" aria-label={t('crowns.close')}>×</button>
         </div>
 
         <div class="mb-3 grid grid-cols-2 gap-1.5">
@@ -363,8 +363,8 @@ function MonsterDialog(props: {
               key={key}
               class={`flex cursor-pointer items-center gap-2 rounded border px-2 py-2 text-sm transition-colors ${
                 crowns[key]
-                  ? 'border-ember-500/50 bg-ember-500/10'
-                  : 'border-base-800 bg-base-850 hover:bg-base-800'
+                  ? 'border-accent/50 bg-accent/10'
+                  : 'border-bg-3 bg-bg-2 hover:bg-bg-3'
               }`}
             >
               <input
@@ -375,13 +375,13 @@ function MonsterDialog(props: {
                 })}
               />
               <Crown crown={key} earned={crowns[key]} t={t} />
-              <span class={crowns[key] ? '' : 'text-base-500'}>{t(`crowns.${key}` as never)}</span>
+              <span class={crowns[key] ? '' : 'text-text-3'}>{t(`crowns.${key}` as never)}</span>
             </label>
           ))}
         </div>
 
-        <div class="rounded border border-base-800">
-          <div class="flex items-center gap-2 border-b border-base-800 px-2 py-1.5 text-[11px] text-base-500">
+        <div class="rounded border border-bg-3">
+          <div class="flex items-center gap-2 border-b border-bg-3 px-2 py-1.5 text-[11px] text-text-3">
             <span class="flex-1">{t('crowns.level')}</span>
             <span class="w-[104px] text-center">{t('crowns.hunted')}</span>
             <span class="w-[104px] text-center">{t('crowns.captured')}</span>
@@ -410,8 +410,8 @@ function MonsterDialog(props: {
           ))}
 
           {(sumCounts(hunted) > 0 || sumCounts(captured) > 0) && (
-            <div class="flex items-center gap-2 border-t border-base-800 px-2 py-1.5 text-sm">
-              <span class="flex-1 text-base-500">{t('crowns.total')}</span>
+            <div class="flex items-center gap-2 border-t border-bg-3 px-2 py-1.5 text-sm">
+              <span class="flex-1 text-text-3">{t('crowns.total')}</span>
               <strong class="num w-[104px] text-center">{sumCounts(hunted)}</strong>
               <strong class="num w-[104px] text-center">{sumCounts(captured)}</strong>
             </div>

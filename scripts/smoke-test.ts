@@ -10,7 +10,10 @@
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { readFileSync, readdirSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { sumCounts } from '../src/lib/crowns.ts';
+import { GEAR_SLUGS } from '../src/lib/ui/gear-icons.ts';
 
 let failures = 0;
 function check(label: string, condition: boolean, detail = ''): void {
@@ -94,9 +97,10 @@ try {
   check('ningún texto quedó vacío',
     esKeys.every((k) => (es as any)[k].trim()) && enKeys.every((k) => (en as any)[k].trim()));
   // Un texto idéntico en ambos suele ser una traducción olvidada; algunos son
-  // legítimos (Normal, HR, Google), así que solo se acota el total.
+  // legítimos (Normal, HR, Google, el propio nombre de la app), así que solo se
+  // acota el total.
   const iguales = esKeys.filter((k) => (es as any)[k] === (en as any)[k]);
-  check('casi todo está realmente traducido', iguales.length < 20,
+  check('casi todo está realmente traducido', iguales.length < 21,
     `${iguales.length} iguales: ${iguales.slice(0, 8).join(', ')}`);
 
   const esPage = await (await fetch(`${BASE}/entrar`, { headers: { 'accept-language': 'es-MX' } })).text();
@@ -420,6 +424,20 @@ try {
   const favData = await favs.json();
   check('guarda favoritos sin duplicados ni basura', favData.monsters.length === 1);
 
+  // Antes de nombrarlo: el hueco es `null` en el dato y el rótulo lo pone la
+  // vista, así que tiene que salir en el idioma de la sesión y no en español
+  // siempre, que es como estaba.
+  const sinNombreEs = await (await fetch(`${BASE}/gremio`, {
+    headers: { ...auth, cookie: `${cookie}; mhw_lang=es` },
+  })).text();
+  const sinNombreEn = await (await fetch(`${BASE}/gremio`, {
+    headers: { ...auth, cookie: `${cookie}; mhw_lang=en` },
+  })).text();
+  check('el gremio sin nombre se rotula en el idioma de la sesión',
+    sinNombreEs.includes(es['guild.unnamed']) &&
+    sinNombreEn.includes(en['guild.unnamed']) && !sinNombreEn.includes(es['guild.unnamed']),
+    'el rótulo no puede vivir en el documento de Mongo');
+
   const gremio = await fetch(`${BASE}/api/guild`, {
     method: 'POST', headers: auth, redirect: 'manual',
     body: new URLSearchParams({ name: 'Los Cazadores del Sur', motto: 'Sin miedo al Rey Dau' }),
@@ -617,6 +635,13 @@ try {
     ['--crown-gold', '--slot-2', '--hz-good-bg', '--rarity-6', '--el-fire', '--st-poison']
       .every((v) => hoja.includes(v)));
 
+  // La maqueta es la referencia y ya se desvió una vez: estas medidas son las
+  // del HTML entregado, no una aproximación a ojo.
+  check('el degradado del botón principal tiene su tono bajo y su color de texto',
+    ['--accent-deep', '--on-accent', '--panel-head', '--line-soft'].every((v) => hoja.includes(v)));
+  check('el bisel de cabecera corta solo la esquina superior derecha',
+    hoja.includes('.bevel-head') && hoja.includes('calc(100% - var(--bevel-lg)) 0'));
+
   const entrarHtml = await (await fetch(`${BASE}/entrar`)).text();
   check('el script de tema va antes del CSS',
     entrarHtml.indexOf('localStorage.getItem(\'theme\')') < entrarHtml.indexOf('.css'),
@@ -625,8 +650,26 @@ try {
   check('carga las tipografías del sistema',
     entrarHtml.includes('Barlow') && entrarHtml.includes('Spectral') && entrarHtml.includes('IBM+Plex+Mono'));
 
+  // El dato de la API se llama «blastblight»; mientras el token se llamó
+  // «--st-blast» la nitroplaga salía gris entre estados de colores.
+  check('el tono de cada estado se llama como el dato de la API',
+    ['--st-poison', '--st-paralysis', '--st-sleep', '--st-blastblight']
+      .every((v) => hoja.includes(v)),
+    'si no coinciden, affinityTint cae al gris de texto');
+
+  // Elegir «oscuro» a mano con el sistema en claro dejaba los tonos que solo
+  // define el bloque de prefers-color-scheme con su valor de tema claro.
+  const oscuroExplicito = hoja.match(/\[data-theme=.?dark.?\]\{[^}]*\}/)?.[0] ?? '';
+  check('el tema oscuro explícito define la paleta entera',
+    ['--line-soft', '--table-bg', '--table-head', '--chip-bg']
+      .every((v) => oscuroExplicito.includes(v)),
+    oscuroExplicito ? 'faltan tonos en [data-theme=dark]' : 'no se encontró el bloque');
+
   check('define las utilidades de tabla densa',
     hoja.includes('.table-dense') && hoja.includes('.col-sticky'));
+  check('la matriz de zonas lleva cabecera y retícula propias',
+    ['--table-head', '--table-grid', '--table-bg'].every((v) => hoja.includes(v)),
+    'sin ellos la cabecera se confunde con el cuerpo en claro');
   check('define los tramos de zona de impacto',
     ['hz-0', 'hz-bad', 'hz-low', 'hz-mid', 'hz-good'].every((c) => hoja.includes(c)));
   check('define el remate angular', hoja.includes('clip-path'));
@@ -740,6 +783,162 @@ try {
     body: JSON.stringify({ monsterId: null }),
   });
   check('permite quitarlo', (await quitar.json()).monsterId === null);
+
+  console.log('\n--- Fidelidad a la maqueta ---');
+  const armadorHtml = await (await fetch(`${BASE}/armador`, {
+    headers: { cookie },
+  })).text();
+
+  check('la barra lleva el filete ámbar superior',
+    armadorHtml.includes('class="topbar') && hoja.includes('inset 0 2px 0 var(--accent)'),
+    'es el remate del registro de menú en la maqueta');
+  // El minificador reescribe el rgb() a hex, así que se comprueba la regla.
+  check('en claro la barra usa sombra en vez de brillo',
+    /\[data-theme=.?light.?\] \.topbar\{box-shadow:inset 0 2px 0 var\(--accent\),0 1px 3px/.test(hoja));
+  check('la sección activa se marca con filete inferior, no con caja',
+    armadorHtml.includes('border-bottom: 2px solid var(--accent)'));
+  check('los enlaces de la barra miden 34 px', armadorHtml.includes('h-[34px]'));
+
+  // La fila entera pide 972 px en inglés y 1014 en español. Sin plegarse, por
+  // debajo de eso empujaba la página entera a scroll horizontal en móvil.
+  check('la barra pliega la navegación en un desplegable cuando no cabe',
+    armadorHtml.includes('id="nav-menu"') && armadorHtml.includes('xl:hidden') &&
+    armadorHtml.includes('hidden items-center xl:flex'),
+    'sin plegado la barra desborda por debajo de 1014 px');
+  check('el desplegable abre sin JavaScript',
+    /<details[^>]*id="nav-menu"/.test(armadorHtml) && armadorHtml.includes('<summary'));
+  check('y deja Salir a mano cuando la fila va estrecha',
+    (armadorHtml.match(/action="\/api\/auth\/logout"/g) ?? []).length === 2,
+    'uno en la barra ancha y otro dentro del desplegable');
+  check('el Hunter Name no puede estirar la barra',
+    armadorHtml.includes('max-w-[22ch] truncate'), 'admite 40 caracteres');
+  check('la fila de cabecera va a sangre bajo la barra',
+    armadorHtml.includes('min-h-[42px]') && !armadorHtml.includes('flex-1 px-4 py-6'));
+  check('el contexto de la cabecera va en monoespaciada',
+    /class="num text-\[11\.5px\]/.test(armadorHtml));
+  // El armador es una isla `client:only`: no está en el HTML del servidor, así
+  // que sus medidas se comprueban en la fuente.
+  const builderSrc = readFileSync(new URL('../src/components/SetBuilder.tsx', import.meta.url), 'utf8');
+  check('la retícula del armador es 380 px + resto',
+    builderSrc.includes('lg:grid-cols-[380px_minmax(0,1fr)]'));
+  check('el panel de objetivos lleva bisel de cabecera',
+    builderSrc.includes('panel bevel-head'));
+  check('las filas de objetivo miden 38 px con botones de 24',
+    builderSrc.includes('min-h-[38px]') && builderSrc.includes('h-6 w-6'));
+  check('las piezas del set van en columnas fijas',
+    builderSrc.includes('grid-cols-[64px_26px_minmax(0,1fr)_56px_auto]'),
+    'sin columnas, la defensa baila de renglón en renglón');
+  check('el cuerpo de la tarjeta reparte 1.55 / 1',
+    builderSrc.includes('lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]'));
+  check('un objetivo servido a medias se marca en ámbar de aviso',
+    builderSrc.includes('var(--warn)'));
+
+  const comboSrc = readFileSync(new URL('../src/components/ui/Combo.tsx', import.meta.url), 'utf8');
+  check('el campo de búsqueda va sobre el fondo hondo y sin redondeo',
+    comboSrc.includes('border bg-bg-0 px-2.5') && !comboSrc.includes('rounded-[2px]'));
+  check('el campo anuncia que abre la lista completa',
+    comboSrc.includes('⌕') && comboSrc.includes('seeAllLabel'),
+    'sin la pista nadie descubre que se abre al enfocar');
+  check('la casilla de solo forjadas está dibujada, no es la nativa',
+    builderSrc.includes('peer sr-only') && builderSrc.includes('border-ok bg-ok text-bg-0'));
+  check('las pestañas usan rótulo corto para caber en 380 px',
+    builderSrc.includes("t('builder.tabArmor')") && !builderSrc.includes('num ml-1.5 opacity-70'));
+  check('el ✕ del objetivo comparte fondo con los ±',
+    /border-line bg-bg-2 text-\[12px\] text-text-3/.test(builderSrc));
+
+  check('la lista de habilidades se dibuja fuera del panel biselado',
+    comboSrc.includes('createPortal') && comboSrc.includes('document.body'),
+    'el clip-path del bisel recorta a sus descendientes y la cortaba');
+  check('la lista se abre hacia arriba si abajo no cabe',
+    comboSrc.includes('rect.up'));
+  check('los tipos de arma usan el icono del juego, no abreviaturas',
+    builderSrc.includes('gearIconStyle(kind') && !builderSrc.includes('.slice(0, 2)'));
+  check('las piezas del set llevan el icono de su ranura',
+    builderSrc.includes("gearIconStyle('charm'") && builderSrc.includes("gearIconStyle(kind, 14"));
+
+  const iconos = readdirSync(new URL('../public/iconos/equipo/', import.meta.url));
+  check('están las 20 máscaras de equipo',
+    GEAR_SLUGS.every((s) => iconos.includes(`${s}.webp`)),
+    GEAR_SLUGS.filter((s) => !iconos.includes(`${s}.webp`)).join(', ') || 'todas');
+
+  const detalle = await (await fetch(`${BASE}/monstruos/${catalog.monsters[0].id}`, {
+    headers: { cookie },
+  })).text();
+
+  // Se ancla en la clase, que sale literal en el HTML compilado; el separador
+  // viaja como entidad y no sirve para comprobar.
+  check('la ficha lleva miga de pan con la posición en el bestiario',
+    detalle.includes('<nav class="num flex items-center gap-2 text-[11.5px] text-text-3">'),
+    'sin ella no se sabe por dónde se va en el bestiario');
+  check('el nombre va en la serif de guía a 40 px',
+    detalle.includes('font-guide text-[40px]'));
+  check('las cabeceras de bloque llevan el filete ámbar',
+    detalle.includes('border-b border-accent bg-panel-head'));
+  check('las debilidades salen en tres bloques, no en lista',
+    detalle.includes('lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_minmax(0,1fr)]'));
+
+  // La API solo enumera aquello a lo que el monstruo reacciona, y 30 de los 34
+  // tienen una única debilidad elemental: sin el repertorio completo la columna
+  // ancha quedaba con una fila suelta y «no le entra» había que deducirlo.
+  const { AFFINITY_VOCABULARY } = await import('../src/lib/monster-info.ts');
+  const unSoloElemento = catalog.monsters.find(
+    (m: any) =>
+      splitAffinities(m.weaknesses).elements.length === 1 &&
+      splitAffinities(m.resistances).elements.length > 0,
+  );
+  const detalleElem = await (await fetch(`${BASE}/monstruos/${unSoloElemento.id}`, {
+    headers: auth,
+  })).text();
+  // Se cuentan las filas por su clase, que sale literal en el HTML compilado.
+  const filasElem = (detalleElem.match(/h-\[30px\] items-center gap-2 bg-bg-2 px-2/g) ?? []).length;
+  check('el bloque elemental enseña los cinco elementos, no solo la debilidad',
+    filasElem === AFFINITY_VOCABULARY.element.length,
+    `${filasElem} filas en ${unSoloElemento.name}, se esperaban ${AFFINITY_VOCABULARY.element.length}`);
+  check('y marca lo que le rebota en vez de callarlo',
+    detalleElem.includes(dic['monsters.resists']),
+    `${unSoloElemento.name} resiste algo y no lo dice`);
+
+  // La ficha no repite «Monstruos» sobre la miga de pan: el título es el nombre
+  // del monstruo, y dos <h1> en la misma página no es solo cuestión de estética.
+  check('la ficha tiene un único título',
+    (detalle.match(/<h1/g) ?? []).length === 1,
+    `${(detalle.match(/<h1/g) ?? []).length} <h1>`);
+
+  // Dos roturas distintas del mismo material daban dos filas gemelas al 100 %.
+  const conParte = catalog.monsters.find((m: any) =>
+    m.rewards.some((r: any) => r.conditions.filter((c: any) => c.part).length > 1),
+  );
+  if (conParte) {
+    const detalleParte = await (await fetch(`${BASE}/monstruos/${conParte.id}`, {
+      headers: auth,
+    })).text();
+    const parte = conParte.rewards
+      .flatMap((r: any) => r.conditions).find((c: any) => c.part).part;
+    const nombreParte = conParte.parts.find((p: any) => p.kind === parte)?.name;
+    check('el origen por rotura dice qué parte se rompe',
+      nombreParte != null && detalleParte.includes(nombreParte), `${parte}`);
+    check('y las partes rompibles se resumen en las notas de campo',
+      detalleParte.includes(dic['monsters.breakable']));
+  }
+  check('la ficha reserva 300 px para el registro de campo',
+    detalle.includes('xl:grid-cols-[minmax(0,1fr)_300px]'));
+  check('las recompensas se filtran por vía sin JavaScript',
+    detalle.includes('name="via"') && detalle.includes('peer-checked:border-accent'));
+
+  check('el armador se pliega en hoja inferior en móvil',
+    builderSrc.includes('max-lg:fixed') && builderSrc.includes('max-lg:bottom-0'));
+  check('la barra fija de móvil deja hueco bajo los resultados',
+    builderSrc.includes('max-lg:pb-16'),
+    'sin el hueco, la barra tapa la última tarjeta');
+
+  // Los alias de la paleta vieja ya se retiraron: que no vuelvan por copiar y pegar.
+  const fuentes = await Promise.all(
+    ['src/pages', 'src/components', 'src/layouts'].map(async (dir) =>
+      execSync(`grep -rno "base-[0-9]\\{3\\}\\|ember-[0-9]\\{3\\}\\|jade-[0-9]\\{3\\}" ${dir} || true`)
+        .toString()),
+  );
+  check('no quedan nombres de la paleta anterior', fuentes.every((out) => out.trim() === ''),
+    fuentes.join('').slice(0, 200));
 
   console.log('\n--- Mensajes traducidos ---');
   const savedEs = await (await fetch(`${BASE}/cuenta?aviso=msg.saved`, {

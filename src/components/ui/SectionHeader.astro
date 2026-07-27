@@ -1,0 +1,31 @@
+---
+/**
+ * Cabecera de bloque: el filete ámbar bajo el título es lo que en el juego
+ * separa un registro del siguiente. Se repite en debilidades, zonas de impacto
+ * y recompensas, así que vive aquí y no copiado en cada pantalla.
+ *
+ * `hint` va en monoespaciada porque casi siempre es un recuento o una escala.
+ */
+interface Props {
+  title: string;
+  hint?: string;
+  /** Texto alineado a la derecha; para acciones use el slot `actions`. */
+  note?: string;
+  class?: string;
+}
+const { title, hint, note, class: extra } = Astro.props;
+---
+
+<div
+  class:list={[
+    'flex min-h-[30px] flex-wrap items-center gap-2.5 border-b border-accent bg-panel-head px-3 py-[3px]',
+    extra,
+  ]}
+>
+  <h2 class="font-ui text-[14px] uppercase tracking-[0.12em] text-accent-hi">{title}</h2>
+  {hint && <p class="num text-[11px] text-text-3">{hint}</p>}
+  {note && <p class="num ml-auto text-[11px] text-text-3">{note}</p>}
+  {/* Las acciones envuelven: con las diez vías de recompensa de un monstruo
+      grande, una fila rígida se salía de la pantalla en móvil. */}
+  <div class:list={['flex flex-wrap gap-1', !note && 'ml-auto']}><slot name="actions" /></div>
+</div>

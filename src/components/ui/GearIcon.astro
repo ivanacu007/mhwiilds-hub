@@ -1,0 +1,24 @@
+---
+import { gearIconStyle } from '../../lib/ui/gear-icons.ts';
+
+interface Props {
+  /** Tipo de arma ('great-sword') o ranura de equipo ('head'). */
+  slug: string;
+  size?: number;
+  /** Cualquier color CSS; por defecto sigue al texto que lo rodea. */
+  color?: string;
+  label?: string;
+  class?: string;
+}
+
+const { slug, size = 15, color = 'currentColor', label, class: className } = Astro.props;
+---
+
+<span
+  class:list={['inline-block shrink-0', className]}
+  style={gearIconStyle(slug, size, color)}
+  title={label}
+  role={label ? 'img' : undefined}
+  aria-label={label}
+  aria-hidden={label ? undefined : 'true'}
+></span>

@@ -38,7 +38,7 @@ export default function MaterialFinder({ locale }: { locale: Locale }) {
     return [...(reward?.conditions ?? [])].sort((a, b) => (b.chance ?? 0) - (a.chance ?? 0));
   }, [monster, item]);
 
-  if (!catalog) return <p class="py-4 text-sm text-base-500">{t('common.loading')}</p>;
+  if (!catalog) return <p class="py-4 text-sm text-text-3">{t('common.loading')}</p>;
 
   return (
     <div>
@@ -65,27 +65,27 @@ export default function MaterialFinder({ locale }: { locale: Locale }) {
       </div>
 
       {monster && item && (
-        <div class="mt-3 rounded border border-base-800 bg-base-950 p-3">
+        <div class="mt-3 rounded border border-bg-3 bg-bg-0 p-3">
           <h3 class="mb-2 flex items-center gap-2 text-sm font-medium">
             <Icon item={item} />
             {item.name}
-            <span class="text-base-500">· {monster.name}</span>
+            <span class="text-text-3">· {monster.name}</span>
           </h3>
 
           {sources.length === 0 ? (
-            <p class="text-sm text-base-500">{t('finder.noResults')}</p>
+            <p class="text-sm text-text-3">{t('finder.noResults')}</p>
           ) : (
             <ul class="space-y-1">
               {sources.map((c, i) => (
                 <li key={i} class="flex items-baseline gap-2 text-sm">
                   <span class="min-w-0 flex-1">
                     {t(`cd.${c.kind}` as never)}
-                    {c.rank && <span class="text-base-500"> · {t(`rk.${c.rank}` as never)}</span>}
-                    {c.quantity > 1 && <span class="text-base-500"> · ×{c.quantity}</span>}
+                    {c.rank && <span class="text-text-3"> · {t(`rk.${c.rank}` as never)}</span>}
+                    {c.quantity > 1 && <span class="text-text-3"> · ×{c.quantity}</span>}
                   </span>
                   <span
                     class={`shrink-0 tabular-nums ${
-                      (c.chance ?? 0) >= 50 ? 'text-jade-400' : 'text-base-300'
+                      (c.chance ?? 0) >= 50 ? 'text-ok' : 'text-text-2'
                     }`}
                   >
                     {c.chance != null ? `${c.chance}%` : '—'}
@@ -97,7 +97,7 @@ export default function MaterialFinder({ locale }: { locale: Locale }) {
 
           <a
             href={`/monstruos/${monster.id}`}
-            class="mt-2 inline-block text-xs text-ember-400 underline"
+            class="mt-2 inline-block text-xs text-accent-hi underline"
           >
             {t('finder.seeMonster')}
           </a>
@@ -107,7 +107,7 @@ export default function MaterialFinder({ locale }: { locale: Locale }) {
       {monster && !item && (
         <a
           href={`/monstruos/${monster.id}`}
-          class="mt-3 inline-block text-sm text-ember-400 underline"
+          class="mt-3 inline-block text-sm text-accent-hi underline"
         >
           {t('finder.anyMaterial')} · {monster.name}
         </a>

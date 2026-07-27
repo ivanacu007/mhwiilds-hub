@@ -2,6 +2,7 @@
 const t = Astro.locals.t;
 import { readFlash } from '../lib/flash.ts';
 import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
 import AvatarPicker from '../components/AvatarPicker.tsx';
 
 const user = Astro.locals.user!;
@@ -9,25 +10,26 @@ const error = readFlash(t, Astro.url.searchParams.get('error'));
 const aviso = readFlash(t, Astro.url.searchParams.get('aviso'));
 ---
 
-<Base title={`${t('account.title')} · ${t('app.name')}`} noIndex>
-  <div class="mx-auto max-w-sm">
-    <h1 class="mb-6 text-2xl font-semibold">{t('account.title')}</h1>
+<Base title={`${t('account.title')} · ${t('app.name')}`} noIndex flush>
+  <PageHeader title={t('account.title')} />
 
+  <div class="px-4 py-3.5">
+  <div class="mx-auto max-w-sm">
     {error && (
       <p class="mb-4 rounded border border-red-900 bg-red-950/60 px-3 py-2 text-sm text-red-200">{error}</p>
     )}
     {aviso && (
-      <p class="mb-4 rounded border border-jade-500/40 bg-jade-500/10 px-3 py-2 text-sm text-jade-400">{aviso}</p>
+      <p class="mb-4 rounded border border-ok/40 bg-ok/10 px-3 py-2 text-sm text-ok">{aviso}</p>
     )}
 
     {!user.hunterName && (
-      <p class="mb-4 rounded border border-ember-500/40 bg-ember-500/5 px-3 py-2 text-sm text-base-300">
+      <p class="mb-4 rounded border border-accent/40 bg-accent/5 px-3 py-2 text-sm text-text-2">
         {t('account.noHunterName')}
       </p>
     )}
 
-    <section class="mb-5 rounded border border-base-800 bg-base-900 p-3">
-      <h2 class="mb-2 text-sm font-medium text-base-300">{t('account.avatar')}</h2>
+    <section class="mb-5 rounded border border-bg-3 bg-bg-1 p-3">
+      <h2 class="mb-2 text-sm font-medium text-text-2">{t('account.avatar')}</h2>
       <AvatarPicker
         client:only="preact"
         monsterId={user.avatarMonsterId}
@@ -38,64 +40,65 @@ const aviso = readFlash(t, Astro.url.searchParams.get('aviso'));
 
     <form method="post" action="/api/auth/profile" class="space-y-3">
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">{t('auth.yourName')}</span>
+        <span class="mb-1 block text-sm text-text-2">{t('auth.yourName')}</span>
         <input
           name="name" value={user.name} required minlength="2" maxlength="40"
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
       </label>
 
       <label class="block">
-        <span class="mb-1 block text-sm text-base-300">
-          {t('account.hunterName')} <span class="text-base-500">{t('account.optional')}</span>
+        <span class="mb-1 block text-sm text-text-2">
+          {t('account.hunterName')} <span class="text-text-3">{t('account.optional')}</span>
         </span>
         <input
           name="hunterName" value={user.hunterName ?? ''} maxlength="40"
           placeholder={t('account.hunterNamePlaceholder')}
-          class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+          class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
         />
       </label>
 
       <div class="grid grid-cols-2 gap-3">
         <label class="block">
-          <span class="mb-1 block text-sm text-base-300">
-            {t('account.hunterId')} <span class="text-base-500">{t('account.optional')}</span>
+          <span class="mb-1 block text-sm text-text-2">
+            {t('account.hunterId')} <span class="text-text-3">{t('account.optional')}</span>
           </span>
           <input
             name="hunterId" value={user.hunterId ?? ''} maxlength="30" placeholder={t('account.hunterIdPlaceholder')}
-            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 font-mono text-sm outline-none focus:border-ember-500"
+            class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 font-mono text-sm outline-none focus:border-accent"
           />
         </label>
         <label class="block">
-          <span class="mb-1 block text-sm text-base-300">
-            {t('account.hr')} <span class="text-base-500">{t('account.optional')}</span>
+          <span class="mb-1 block text-sm text-text-2">
+            {t('account.hr')} <span class="text-text-3">{t('account.optional')}</span>
           </span>
           <input
             type="number" name="hr" value={user.hr ?? ''} min="1" max="999" placeholder="—"
-            class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 outline-none focus:border-ember-500"
+            class="w-full rounded border border-line-strong bg-bg-1 px-3 py-2 outline-none focus:border-accent"
           />
         </label>
       </div>
 
-      <button class="w-full rounded bg-ember-500 px-4 py-2.5 font-medium text-base-950 hover:bg-ember-400">
+      <button class="w-full rounded bg-accent px-4 py-2.5 font-medium text-bg-0 hover:bg-accent-hi">
 {t('account.save')}</button>
     </form>
 
     <p class="mt-4 text-center text-sm">
-      <a href={`/cazador/${user.id}`} class="text-ember-400 underline">{t('account.viewProfile')}</a>
+      <a href={`/cazador/${user.id}`} class="text-accent-hi underline">{t('account.viewProfile')}</a>
     </p>
 
-    <dl class="mt-8 space-y-2 border-t border-base-800 pt-6 text-sm">
+    <dl class="mt-8 space-y-2 border-t border-bg-3 pt-6 text-sm">
       <div class="flex justify-between gap-4">
-        <dt class="text-base-500">{t('auth.email')}</dt>
+        <dt class="text-text-3">{t('auth.email')}</dt>
         <dd class="truncate">{user.email}</dd>
       </div>
       <div class="flex justify-between gap-4">
-        <dt class="text-base-500">{t('account.access')}</dt>
+        <dt class="text-text-3">{t('account.access')}</dt>
         <dd>
           {user.hasPassword ? t('account.accessPassword') : t('account.accessGoogle')}
         </dd>
       </div>
     </dl>
+  </div>
   </div>
 </Base>

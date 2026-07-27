@@ -102,16 +102,16 @@ const author = set.ownerHunterName || set.ownerName;
   <article class="mx-auto max-w-3xl">
     <header class="mb-5">
       <h1 class="text-2xl font-semibold">{set.name}</h1>
-      <p class="mt-1 text-sm text-base-500">
+      <p class="mt-1 text-sm text-text-3">
         {t('sets.sharedBy', { name: author })} · {t('builder.defense')} {defense}
-        {!set.isPublic && <span class="ml-2 rounded bg-base-800 px-1.5 py-0.5 text-xs">{t('sets.private')}</span>}
+        {!set.isPublic && <span class="ml-2 rounded bg-bg-3 px-1.5 py-0.5 text-xs">{t('sets.private')}</span>}
       </p>
-      {set.notes && <p class="mt-2 text-sm text-base-300">{set.notes}</p>}
+      {set.notes && <p class="mt-2 text-sm text-text-2">{set.notes}</p>}
     </header>
 
     <div class="mb-5 flex flex-wrap gap-1">
       {skills.map((skill) => (
-        <span class="rounded bg-ember-500/15 px-2 py-1 text-sm text-ember-300">
+        <span class="rounded bg-accent/15 px-2 py-1 text-sm text-accent-hi">
           {skill.name} {skill.level}
         </span>
       ))}
@@ -119,37 +119,37 @@ const author = set.ownerHunterName || set.ownerName;
 
     <div class="space-y-1">
       {weapon && (
-        <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+        <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-base-500">{t('piece.weapon')}</span>
+            <span class="w-16 shrink-0 text-xs text-text-3">{t('piece.weapon')}</span>
             <span class="font-medium">{weapon.name}</span>
-            <span class="text-xs text-base-500">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
+            <span class="text-xs text-text-3">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
           </div>
           {weaponDecos.length > 0 && (
-            <p class="pl-16 text-sm text-ember-300">{weaponDecos.map((d) => d!.name).join(' · ')}</p>
+            <p class="pl-16 text-sm text-accent-hi">{weaponDecos.map((d) => d!.name).join(' · ')}</p>
           )}
         </div>
       )}
 
       {pieces.map(({ kind, piece, decorations }) => (
-        <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+        <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-base-500">{KIND_LABEL[kind]}</span>
+            <span class="w-16 shrink-0 text-xs text-text-3">{KIND_LABEL[kind]}</span>
             <span class="font-medium">{piece?.name ?? '—'}</span>
             {piece && (
-              <span class="text-xs text-base-500">{piece.slots.map((s) => `[${s}]`).join('')}</span>
+              <span class="text-xs text-text-3">{piece.slots.map((s) => `[${s}]`).join('')}</span>
             )}
           </div>
           {decorations.length > 0 && (
-            <p class="pl-16 text-sm text-ember-300">{decorations.map((d) => d!.name).join(' · ')}</p>
+            <p class="pl-16 text-sm text-accent-hi">{decorations.map((d) => d!.name).join(' · ')}</p>
           )}
         </div>
       ))}
 
       {charm && (
-        <div class="rounded border border-base-800 bg-base-900 px-3 py-2">
+        <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
           <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-base-500">{t('piece.charm')}</span>
+            <span class="w-16 shrink-0 text-xs text-text-3">{t('piece.charm')}</span>
             <span class="font-medium">{charm.name} {set.charmLevel}</span>
           </div>
         </div>
@@ -163,15 +163,15 @@ const author = set.ownerHunterName || set.ownerName;
           data-slug={set.slug}
           data-copying={t('sets.copying')}
           data-failed={t('sets.copyFailed')}
-          class="rounded bg-ember-500 px-4 py-2 font-medium text-base-950 hover:bg-ember-400"
+          class="rounded bg-accent px-4 py-2 font-medium text-bg-0 hover:bg-accent-hi"
         >
 {t('sets.copyToMine')}</button>
       )}
       {!user && (
-        <a href="/entrar" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">
+        <a href="/entrar" class="rounded border border-line-strong px-4 py-2 hover:bg-bg-2">
 {t('sets.signInToCopy')}</a>
       )}
-      {isOwner && <a href="/mis-sets" class="rounded border border-base-700 px-4 py-2 hover:bg-base-850">{t('sets.mySets')}</a>}
+      {isOwner && <a href="/mis-sets" class="rounded border border-line-strong px-4 py-2 hover:bg-bg-2">{t('sets.mySets')}</a>}
     </div>
   </article>
 </Base>

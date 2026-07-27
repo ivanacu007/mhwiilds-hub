@@ -1,16 +1,16 @@
 ---
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
 import CrownTracker from '../components/CrownTracker.tsx';
 
 const user = Astro.locals.user!;
 ---
 
 <Base title={`${t('crowns.title')} · ${t('app.name')}`} noIndex>
-  <h1 class="mb-1 text-2xl font-semibold">{t('crowns.title')}</h1>
-  <p class="mb-5 text-sm text-base-500">
-    {t('crowns.blurb')}
-  </p>
+  <PageHeader title={t('crowns.title')} context={t('crowns.blurb')} />
 
-  <CrownTracker client:only="preact" favorites={user.favoriteMonsters} locale={Astro.locals.locale} />
+  <div class="px-4 py-3.5">
+    <CrownTracker client:only="preact" favorites={user.favoriteMonsters} locale={Astro.locals.locale} />
+  </div>
 </Base>
