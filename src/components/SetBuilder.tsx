@@ -140,8 +140,10 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
     if (!worker.current || targets.length === 0 || !inventory) return;
     // Buscar siempre lleva a los resultados: el botón sigue a mano mientras se
     // hojean series, y dejarlo buscar en silencio detrás del navegador era
-    // trabajo que nadie llegaba a ver.
+    // trabajo que nadie llegaba a ver. En móvil, además, el panel es una hoja
+    // que ocupa el 85 % del alto: buscar sin cerrarla dejaba los sets debajo.
     setMode('solve');
+    setSheetOpen(false);
     setBusy(true);
     setResult(null);
 
