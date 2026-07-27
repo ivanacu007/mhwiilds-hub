@@ -3,6 +3,7 @@ import { loadCatalog } from '../lib/client/catalog-client.ts';
 import { ARMOR_KINDS, type Catalog } from '../lib/catalog/types.ts';
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
 import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
+import Combo from './ui/Combo.tsx';
 
 const KIND_KEY = {
   head: 'piece.head', chest: 'piece.chest', arms: 'piece.arms',
@@ -11,19 +12,13 @@ const KIND_KEY = {
 
 interface Target { skillId: number; level: number; }
 
-function normalize(text: string): string {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
-
 export default function SetBuilder({ locale }: { locale: Locale }) {
   const t = translatorFor(locale);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [inventory, setInventory] = useState<any>(null);
   const [targets, setTargets] = useState<Target[]>([]);
   const [weaponId, setWeaponId] = useState<number | null>(null);
-  const [weaponQuery, setWeaponQuery] = useState('');
   const [weaponKind, setWeaponKind] = useState('');
-  const [skillQuery, setSkillQuery] = useState('');
   const [onlyOwnedArmor, setOnlyOwnedArmor] = useState(false);
   const [result, setResult] = useState<SolveResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,18 +89,18 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
    */
   const skillGroups = useMemo(() => {
     if (!catalog) return [] as { kind: 'armor' | 'weapon'; skills: Catalog['skills'] }[];
-    const needle = normalize(skillQuery.trim());
+    // El filtrado por texto vive dentro del selector; aquí solo se agrupa y se
+    // quitan las ya elegidas.
     const pick = (kind: 'armor' | 'weapon') =>
       catalog.skills
         .filter((s) => s.kind === kind)
-        .filter((s) => !needle || normalize(s.name).includes(needle))
         .filter((s) => !targets.some((t) => t.skillId === s.id))
         .sort((a, b) => a.name.localeCompare(b.name));
     return [
       { kind: 'armor' as const, skills: pick('armor') },
       { kind: 'weapon' as const, skills: pick('weapon') },
     ].filter((g) => g.skills.length > 0);
-  }, [catalog, skillQuery, targets]);
+  }, [catalog, targets]);
 
   const addSkill = (skillId: number) => {
     setTargets((list) => (list.some((t) => t.skillId === skillId) ? list : [...list, { skillId, level: 1 }]));
@@ -122,12 +117,10 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
    */
   const weaponMatches = useMemo(() => {
     if (!catalog) return [];
-    const needle = normalize(weaponQuery.trim());
     return catalog.weapons
       .filter((w) => !weaponKind || w.kind === weaponKind)
-      .filter((w) => !needle || normalize(w.name).includes(needle))
       .sort((a, b) => a.rarity - b.rarity || a.name.localeCompare(b.name));
-  }, [catalog, weaponQuery, weaponKind]);
+  }, [catalog, weaponKind]);
 
   const run = async () => {
     if (!worker.current || targets.length === 0 || !inventory) return;
@@ -221,52 +214,20 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
             )}
           </div>
 
-          <input
-            value={skillQuery}
-            onInput={(e) => setSkillQuery((e.target as HTMLInputElement).value)}
-            onKeyDown={(e) => {
-              // Enter agrega la primera coincidencia: escribir y pulsar Enter es
-              // lo que la gente intenta, y antes no hacía nada.
-              if (e.key !== 'Enter') return;
-              e.preventDefault();
-              const first = skillGroups[0]?.skills[0];
-              if (first) { addSkill(first.id); setSkillQuery(''); }
-            }}
-            placeholder={t('builder.filterSkills')}
-            class="mt-3 w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
-          />
-
-          <div class="mt-1 max-h-72 overflow-y-auto rounded border border-base-800">
-            {skillGroups.length === 0 && (
-              <p class="px-2 py-3 text-center text-xs text-base-500">{t('builder.noSkillMatch')}</p>
-            )}
-            {skillGroups.map((group) => (
-              <div key={group.kind}>
-                <p class="sticky top-0 bg-base-950 px-2 py-1 text-[11px] uppercase tracking-wide text-base-500">
-                  {group.kind === 'armor' ? t('builder.armorSkills') : t('builder.weaponSkills')}
-                  <span class="ml-1 opacity-60">{group.skills.length}</span>
-                </p>
-                <ul class="divide-y divide-base-850">
-                  {group.skills.map((skill) => {
-                    const max = skill.ranks.reduce((m, r) => Math.max(m, r.level), 1);
-                    return (
-                      <li key={skill.id}>
-                        <button
-                          onClick={() => addSkill(skill.id)}
-                          class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
-                        >
-                          <span class="min-w-0 flex-1 truncate">{skill.name}</span>
-                          {group.kind === 'weapon' && (
-                            <span class="shrink-0 text-xs text-ember-300">{t('builder.weaponSkillTag')}</span>
-                          )}
-                          <span class="shrink-0 text-xs text-base-600">{t('builder.max')} {max}</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
+          <div class="mt-3">
+            <Combo
+              placeholder={t('builder.filterSkills')}
+              groups={skillGroups.map((g) => ({
+                label: g.kind === 'armor' ? t('builder.armorSkills') : t('builder.weaponSkills'),
+                items: g.skills,
+              }))}
+              value={null}
+              onPick={(skill) => addSkill(skill.id)}
+              render={(skill) => skill.name}
+              meta={(skill) => `${t('builder.max')} ${skill.ranks.reduce((m, r) => Math.max(m, r.level), 1)}`}
+              keyOf={(skill) => skill.id}
+              countLabel={(shown, total) => `${shown} / ${total}`}
+            />
           </div>
         </section>
 
@@ -281,56 +242,27 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
             </div>
           ) : (
             <>
-              <div class="flex gap-2">
-                <select
-                  value={weaponKind}
-                  onChange={(e) => setWeaponKind((e.target as HTMLSelectElement).value)}
-                  class="min-w-0 flex-1 rounded border border-base-700 bg-base-900 px-2 py-2 text-sm outline-none focus:border-ember-500"
-                >
-                  <option value="">{t('builder.allWeaponKinds')}</option>
-                  {weaponKinds.map((kind) => (
-                    <option key={kind} value={kind}>{t(`wk.${kind}` as never)}</option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={weaponKind}
+                onChange={(e) => setWeaponKind((e.target as HTMLSelectElement).value)}
+                class="mb-2 h-8 w-full rounded-[2px] border border-line bg-bg-1 px-2 text-[13px] outline-none focus:border-accent"
+              >
+                <option value="">{t('builder.allWeaponKinds')}</option>
+                {weaponKinds.map((kind) => (
+                  <option key={kind} value={kind}>{t(`wk.${kind}` as never)}</option>
+                ))}
+              </select>
 
-              <input
-                value={weaponQuery}
-                onInput={(e) => setWeaponQuery((e.target as HTMLInputElement).value)}
-                onKeyDown={(e) => {
-                  if (e.key !== 'Enter') return;
-                  e.preventDefault();
-                  const first = weaponMatches[0];
-                  if (first) { setWeaponId(first.id); setWeaponQuery(''); }
-                }}
+              <Combo
                 placeholder={t('builder.filterWeapons')}
-                class="mt-2 w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500"
+                groups={[{ label: t('builder.weaponOptional'), items: weaponMatches }]}
+                value={null}
+                onPick={(w) => setWeaponId(w.id)}
+                render={(w) => w.name}
+                meta={(w) => w.slots.map((sl) => `[${sl}]`).join('') || '—'}
+                keyOf={(w) => w.id}
+                countLabel={(shown, total) => `${shown} / ${total}`}
               />
-
-              <div class="mt-1 max-h-52 overflow-y-auto rounded border border-base-800">
-                {weaponMatches.length === 0 ? (
-                  <p class="px-2 py-3 text-center text-xs text-base-500">{t('builder.noWeaponMatch')}</p>
-                ) : (
-                  <ul class="divide-y divide-base-850">
-                    {weaponMatches.map((w) => (
-                      <li key={w.id}>
-                        <button
-                          onClick={() => { setWeaponId(w.id); setWeaponQuery(''); }}
-                          class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-sm hover:bg-base-850"
-                        >
-                          <span class="min-w-0 flex-1 truncate">{w.name}</span>
-                          <span class="shrink-0 text-xs text-base-600">
-                            {w.slots.map((sl) => `[${sl}]`).join('') || '—'}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <p class="mt-1 text-right text-[11px] text-base-600">
-                {t('builder.weaponCount', { count: weaponMatches.length })}
-              </p>
             </>
           )}
         </section>

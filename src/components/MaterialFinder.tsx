@@ -1,12 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import type { Catalog, Item, Monster } from '../lib/catalog/types.ts';
 import { itemIconColor, itemIconPath } from '../lib/catalog/item-icons.ts';
 import { translatorFor, type Locale } from '../lib/i18n/index.ts';
-
-function normalize(text: string): string {
-  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-}
+import Combo from './ui/Combo.tsx';
 
 /**
  * Busca de dónde sale un material: primero el monstruo, luego el material.
@@ -49,18 +46,20 @@ export default function MaterialFinder({ locale }: { locale: Locale }) {
         <Combo
           label={t('finder.monster')}
           placeholder={t('finder.pickMonster')}
-          options={catalog.monsters}
+          groups={[{ label: t('monsters.title'), items: catalog.monsters }]}
           value={monster}
           onPick={(m) => { setMonster(m); setItem(null); }}
           render={(m) => m.name}
+          keyOf={(m) => m.id}
         />
         <Combo
           label={t('finder.material')}
           placeholder={monster ? t('finder.pickMaterial') : t('finder.monsterFirst')}
-          options={materials}
+          groups={[{ label: t('finder.material'), items: materials }]}
           value={item}
           onPick={setItem}
           render={(i) => i.name}
+          keyOf={(i) => i.id}
           disabled={!monster}
         />
       </div>
@@ -128,73 +127,4 @@ function Icon({ item }: { item: Item }) {
       }
     : { width: 18, height: 18, borderRadius: 9, background: color, opacity: 0.45 };
   return <span style={{ display: 'inline-block', flexShrink: 0, ...style }} />;
-}
-
-/**
- * Selector con texto: no es un `<select>` porque con 34 monstruos y hasta 20
- * materiales lo que se quiere es escribir dos letras, no desplegar y buscar.
- */
-function Combo<T extends { id: number }>({
-  label, placeholder, options, value, onPick, render, disabled,
-}: {
-  label: string;
-  placeholder: string;
-  options: T[];
-  value: T | null;
-  onPick: (value: T) => void;
-  render: (value: T) => string;
-  disabled?: boolean;
-}) {
-  const [query, setQuery] = useState('');
-  const [open, setOpen] = useState(false);
-  const box = useRef<HTMLDivElement>(null);
-
-  // Al elegir desde fuera (o al reiniciar el material) el texto debe seguirlo.
-  useEffect(() => { setQuery(value ? render(value) : ''); }, [value]);
-
-  useEffect(() => {
-    const onClickOutside = (e: MouseEvent) => {
-      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onClickOutside);
-    return () => document.removeEventListener('mousedown', onClickOutside);
-  }, []);
-
-  const needle = normalize(query.trim());
-  const matches = useMemo(() => {
-    const list = value && normalize(render(value)) === needle ? options : options.filter(
-      (o) => !needle || normalize(render(o)).includes(needle),
-    );
-    return list.slice(0, 40);
-  }, [options, needle, value]);
-
-  return (
-    <div ref={box} class="relative">
-      <label class="mb-1 block text-xs text-base-500">{label}</label>
-      <input
-        value={query}
-        disabled={disabled}
-        placeholder={placeholder}
-        onFocus={() => setOpen(true)}
-        onInput={(e) => { setQuery((e.target as HTMLInputElement).value); setOpen(true); }}
-        class="w-full rounded border border-base-700 bg-base-900 px-3 py-2 text-sm outline-none focus:border-ember-500 disabled:opacity-40"
-      />
-
-      {open && !disabled && matches.length > 0 && (
-        <ul class="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded border border-base-700 bg-base-950 shadow-lg">
-          {matches.map((option) => (
-            <li key={option.id}>
-              <button
-                type="button"
-                onClick={() => { onPick(option); setOpen(false); }}
-                class="block w-full px-3 py-1.5 text-left text-sm hover:bg-base-850"
-              >
-                {render(option)}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
 }
