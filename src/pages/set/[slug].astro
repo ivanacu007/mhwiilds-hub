@@ -5,6 +5,7 @@ import { savedSets } from '../../lib/db.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { summarizeLoadout } from '../../lib/catalog/loadout.ts';
 import { gearIconStyle } from '../../lib/ui/gear-icons.ts';
+import { slotSvg } from '../../lib/ui/glyphs.ts';
 import { ARMOR_KINDS, type ArmorKind } from '../../lib/catalog/types.ts';
 
 const { slug } = Astro.params;
@@ -61,8 +62,8 @@ const author = set.ownerHunterName || set.ownerName;
   ogDescription={`${t('sets.sharedBy', { name: author })}. ${summary}`}
   noIndex={!set.isPublic}
 >
-  <article class="mx-auto max-w-3xl">
-    <header class="mb-5">
+  <article class="mx-auto max-w-5xl">
+    <header class="mb-4">
       <h1 class="text-2xl font-semibold">{set.name}</h1>
       <p class="mt-1 text-sm text-text-3">
         {t('sets.sharedBy', { name: author })} · {t('builder.defense')} {defense}
@@ -71,61 +72,93 @@ const author = set.ownerHunterName || set.ownerName;
       {set.notes && <p class="mt-2 text-sm text-text-2">{set.notes}</p>}
     </header>
 
-    <div class="mb-5 flex flex-wrap gap-1">
-      {skills.map((skill) => (
-        <span class="rounded bg-accent/15 px-2 py-1 text-sm text-accent-hi">
-          {skill.name} {skill.level}
-        </span>
-      ))}
-    </div>
+    {/* Como en el juego: el equipo a la izquierda y las habilidades activas a la
+        derecha. Es la disposición que ya tiene en la cabeza quien viene de la
+        pantalla de equipo, y las dos listas se leen en paralelo. */}
+    <div class="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+      <section class="panel">
+        <h2 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13px] uppercase tracking-[0.1em] text-text-2">
+          {t('sets.equipment')}
+        </h2>
 
-    <div class="space-y-1">
-      {/* Rejilla y no `flex`: el icono, el rótulo de ranura y el nombre tienen
-          que caer en la misma columna de fila en fila, y los adornos colgar bajo
-          el nombre. Con `flex` bailaban según lo largo que fuera cada pieza. */}
-      {weapon && (
-        <div class="grid grid-cols-[22px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2">
-          <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
-            <span style={gearIconStyle(weapon.kind, 14, 'var(--text-2)')} />
-          </span>
-          <span class="w-14 shrink-0 text-xs text-text-3">{t('piece.weapon')}</span>
-          <span class="min-w-0">
-            <span class="font-medium">{weapon.name}</span>
-            <span class="num ml-2 text-xs text-text-3">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
-          </span>
-          {weaponDecos.length > 0 && (
-            <p class="col-start-3 text-sm text-accent-hi">{weaponDecos.map((d) => d!.name).join(' · ')}</p>
-          )}
-        </div>
-      )}
+        {[
+          ...(weapon
+            ? [{
+                label: t('piece.weapon'), icon: weapon.kind, name: weapon.name,
+                slots: weapon.slots, decos: weaponDecos, tone: 'var(--text-2)',
+              }]
+            : []),
+          ...pieces.map(({ kind, piece, decorations }) => ({
+            label: KIND_LABEL[kind], icon: kind, name: piece?.name ?? null,
+            slots: piece?.slots ?? [], decos: decorations,
+            tone: piece ? 'var(--text-2)' : 'var(--text-3)',
+          })),
+          ...(charm
+            ? [{
+                label: t('piece.charm'), icon: 'charm', name: `${charm.name} ${set.charmLevel}`,
+                slots: [], decos: [], tone: 'var(--crown-gold)',
+              }]
+            : []),
+        ].map((row) => (
+          <div class="flex items-center gap-2.5 border-b border-line-soft px-3 py-1.5 last:border-b-0">
+            <span class="grid h-[26px] w-[26px] shrink-0 place-items-center border border-line-strong bg-tile">
+              <span style={gearIconStyle(row.icon, 16, row.tone)} />
+            </span>
+            <span class="min-w-0 flex-1">
+              {/* El rótulo encima y en pequeño, como en la ficha del juego: la
+                  ranura orienta, pero lo que se lee es el nombre de la pieza. */}
+              <span class="font-ui block text-[10.5px] uppercase tracking-[0.1em] text-text-3">
+                {row.label}
+              </span>
+              <span class:list={['block truncate text-[14px]', !row.name && 'text-text-3']}>
+                {row.name ?? '—'}
+              </span>
+              {row.decos.length > 0 && (
+                <span class="block truncate text-[12px] text-accent-hi">
+                  {row.decos.map((d) => d!.name).join(' · ')}
+                </span>
+              )}
+            </span>
+            <span class="flex shrink-0 gap-[3px]">
+              {row.slots.map((level, i) => (
+                <span set:html={slotSvg(level, i < row.decos.length, true)} />
+              ))}
+            </span>
+          </div>
+        ))}
+      </section>
 
-      {pieces.map(({ kind, piece, decorations }) => (
-        <div class="grid grid-cols-[22px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2">
-          <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
-            <span style={gearIconStyle(kind, 14, piece ? 'var(--text-2)' : 'var(--text-3)')} />
-          </span>
-          <span class="w-14 shrink-0 text-xs text-text-3">{KIND_LABEL[kind]}</span>
-          <span class="min-w-0">
-            <span class:list={['font-medium', !piece && 'text-text-3']}>{piece?.name ?? '—'}</span>
-            {piece && (
-              <span class="num ml-2 text-xs text-text-3">{piece.slots.map((s) => `[${s}]`).join('')}</span>
-            )}
-          </span>
-          {decorations.length > 0 && (
-            <p class="col-start-3 text-sm text-accent-hi">{decorations.map((d) => d!.name).join(' · ')}</p>
-          )}
-        </div>
-      ))}
+      <section class="panel">
+        <h2 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13px] uppercase tracking-[0.1em] text-text-2">
+          {t('sets.activeSkills')}
+        </h2>
 
-      {charm && (
-        <div class="grid grid-cols-[22px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2">
-          <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
-            <span style={gearIconStyle('charm', 14, 'var(--crown-gold)')} />
-          </span>
-          <span class="w-14 shrink-0 text-xs text-text-3">{t('piece.charm')}</span>
-          <span class="min-w-0 font-medium">{charm.name} {set.charmLevel}</span>
-        </div>
-      )}
+        {skills.map((skill) => (
+          <div class="flex items-center gap-2.5 border-b border-line-soft px-3 py-1.5 last:border-b-0">
+            <span class="min-w-0 flex-1">
+              <span class:list={['block truncate text-[13.5px]', skill.level >= skill.max && 'text-ok']}>
+                {skill.name}
+              </span>
+              {/* La barra por segmentos es lo que hace legible el nivel de un
+                  vistazo: cuántos llenos sobre cuántos hay. Verde al tope,
+                  como en el juego. */}
+              <span class="mt-[3px] flex gap-[2px]">
+                {Array.from({ length: skill.max }, (_, i) => (
+                  <span
+                    class="h-[7px] w-[9px] border"
+                    style={i < skill.level
+                      ? `background: var(${skill.level >= skill.max ? '--ok' : '--accent'}); border-color: var(${skill.level >= skill.max ? '--ok' : '--accent'})`
+                      : 'background: transparent; border-color: var(--line-strong)'}
+                  />
+                ))}
+              </span>
+            </span>
+            <span
+              class:list={['num shrink-0 text-[12.5px]', skill.level >= skill.max ? 'text-ok' : 'text-text-2']}
+            >{t('sets.level', { n: skill.level })}</span>
+          </div>
+        ))}
+      </section>
     </div>
 
     <div class="mt-6 flex flex-wrap gap-3">
