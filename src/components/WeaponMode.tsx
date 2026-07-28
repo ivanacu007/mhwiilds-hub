@@ -2,6 +2,7 @@ import { useMemo } from 'preact/hooks';
 import type { CatalogIndex } from '../lib/catalog/types.ts';
 import { weaponSkillsFor, type SkillReason } from '../lib/builder/weapon-skills.ts';
 import { profilesFor, isSuggested, type ArmorProfile } from '../lib/builder/armor-profiles.ts';
+import { rankWeapons, availableRankings } from '../lib/builder/weapon-ranking.ts';
 import type { Translator, TranslationKey } from '../lib/i18n/index.ts';
 import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 
@@ -62,6 +63,13 @@ export default function WeaponMode(props: Props) {
   }, [kind]);
 
   const profiles = useMemo(() => profilesFor(kind), [kind]);
+
+  const rankings = useMemo(() => {
+    if (!kind) return [];
+    const weapons = index.catalog.weapons;
+    return availableRankings(weapons, kind)
+      .map((key) => ({ key, entries: rankWeapons(weapons, kind, key, 5) }));
+  }, [index, kind]);
 
   return (
     <>
@@ -142,6 +150,66 @@ export default function WeaponMode(props: Props) {
                     </li>
                   );
                 })}
+              </ul>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {kind && rankings.length > 0 && (
+        <section class="panel bevel-head">
+          <header class="flex min-h-[34px] flex-wrap items-center gap-2 border-b border-accent bg-panel-head px-3 py-1">
+            <h2 class="font-ui text-[15px] uppercase tracking-[0.1em] text-accent-hi">
+              {t('builder.bestWeapons')}
+            </h2>
+          </header>
+          {/* Sin esto la tabla parecería una tier list, y no lo es: falta el
+              afilado, que decide media comparación. */}
+          <p class="border-b border-line-soft px-3 py-1.5 text-[12px] text-text-3">
+            {t('builder.rankingCaveat')}
+          </p>
+
+          {rankings.map(({ key, entries }) => (
+            <div key={key} class="border-b border-line-soft last:border-b-0">
+              <h3 class="font-ui bg-bg-1 px-3 py-1 text-[11.5px] uppercase tracking-[0.1em] text-text-3">
+                {t(`rank.${key}` as TranslationKey)}
+              </h3>
+              <ul>
+                {entries.map(({ weapon }) => (
+                  <li
+                    key={weapon.id}
+                    class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-line-soft px-3 py-1 last:border-b-0"
+                  >
+                    <span class="min-w-0 truncate text-[13.5px]">
+                      {weapon.name}
+                      <span class="num ml-2 text-[11px] text-text-3">r{weapon.rarity}</span>
+                    </span>
+                    <span class="num flex items-center gap-2.5 text-[11.5px] text-text-2">
+                      <span class={key === 'raw' || key === 'effective' ? 'text-accent-hi' : ''}>
+                        {t('builder.attackShort')} {weapon.attack}
+                      </span>
+                      <span
+                        class={key === 'effective' ? 'text-accent-hi' : ''}
+                        style={weapon.affinity < 0 ? 'color: var(--danger)' : undefined}
+                      >
+                        {t('builder.affinityShort')} {weapon.affinity > 0 ? '+' : ''}{weapon.affinity}%
+                      </span>
+                      {weapon.element && (
+                        <span
+                          class={key === 'element' ? 'font-semibold' : ''}
+                          style={`color: var(--el-${weapon.element.kind})`}
+                        >
+                          {t(`el.${weapon.element.kind}` as TranslationKey)} {weapon.element.damage}
+                        </span>
+                      )}
+                      <span class={`flex gap-[3px] ${key === 'slots' ? 'text-accent-hi' : ''}`}>
+                        {weapon.slots.length > 0
+                          ? weapon.slots.map((level, i) => <span key={i}>[{level}]</span>)
+                          : <span class="text-text-3">—</span>}
+                      </span>
+                    </span>
+                  </li>
+                ))}
               </ul>
             </div>
           ))}

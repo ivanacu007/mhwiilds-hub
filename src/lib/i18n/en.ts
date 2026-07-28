@@ -297,6 +297,13 @@ export const en: Record<keyof typeof es, string> = {
   'why.ranged': 'Ranged weapons',
   'why.ko': 'Impact and stun',
 
+  'builder.bestWeapons': 'Weapons that stand out',
+  'builder.rankingCaveat': 'Derived from the data, but not a tier list: the API carries no sharpness or motion values, and those decide half the comparison. The criteria contradict each other on purpose.',
+  'rank.effective': 'By effective attack (attack × affinity)',
+  'rank.raw': 'By raw attack',
+  'rank.slots': 'By slots',
+  'rank.element': 'By element',
+
   'builder.profiles': 'Sets by playstyle',
   'builder.profilesBlurb': 'Armor does not change with your weapon: in Wilds it only grants armor skills. What does change is how you play.',
   'builder.suggested': 'suggested',

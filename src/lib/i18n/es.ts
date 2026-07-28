@@ -296,6 +296,13 @@ export const es = {
   'why.ranged': 'Armas a distancia',
   'why.ko': 'Impacto y aturdimiento',
 
+  'builder.bestWeapons': 'Armas que destacan',
+  'builder.rankingCaveat': 'Sale de los datos, pero no es una tier list: la API no trae afilado ni valores de movimiento, y eso decide media comparación. Los criterios se contradicen a propósito.',
+  'rank.effective': 'Por ataque efectivo (ataque × afinidad)',
+  'rank.raw': 'Por ataque bruto',
+  'rank.slots': 'Por ranuras',
+  'rank.element': 'Por elemento',
+
   'builder.profiles': 'Sets por estilo de juego',
   'builder.profilesBlurb': 'La armadura no cambia según el arma: en Wilds solo da habilidades de armadura. Lo que sí cambia es cómo juegas.',
   'builder.suggested': 'sugerido',
