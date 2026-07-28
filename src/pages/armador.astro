@@ -2,8 +2,9 @@
 const t = Astro.locals.t;
 import Base from '../layouts/Base.astro';
 import PageHeader from '../components/PageHeader.astro';
-import SetBuilder from '../components/SetBuilder.tsx';
+import SetBuilder, { type EditingSet } from '../components/SetBuilder.tsx';
 import { getCatalogIndex } from '../lib/catalog/store.ts';
+import { savedSets } from '../lib/db.ts';
 
 // Las cifras salen del catálogo real, no de constantes que se queden viejas.
 const index = await getCatalogIndex(Astro.locals.locale);
@@ -12,12 +13,45 @@ const context = t('builder.pageSub', {
   decos: index.catalog.decorations.length,
   charms: index.catalog.charms.length,
 });
+
+/**
+ * `?editar=<slug>` reabre un set guardado dentro del armador.
+ *
+ * Se busca aquí y no desde el cliente para no exponer un endpoint nuevo ni
+ * mandar todos los sets del usuario solo para encontrar uno. El filtro lleva
+ * `ownerId`: con el slug de otro no se abre nada, ni siquiera para mirar.
+ */
+const editSlug = Astro.url.searchParams.get('editar');
+let editing: EditingSet | null = null;
+
+if (editSlug) {
+  const doc = await (await savedSets()).findOne({
+    slug: editSlug,
+    ownerId: Astro.locals.user!.id,
+  });
+  if (doc) {
+    editing = {
+      id: doc._id,
+      slug: doc.slug,
+      name: doc.name,
+      weaponId: doc.weaponId,
+      charmId: doc.charmId,
+      charmLevel: doc.charmLevel,
+      isPublic: doc.isPublic,
+      head: doc.head?.armorId ?? null,
+      chest: doc.chest?.armorId ?? null,
+      arms: doc.arms?.armorId ?? null,
+      waist: doc.waist?.armorId ?? null,
+      legs: doc.legs?.armorId ?? null,
+    };
+  }
+}
 ---
 
 <Base title={`${t('builder.pageTitle')} · ${t('app.name')}`} noIndex flush>
   <PageHeader title={t('builder.pageTitle')} context={context} />
 
   <div class="px-4 py-3.5">
-    <SetBuilder client:only="preact" locale={Astro.locals.locale} />
+    <SetBuilder client:only="preact" locale={Astro.locals.locale} editing={editing} />
   </div>
 </Base>

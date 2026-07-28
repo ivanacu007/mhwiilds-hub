@@ -23,7 +23,7 @@ export async function uniqueSlug(): Promise<string> {
   return randomSlug(14);
 }
 
-function cleanDecorations(raw: unknown): DecorationSlotAssignment[] {
+export function cleanDecorations(raw: unknown): DecorationSlotAssignment[] {
   if (!Array.isArray(raw)) return [];
   const out: DecorationSlotAssignment[] = [];
   for (const entry of raw.slice(0, 3)) {
@@ -36,7 +36,7 @@ function cleanDecorations(raw: unknown): DecorationSlotAssignment[] {
   return out;
 }
 
-function cleanPiece(raw: unknown): SetPiece | null {
+export function cleanPiece(raw: unknown): SetPiece | null {
   const armorId = Number((raw as any)?.armorId);
   if (!Number.isInteger(armorId) || armorId <= 0) return null;
   return { armorId, decorations: cleanDecorations((raw as any)?.decorations) };

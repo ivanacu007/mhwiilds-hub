@@ -334,6 +334,74 @@ try {
   });
   check('rechaza set sin piezas', empty.status === 400);
 
+  // Reabrir un set y cambiarlo tiene que actualizarlo, no dejar un duplicado.
+  // Con uno propio: estas pruebas lo renombran, y el de arriba lo comprueban
+  // después por nombre otras comprobaciones.
+  {
+    const otrasPiernas = catalog.armor.find((a: any) => a.kind === 'legs');
+    const propio = await (await fetch(`${BASE}/api/sets`, {
+      method: 'POST',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Set para editar',
+        head: { armorId: catalog.armor.find((a: any) => a.kind === 'head').id, decorations: [] },
+        chest: { armorId: catalog.armor.find((a: any) => a.kind === 'chest').id, decorations: [] },
+        arms: null, waist: null, legs: null,
+        weaponId: null, weaponDecorations: [], charmId: null, charmLevel: null, isPublic: true,
+      }),
+    })).json();
+
+    const antes = await (await fetch(`${BASE}/api/sets`, { headers: auth })).json();
+    const editado = await fetch(`${BASE}/api/sets/${propio.id}`, {
+      method: 'PATCH',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        piezas: true,
+        name: 'Set renombrado',
+        head: { armorId: catalog.armor.find((a: any) => a.kind === 'head').id, decorations: [] },
+        chest: null, arms: null, waist: null,
+        legs: { armorId: otrasPiernas.id, decorations: [] },
+        weaponId: null, weaponDecorations: [], charmId: null, charmLevel: null,
+      }),
+    });
+    check('edita un set guardado', editado.ok, `${editado.status}`);
+
+    const despues = await (await fetch(`${BASE}/api/sets`, { headers: auth })).json();
+    const mismo = despues.find((s: any) => s._id === propio.id);
+    check('el set editado conserva su enlace y no se duplica',
+      despues.length === antes.length && mismo?.slug === propio.slug,
+      `${antes.length} -> ${despues.length}`);
+    check('la edición cambió nombre y piezas',
+      mismo?.name === 'Set renombrado' && mismo?.chest === null
+        && mismo?.legs?.armorId === otrasPiernas.id,
+      JSON.stringify({ name: mismo?.name, chest: mismo?.chest, legs: mismo?.legs }));
+
+    // Cambiar solo el nombre no puede llevarse por delante la armadura.
+    await fetch(`${BASE}/api/sets/${propio.id}`, {
+      method: 'PATCH',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Solo el nombre' }),
+    });
+    const soloNombre = (await (await fetch(`${BASE}/api/sets`, { headers: auth })).json())
+      .find((s: any) => s._id === propio.id);
+    check('renombrar sin tocar piezas las deja intactas',
+      soloNombre?.name === 'Solo el nombre' && soloNombre?.legs?.armorId === otrasPiernas.id);
+
+    // Vaciarlo entero por PATCH es la misma regla que al crearlo.
+    const vaciar = await fetch(`${BASE}/api/sets/${propio.id}`, {
+      method: 'PATCH',
+      headers: { ...auth, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        piezas: true, head: null, chest: null, arms: null, waist: null, legs: null,
+      }),
+    });
+    check('no deja dejar el set sin ninguna pieza', vaciar.status === 400, `${vaciar.status}`);
+
+    // Se lleva su set al irse: la prueba de paginación cuenta los que hay, y un
+    // sobrante de aquí le descuadraría el total.
+    await fetch(`${BASE}/api/sets/${propio.id}`, { method: 'DELETE', headers: auth });
+  }
+
   const publicPage = await fetch(`${BASE}/set/${setData.slug}`);
   const html = await publicPage.text();
   check('el enlace público abre sin sesión', publicPage.ok, `${publicPage.status}`);

@@ -39,6 +39,10 @@ interface Props {
   onShowSkill: (skillId: number, level?: number) => void;
   /** Null cuando el interruptor está apagado; no se pinta la franja. */
   owned: OwnedForCrafting | null;
+  /** Set guardado que se está cambiando; null si es uno nuevo. */
+  editing: { id: string; slug: string } | null;
+  name: string;
+  onName: (name: string) => void;
   onComplete: () => void;
   /** Si hay objetivos elegidos, completar con el buscador tiene sentido. */
   canComplete: boolean;
@@ -68,7 +72,7 @@ function defaultName(index: CatalogIndex, locale: Locale, armorIds: number[]): s
 
 export default function LoadoutCard(props: Props) {
   const { index, locale, t, pinned, onUnpin, weaponId, onUnpinWeapon, onShowSkill } = props;
-  const { owned, onComplete, canComplete } = props;
+  const { owned, editing, name, onName, onComplete, canComplete } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
@@ -85,24 +89,39 @@ export default function LoadoutCard(props: Props) {
   const save = async () => {
     setSaving('guardando');
     const armorIds = ARMOR_KINDS.map((kind) => pinned[kind]).filter((id): id is number => id != null);
+    const loadout = {
+      weaponId, weaponDecorations: [],
+      ...Object.fromEntries(
+        ARMOR_KINDS.map((kind) => [
+          kind,
+          pinned[kind] != null ? { armorId: pinned[kind], decorations: [] } : null,
+        ]),
+      ),
+      charmId: null, charmLevel: null,
+    };
+
     try {
-      const res = await fetch('/api/sets', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          name: defaultName(index, locale, armorIds), notes: null,
-          weaponId, weaponDecorations: [],
-          ...Object.fromEntries(
-            ARMOR_KINDS.map((kind) => [
-              kind,
-              pinned[kind] != null ? { armorId: pinned[kind], decorations: [] } : null,
-            ]),
-          ),
-          charmId: null, charmLevel: null, isPublic: true,
-        }),
-      });
+      // Reabierto: se actualiza en su sitio. Guardar como uno nuevo dejaría un
+      // duplicado cada vez que se retoca, que es la forma de acabar con quince
+      // versiones del mismo set y sin saber cuál vale.
+      const res = editing
+        ? await fetch(`/api/sets/${editing.id}`, {
+            method: 'PATCH',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ ...loadout, piezas: true, name: name.trim() || undefined }),
+          })
+        : await fetch('/api/sets', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              ...loadout,
+              name: name.trim() || defaultName(index, locale, armorIds),
+              notes: null,
+              isPublic: true,
+            }),
+          });
       if (!res.ok) throw new Error();
-      setSlug((await res.json()).slug);
+      setSlug(editing ? editing.slug : (await res.json()).slug);
       setSaving('guardado');
     } catch {
       setSaving('error');
@@ -115,9 +134,22 @@ export default function LoadoutCard(props: Props) {
       style={`border-left: 2px solid var(--slot-${Math.min(3, Math.max(1, freeSlots[0] ?? 1))})`}
     >
       <header class="flex min-h-[38px] flex-wrap items-center gap-x-3.5 gap-y-1 border-b border-line bg-panel-head px-3.5 py-1">
-        <span class="font-ui text-[16px] uppercase tracking-[0.1em] text-accent-hi">
-          {t('builder.yourSet')}
-        </span>
+        {/* Editando, el título pasa a ser el nombre del set y se puede cambiar
+            aquí mismo: renombrar es la mitad de las veces que se reabre uno. */}
+        {editing ? (
+          <input
+            value={name}
+            onInput={(e) => onName((e.target as HTMLInputElement).value)}
+            placeholder={t('builder.yourSet')}
+            maxLength={60}
+            aria-label={t('builder.setName')}
+            class="font-ui min-w-0 flex-1 border border-line-strong bg-bg-0 px-2 py-[3px] text-[15px] uppercase tracking-[0.06em] text-accent-hi outline-none focus:border-accent"
+          />
+        ) : (
+          <span class="font-ui text-[16px] uppercase tracking-[0.1em] text-accent-hi">
+            {t('builder.yourSet')}
+          </span>
+        )}
         <span class="num text-[11.5px] text-text-3">
           {t('builder.pinned', { count: summary.pieceCount })}
         </span>
@@ -176,6 +208,7 @@ export default function LoadoutCard(props: Props) {
           >
             {saving === 'guardado' ? t('builder.saved')
               : saving === 'guardando' ? t('builder.saving')
+              : editing ? t('builder.update')
               : t('builder.save')}
           </button>
         </div>

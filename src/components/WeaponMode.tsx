@@ -21,6 +21,9 @@ interface Props {
   weaponKinds: string[];
   kind: string;
   onKind: (kind: string) => void;
+  /** Arma equipada ahora mismo, para marcarla en la tabla. */
+  weaponId: number | null;
+  onPickWeapon: (weaponId: number | null) => void;
   /** decorationId -> cantidad que tienes. */
   ownedDecorations: Record<string, number>;
   onShowSkill: (skillId: number, level?: number) => void;
@@ -34,7 +37,7 @@ const REASON_ORDER: SkillReason[] = [
 
 export default function WeaponMode(props: Props) {
   const { index, t, weaponKinds, kind, onKind, ownedDecorations, onShowSkill } = props;
-  const { onRunProfile, runningProfile } = props;
+  const { weaponId, onPickWeapon, onRunProfile, runningProfile } = props;
 
   /** decorationId por habilidad, solo joyas de arma. */
   const jewelsBySkill = useMemo(() => {
@@ -175,14 +178,28 @@ export default function WeaponMode(props: Props) {
                 {t(`rank.${key}` as TranslationKey)}
               </h3>
               <ul>
-                {entries.map(({ weapon }) => (
-                  <li
-                    key={weapon.id}
-                    class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-line-soft px-3 py-1 last:border-b-0"
+                {entries.map(({ weapon }) => {
+                  const equipped = weaponId === weapon.id;
+                  return (
+                  <li key={weapon.id} class="border-b border-line-soft last:border-b-0">
+                  {/* La fila entera equipa: la tabla dice cuál conviene y el
+                      siguiente gesto es ponérsela, no ir a buscarla al filtro. */}
+                  <button
+                    onClick={() => onPickWeapon(equipped ? null : weapon.id)}
+                    aria-pressed={equipped}
+                    title={equipped ? t('builder.unpin') : t('builder.equipWeapon')}
+                    class={`grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 px-3 py-1 text-left ${
+                      equipped ? 'bg-accent-weak' : 'hover:bg-bg-2'
+                    }`}
                   >
-                    <span class="min-w-0 truncate text-[13.5px]">
+                    <span class={`min-w-0 truncate text-[13.5px] ${equipped ? 'text-accent-hi' : ''}`}>
                       {weapon.name}
                       <span class="num ml-2 text-[11px] text-text-3">r{weapon.rarity}</span>
+                      {equipped && (
+                        <span class="font-ui ml-2 text-[10.5px] uppercase tracking-[0.08em] text-accent-hi">
+                          {t('builder.equipped')}
+                        </span>
+                      )}
                     </span>
                     <span class="num flex items-center gap-2.5 text-[11.5px] text-text-2">
                       <span class={key === 'raw' || key === 'effective' ? 'text-accent-hi' : ''}>
@@ -208,8 +225,10 @@ export default function WeaponMode(props: Props) {
                           : <span class="text-text-3">—</span>}
                       </span>
                     </span>
+                  </button>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
             </div>
           ))}

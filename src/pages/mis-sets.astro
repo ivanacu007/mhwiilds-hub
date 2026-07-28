@@ -50,6 +50,10 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
           </p>
         </div>
 
+        <a
+          href={`/armador?editar=${set.slug}`}
+          class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
+        >{t('sets.edit')}</a>
         <button
           class="copiar-enlace rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
           data-url={`${site}/set/${set.slug}`}

@@ -23,12 +23,28 @@ const KIND_KEY = {
 
 interface Target { skillId: number; level: number; }
 
-export default function SetBuilder({ locale }: { locale: Locale }) {
+/** Set guardado que se está reabriendo para cambiarlo; null al empezar de cero. */
+export interface EditingSet {
+  id: string;
+  slug: string;
+  name: string;
+  weaponId: number | null;
+  charmId: number | null;
+  charmLevel: number | null;
+  isPublic: boolean;
+  head: number | null;
+  chest: number | null;
+  arms: number | null;
+  waist: number | null;
+  legs: number | null;
+}
+
+export default function SetBuilder({ locale, editing }: { locale: Locale; editing?: EditingSet | null }) {
   const t = translatorFor(locale);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [inventory, setInventory] = useState<any>(null);
   const [targets, setTargets] = useState<Target[]>([]);
-  const [weaponId, setWeaponId] = useState<number | null>(null);
+  const [weaponId, setWeaponId] = useState<number | null>(editing?.weaponId ?? null);
   const [weaponKind, setWeaponKind] = useState('');
   const [onlyOwnedArmor, setOnlyOwnedArmor] = useState(false);
   const [skillTab, setSkillTab] = useState<'armor' | 'weapon'>('armor');
@@ -36,13 +52,20 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   // Dos maneras de llegar a un set: describir lo que quieres y que el solver
   // busque, u hojear las series del juego y tomar piezas a mano. Las piezas
   // fijadas valen para las dos: el solver las respeta como restricción.
-  const [mode, setMode] = useState<'solve' | 'browse' | 'weapon'>('solve');
-  const [weaponModeKind, setWeaponModeKind] = useState('');
+  // Reabrir un set cae en «explorar»: es el modo que enseña la tarjeta con las
+  // cinco ranuras, que es lo que se viene a cambiar.
+  const [mode, setMode] = useState<'solve' | 'browse' | 'weapon'>(editing ? 'browse' : 'solve');
+  const [setName, setSetName] = useState(editing?.name ?? '');
   const [runningProfile, setRunningProfile] = useState<string | null>(null);
   const [profileResult, setProfileResult] = useState<
     { profile: ArmorProfile; used: SolveRequest['targets']; dropped: SolveRequest['targets'] } | null
   >(null);
-  const [pinned, setPinned] = useState<Partial<Record<ArmorKind, number>>>({});
+  const [pinned, setPinned] = useState<Partial<Record<ArmorKind, number>>>(() => {
+    if (!editing) return {};
+    return Object.fromEntries(
+      ARMOR_KINDS.filter((kind) => editing[kind] != null).map((kind) => [kind, editing[kind]!]),
+    );
+  });
   // Qué habilidad se está mirando y con qué nivel. Vive aquí y no en cada
   // tarjeta porque el diálogo se abre desde cuatro sitios distintos y solo
   // puede haber uno abierto.
@@ -668,6 +691,9 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               owned={checkOwned
                 ? { armor: inventory.armor ?? [], materials: inventory.materials ?? {} }
                 : null}
+              editing={editing ? { id: editing.id, slug: editing.slug } : null}
+              name={setName}
+              onName={setSetName}
               onComplete={() => void run()}
               canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
             />
@@ -689,8 +715,13 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
             index={index}
             t={t}
             weaponKinds={weaponKinds}
-            kind={weaponModeKind}
-            onKind={setWeaponModeKind}
+            // El mismo estado que el mosaico del panel: elegir «espadón» aquí
+            // deja el buscador de armas de la izquierda ya filtrado a espadones.
+            // Con dos estados separados, elegir arriba no servía de nada abajo.
+            kind={weaponKind}
+            onKind={setWeaponKind}
+            weaponId={weaponId}
+            onPickWeapon={setWeaponId}
             ownedDecorations={inventory.decorations ?? {}}
             onShowSkill={showSkill}
             onRunProfile={runProfile}

@@ -277,6 +277,9 @@ export const en: Record<keyof typeof es, string> = {
   'builder.noSeriesMatch': 'No series match.',
   'builder.completeWithSearch': 'Complete with the search',
   'builder.saveNeedsPiece': 'A set needs at least one armor piece.',
+  'builder.update': 'Update',
+  'builder.setName': 'Set name',
+  'sets.edit': 'Edit',
   'builder.skillInfo': 'See what it does at each level',
   'builder.slotsShort': 'Slots',
   'builder.checkOwned': 'Show if I can forge it',
@@ -305,6 +308,8 @@ export const en: Record<keyof typeof es, string> = {
   'why.ko': 'Impact and stun',
 
   'builder.bestWeapons': 'Weapons that stand out',
+  'builder.equipWeapon': 'Equip this weapon',
+  'builder.equipped': 'equipped',
   'builder.rankingCaveat': 'Derived from the data, but not a tier list: the API carries no sharpness or motion values, and those decide half the comparison. The criteria contradict each other on purpose.',
   'rank.effective': 'By effective attack (attack × affinity)',
   'rank.raw': 'By raw attack',

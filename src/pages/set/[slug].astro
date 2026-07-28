@@ -4,6 +4,7 @@ import Base from '../../layouts/Base.astro';
 import { savedSets } from '../../lib/db.ts';
 import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { summarizeLoadout } from '../../lib/catalog/loadout.ts';
+import { gearIconStyle } from '../../lib/ui/gear-icons.ts';
 import { ARMOR_KINDS, type ArmorKind } from '../../lib/catalog/types.ts';
 
 const { slug } = Astro.params;
@@ -79,45 +80,61 @@ const author = set.ownerHunterName || set.ownerName;
     </div>
 
     <div class="space-y-1">
+      {/* Rejilla y no `flex`: el icono, el rótulo de ranura y el nombre tienen
+          que caer en la misma columna de fila en fila, y los adornos colgar bajo
+          el nombre. Con `flex` bailaban según lo largo que fuera cada pieza. */}
       {weapon && (
-        <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
-          <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-text-3">{t('piece.weapon')}</span>
+        <div class="grid grid-cols-[22px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2">
+          <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+            <span style={gearIconStyle(weapon.kind, 14, 'var(--text-2)')} />
+          </span>
+          <span class="w-14 shrink-0 text-xs text-text-3">{t('piece.weapon')}</span>
+          <span class="min-w-0">
             <span class="font-medium">{weapon.name}</span>
-            <span class="text-xs text-text-3">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
-          </div>
+            <span class="num ml-2 text-xs text-text-3">{weapon.slots.map((s) => `[${s}]`).join('')}</span>
+          </span>
           {weaponDecos.length > 0 && (
-            <p class="pl-16 text-sm text-accent-hi">{weaponDecos.map((d) => d!.name).join(' · ')}</p>
+            <p class="col-start-3 text-sm text-accent-hi">{weaponDecos.map((d) => d!.name).join(' · ')}</p>
           )}
         </div>
       )}
 
       {pieces.map(({ kind, piece, decorations }) => (
-        <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
-          <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-text-3">{KIND_LABEL[kind]}</span>
-            <span class="font-medium">{piece?.name ?? '—'}</span>
+        <div class="grid grid-cols-[22px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2">
+          <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+            <span style={gearIconStyle(kind, 14, piece ? 'var(--text-2)' : 'var(--text-3)')} />
+          </span>
+          <span class="w-14 shrink-0 text-xs text-text-3">{KIND_LABEL[kind]}</span>
+          <span class="min-w-0">
+            <span class:list={['font-medium', !piece && 'text-text-3']}>{piece?.name ?? '—'}</span>
             {piece && (
-              <span class="text-xs text-text-3">{piece.slots.map((s) => `[${s}]`).join('')}</span>
+              <span class="num ml-2 text-xs text-text-3">{piece.slots.map((s) => `[${s}]`).join('')}</span>
             )}
-          </div>
+          </span>
           {decorations.length > 0 && (
-            <p class="pl-16 text-sm text-accent-hi">{decorations.map((d) => d!.name).join(' · ')}</p>
+            <p class="col-start-3 text-sm text-accent-hi">{decorations.map((d) => d!.name).join(' · ')}</p>
           )}
         </div>
       ))}
 
       {charm && (
-        <div class="rounded border border-bg-3 bg-bg-1 px-3 py-2">
-          <div class="flex flex-wrap items-baseline gap-2">
-            <span class="w-16 shrink-0 text-xs text-text-3">{t('piece.charm')}</span>
-            <span class="font-medium">{charm.name} {set.charmLevel}</span>
-          </div>
+        <div class="grid grid-cols-[22px_auto_minmax(0,1fr)] items-center gap-x-2 gap-y-1 rounded border border-bg-3 bg-bg-1 px-3 py-2">
+          <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+            <span style={gearIconStyle('charm', 14, 'var(--crown-gold)')} />
+          </span>
+          <span class="w-14 shrink-0 text-xs text-text-3">{t('piece.charm')}</span>
+          <span class="min-w-0 font-medium">{charm.name} {set.charmLevel}</span>
         </div>
       )}
     </div>
 
     <div class="mt-6 flex flex-wrap gap-3">
+      {isOwner && (
+        <a
+          href={`/armador?editar=${set.slug}`}
+          class="rounded bg-accent px-4 py-2 font-medium text-bg-0 hover:bg-accent-hi"
+        >{t('sets.edit')}</a>
+      )}
       {user && !isOwner && (
         <button
           id="clonar"
