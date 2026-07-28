@@ -116,6 +116,36 @@ export interface Charm {
   ranks: CharmRank[];
 }
 
+/** Unidades de cada color de filo, tal como las da la API. */
+export interface Sharpness {
+  red: number;
+  orange: number;
+  yellow: number;
+  green: number;
+  blue: number;
+  white: number;
+  purple: number;
+}
+
+/**
+ * Sitio del arma en su árbol de mejora. `row` y `column` los da la propia API y
+ * son las coordenadas con las que el juego dibuja el árbol, así que la pantalla
+ * no tiene que deducir la forma: la copia.
+ */
+export interface WeaponCrafting {
+  craftable: boolean;
+  /** Arma de la que sale mejorando; null si es raíz del árbol. */
+  previousId: number | null;
+  /** Armas a las que mejora. */
+  branchIds: number[];
+  craftMaterials: Material[];
+  upgradeMaterials: Material[];
+  craftZenny: number;
+  upgradeZenny: number;
+  row: number;
+  column: number;
+}
+
 export interface Weapon {
   id: number;
   name: string;
@@ -126,6 +156,14 @@ export interface Weapon {
   affinity: number;
   element: { kind: string; damage: number } | null;
   skills: SkillGrant[];
+  /** Nulo en arcos y ballestas, que no tienen filo. */
+  sharpness: Sharpness | null;
+  /** Filo que añade cada nivel de Artesanía. */
+  handicraft: number[];
+  /** Árbol al que pertenece («Árbol de expedición»), para agrupar. */
+  seriesId: number | null;
+  seriesName: string | null;
+  crafting: WeaponCrafting | null;
 }
 
 export interface Item {

@@ -132,6 +132,7 @@ try {
     'finder.material', 'hunters.sets', 'hunters.setsOne', 'inventory.no',
     'monsters.elemental', 'monsters.material', 'pagination.only',
     'profile.hunterRank', 'sets.sets', 'species.temnoceran', 'variant.normal',
+    'weapons.zenny',
   ]);
   const iguales = esKeys.filter(
     (k) => (es as any)[k] === (en as any)[k] && !IDENTICAS_A_PROPOSITO.has(k),

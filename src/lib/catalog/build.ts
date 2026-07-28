@@ -102,6 +102,23 @@ function ownSkills(raw: Raw): SkillGrant[] {
   return out;
 }
 
+/**
+ * Igual que `materialsOf`, pero para una lista suelta: las armas traen sus
+ * materiales directamente en `crafting`, no colgando de `crafting.materials`.
+ */
+function materialList(raw: unknown): Material[] {
+  if (!Array.isArray(raw)) return [];
+  const out: Material[] = [];
+  for (const entry of raw as Raw[]) {
+    const itemId = entry?.item?.id;
+    const quantity = entry?.quantity;
+    if (typeof itemId === 'number' && typeof quantity === 'number') {
+      out.push({ itemId, quantity });
+    }
+  }
+  return out;
+}
+
 function materialsOf(raw: Raw): Material[] {
   const out: Material[] = [];
   for (const entry of raw?.crafting?.materials ?? []) {
@@ -294,6 +311,7 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
     const element = (w.specials ?? []).find(
       (s: Raw) => s?.kind === 'element' && !s?.hidden,
     );
+    const crafting = w.crafting;
     return {
       id: w.id,
       name: w.name,
@@ -306,6 +324,27 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
         ? { kind: element.element, damage: element.damage?.display ?? element.damage?.raw ?? 0 }
         : null,
       skills: ownSkills(w),
+      // Arcos y ballestas no tienen filo: la API manda null y se respeta, que
+      // no es lo mismo que un filo de cero.
+      sharpness: w.sharpness ?? null,
+      handicraft: Array.isArray(w.handicraft) ? w.handicraft : [],
+      seriesId: w.series?.id ?? null,
+      seriesName: w.series?.name ?? null,
+      crafting: crafting
+        ? {
+            craftable: Boolean(crafting.craftable),
+            previousId: crafting.previous?.id ?? crafting.previous ?? null,
+            branchIds: (crafting.branches ?? [])
+              .map((b: Raw) => (typeof b === 'number' ? b : b?.id))
+              .filter((id: unknown): id is number => typeof id === 'number'),
+            craftMaterials: materialList(crafting.craftingMaterials),
+            upgradeMaterials: materialList(crafting.upgradeMaterials),
+            craftZenny: crafting.craftingZennyCost ?? 0,
+            upgradeZenny: crafting.upgradeZennyCost ?? 0,
+            row: crafting.row ?? 0,
+            column: crafting.column ?? 0,
+          }
+        : null,
     };
   });
 

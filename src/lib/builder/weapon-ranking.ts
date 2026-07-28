@@ -1,11 +1,10 @@
 /**
  * Las armas que destacan dentro de un tipo, por criterio.
  *
- * Esto sí sale de los datos, no de opinión: ataque, afinidad, ranuras y elemento
- * están en el catálogo. Pero **no es una tier list**, y conviene decirlo donde se
- * muestre: la API no trae afilado ni valores de movimiento, y en Monster Hunter
- * eso decide media comparación. Un espadón de 1200 con afilado verde y otro de
- * 1104 con blanco no se ordenan por el número que tenemos.
+ * Esto sí sale de los datos, no de opinión: ataque, afinidad, ranuras, elemento
+ * y filo están en el catálogo. Pero **no es una tier list**: faltan los valores
+ * de movimiento, que en Monster Hunter deciden buena parte de la comparación
+ * entre dos armas del mismo tipo.
  *
  * Por eso se ofrecen varios criterios en vez de un único «mejor»: en el propio
  * catálogo se contradicen —el de más ataque bruto del espadón lleva −20 % de
@@ -13,7 +12,27 @@
  */
 import type { Weapon } from '../catalog/types.ts';
 
-export type RankingKey = 'effective' | 'raw' | 'slots' | 'element';
+export type RankingKey = 'effective' | 'raw' | 'sharpness' | 'slots' | 'element';
+
+/**
+ * Cuánto filo bueno trae, para poder ordenar por ello.
+ *
+ * Pesa por color y no cuenta unidades a secas: media barra blanca vale más que
+ * una entera amarilla, y sumarlas por igual pondría por delante a la peor.
+ */
+const SHARPNESS_WEIGHT = { red: 0, orange: 1, yellow: 2, green: 3, blue: 4, white: 5, purple: 6 } as const;
+
+export function sharpnessScore(weapon: Weapon): number {
+  if (!weapon.sharpness) return 0;
+  let total = 0;
+  let weighted = 0;
+  for (const [color, weight] of Object.entries(SHARPNESS_WEIGHT)) {
+    const units = weapon.sharpness[color as keyof typeof SHARPNESS_WEIGHT] ?? 0;
+    total += units;
+    weighted += units * weight;
+  }
+  return total > 0 ? weighted / total : 0;
+}
 
 export interface RankedWeapon {
   weapon: Weapon;
@@ -51,6 +70,7 @@ export function rankWeapons(
       switch (key) {
         case 'effective': return { weapon, value: Math.round(effectiveRaw(weapon)) };
         case 'raw': return { weapon, value: weapon.attack };
+        case 'sharpness': return { weapon, value: sharpnessScore(weapon) };
         case 'slots': return { weapon, value: slotCapacity(weapon) };
         case 'element': return { weapon, value: weapon.element?.damage ?? 0 };
       }
@@ -69,6 +89,6 @@ export function rankWeapons(
 
 /** Los criterios que tienen algo que enseñar para ese tipo. */
 export function availableRankings(weapons: Weapon[], kind: string): RankingKey[] {
-  const keys: RankingKey[] = ['effective', 'raw', 'slots', 'element'];
+  const keys: RankingKey[] = ['effective', 'raw', 'sharpness', 'slots', 'element'];
   return keys.filter((key) => rankWeapons(weapons, kind, key, 1).length > 0);
 }

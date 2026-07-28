@@ -143,7 +143,11 @@ export default function LoadoutCard(props: Props) {
             placeholder={t('builder.yourSet')}
             maxLength={60}
             aria-label={t('builder.setName')}
-            class="font-ui min-w-0 flex-1 border border-line-strong bg-bg-0 px-2 py-[3px] text-[15px] uppercase tracking-[0.06em] text-accent-hi outline-none focus:border-accent"
+            /* Ancho propio y sin encoger: con `flex-1` la cabecera lo aplastaba
+               hasta dejarlo en un sliver, porque defensa, resistencias y las
+               diez ranuras libres se reparten la fila antes. Si no cabe, la
+               cabecera envuelve y el campo se lleva su renglón. */
+            class="font-ui w-full shrink-0 border border-line-strong bg-bg-0 px-2 py-[3px] text-[15px] uppercase tracking-[0.06em] text-accent-hi outline-none focus:border-accent sm:w-[240px]"
           />
         ) : (
           <span class="font-ui text-[16px] uppercase tracking-[0.1em] text-accent-hi">

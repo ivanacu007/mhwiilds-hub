@@ -1,0 +1,293 @@
+---
+import Base from '../layouts/Base.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Pagination from '../components/Pagination.astro';
+import { getCatalogIndex } from '../lib/catalog/store.ts';
+import { paginate } from '../lib/paginate.ts';
+import { effectiveRaw, slotCapacity } from '../lib/builder/weapon-ranking.ts';
+import { gearIconStyle } from '../lib/ui/gear-icons.ts';
+import { slotSvg } from '../lib/ui/glyphs.ts';
+import SharpnessBar from '../components/SharpnessBar.astro';
+import type { TranslationKey } from '../lib/i18n/index.ts';
+
+const t = Astro.locals.t;
+const index = await getCatalogIndex(Astro.locals.locale);
+
+const kind = Astro.url.searchParams.get('tipo') ?? '';
+const query = (Astro.url.searchParams.get('q') ?? '').trim();
+const sort = Astro.url.searchParams.get('orden') ?? 'efectivo';
+/**
+ * Con un tipo elegido se enseña el árbol, que es como el juego presenta las
+ * armas y lo que hace falta para saber qué mejorar. Sin tipo no hay árbol
+ * posible —serían catorce a la vez—, así que ahí manda la lista.
+ */
+const view = Astro.url.searchParams.get('vista') || (kind ? 'arbol' : 'lista');
+const asTree = view === 'arbol' && Boolean(kind);
+
+const normalize = (text: string) =>
+  text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const needle = normalize(query);
+
+/** Los 14 tipos con cuántas armas trae cada uno, para el mosaico. */
+const kinds = [...new Set(index.catalog.weapons.map((w) => w.kind))].sort();
+const countByKind = new Map(
+  kinds.map((k) => [k, index.catalog.weapons.filter((w) => w.kind === k).length]),
+);
+
+const skillNames = (ids: { skillId: number; level: number }[]) =>
+  ids.map((g) => `${index.skillById.get(g.skillId)?.name ?? ''} ${g.level}`);
+
+const matching = index.catalog.weapons
+  .filter((w) => !kind || w.kind === kind)
+  .filter((w) => !needle
+    || normalize(w.name).includes(needle)
+    || skillNames(w.skills).some((s) => normalize(s).includes(needle)));
+
+/**
+ * Por ataque efectivo de salida y no por bruto: es el orden que menos engaña
+ * —una afinidad negativa se come el ataque de más— y el mismo criterio que usa
+ * el armador para recomendar. Los demás órdenes están porque se contradicen
+ * entre sí y esa contradicción es información.
+ */
+const sorted = [...matching].sort((a, b) => {
+  if (sort === 'ataque') return b.attack - a.attack;
+  if (sort === 'afinidad') return b.affinity - a.affinity;
+  if (sort === 'ranuras') return slotCapacity(b) - slotCapacity(a) || effectiveRaw(b) - effectiveRaw(a);
+  if (sort === 'elemento') return (b.element?.damage ?? 0) - (a.element?.damage ?? 0);
+  if (sort === 'nombre') return a.name.localeCompare(b.name);
+  return effectiveRaw(b) - effectiveRaw(a);
+});
+
+const info = paginate(sorted.length, Number(Astro.url.searchParams.get('p') ?? 1), 40);
+const visible = sorted.slice(info.start, info.end);
+
+/**
+ * Los árboles del tipo elegido, agrupados por serie.
+ *
+ * `row` y `column` vienen de la API y son las coordenadas con las que el juego
+ * dibuja el árbol, así que no hay que reconstruir nada: se ordena por fila y la
+ * columna se convierte en sangría. Es la diferencia entre copiar la forma buena
+ * y adivinar una a partir de `previousId`.
+ */
+const trees = asTree
+  ? [...matching
+      .reduce((acc, weapon) => {
+        const key = weapon.seriesName ?? t('weapons.noTree');
+        if (!acc.has(key)) acc.set(key, []);
+        acc.get(key)!.push(weapon);
+        return acc;
+      }, new Map<string, typeof matching>())]
+      .map(([name, list]) => ({
+        name,
+        weapons: [...list].sort(
+          (a, b) => (a.crafting?.row ?? 0) - (b.crafting?.row ?? 0)
+            || (a.crafting?.column ?? 0) - (b.crafting?.column ?? 0),
+        ),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  : [];
+
+/** Conserva el resto de filtros al cambiar uno solo. */
+const linkWith = (changes: Record<string, string>) => {
+  const params = new URLSearchParams();
+  const base = { tipo: kind, q: query, orden: sort, vista: view, ...changes };
+  for (const [key, value] of Object.entries(base)) if (value) params.set(key, value);
+  const qs = params.toString();
+  return qs ? `/armas?${qs}` : '/armas';
+};
+
+const ORDERS = [
+  ['efectivo', 'rank.effective'],
+  ['ataque', 'rank.raw'],
+  ['afinidad', 'weapons.byAffinity'],
+  ['ranuras', 'rank.slots'],
+  ['elemento', 'rank.element'],
+  ['nombre', 'weapons.byName'],
+] as const;
+---
+
+<Base title={`${t('nav.weapons')} · ${t('app.name')}`} noIndex flush>
+  <PageHeader
+    title={t('nav.weapons')}
+    context={t('weapons.count', { count: index.catalog.weapons.length })}
+  >
+    {/* Por GET como el resto de listados de servidor: el filtro se comparte
+        pegando la URL y funciona sin JavaScript. */}
+    <form method="get" slot="actions" class="flex gap-1.5">
+      {kind && <input type="hidden" name="tipo" value={kind} />}
+      {sort !== 'efectivo' && <input type="hidden" name="orden" value={sort} />}
+      <input
+        name="q"
+        value={query}
+        placeholder={t('weapons.search')}
+        class="h-7 min-w-0 border border-line-strong bg-bg-0 px-2 text-[13px] outline-none focus:border-accent"
+      />
+      <button class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1">
+        {t('weapons.search').replace('…', '')}
+      </button>
+    </form>
+  </PageHeader>
+
+  <div class="flex flex-col gap-3 px-4 py-3.5">
+    {/* Los 14 tipos como mosaico, igual que en el armador: se reconocen por la
+        silueta antes que por el nombre. */}
+    <div class="flex flex-wrap items-center gap-1">
+      <a
+        href={linkWith({ tipo: '', p: '' })}
+        class:list={['font-ui flex h-[34px] items-center border px-3 text-[12.5px] uppercase tracking-[0.08em]',
+          kind ? 'border-line bg-bg-2 text-text-2 hover:border-line-strong' : 'border-accent bg-accent-weak text-accent-hi']}
+      >{t('weapons.allKinds')}</a>
+      {kinds.map((k) => (
+        <a
+          href={linkWith({ tipo: k, p: '' })}
+          title={`${t(`wk.${k}` as TranslationKey)} · ${countByKind.get(k)}`}
+          aria-label={t(`wk.${k}` as TranslationKey)}
+          class:list={['grid h-[34px] w-[38px] place-items-center border',
+            kind === k ? 'border-accent bg-accent-weak' : 'border-line bg-bg-2 hover:border-line-strong']}
+        >
+          <span style={gearIconStyle(k, 22, `var(${kind === k ? '--accent-hi' : '--text-3'})`)} />
+        </a>
+      ))}
+    </div>
+
+    <div class="flex min-h-8 flex-wrap items-center gap-x-2.5 gap-y-1 border border-line bg-bg-1 px-3 py-[3px]">
+      <h2 class="font-ui text-[14px] uppercase tracking-[0.12em]">
+        {kind ? t(`wk.${kind}` as TranslationKey) : t('weapons.allKinds')}
+      </h2>
+      <span class="num text-[11px] text-text-3">{t('weapons.count', { count: sorted.length })}</span>
+      <div class="ml-auto flex flex-wrap items-center gap-1.5">
+        {kind && (
+          <>
+            {([['arbol', 'weapons.tree'], ['lista', 'weapons.list']] as const).map(([key, label]) => (
+              <a
+                href={linkWith({ vista: key, p: '' })}
+                class:list={['font-ui flex h-[26px] items-center px-2.5 text-[12.5px] uppercase tracking-[0.08em]',
+                  view === key
+                    ? 'border border-accent bg-accent-weak text-accent-hi'
+                    : 'border border-line-strong bg-bg-2 text-text-2 hover:bg-bg-3']}
+              >{t(label as TranslationKey)}</a>
+            ))}
+          </>
+        )}
+        {!asTree && (
+          <>
+            <span class="font-ui text-[12.5px] uppercase tracking-[0.08em] text-text-3">
+              {t('builder.sortBy')}
+            </span>
+            {ORDERS.map(([key, label]) => (
+              <a
+                href={linkWith({ orden: key, p: '' })}
+                class:list={['flex h-[26px] items-center px-2.5 text-[13px]',
+                  sort === key
+                    ? 'border border-accent bg-accent-weak text-accent-hi'
+                    : 'border border-line-strong bg-bg-2 text-text-1 hover:bg-bg-3']}
+              >{t(label as TranslationKey)}</a>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+
+    {sorted.length === 0 && (
+      <p class="py-10 text-center text-text-3">{t('weapons.noneMatch')}</p>
+    )}
+
+    {asTree ? trees.map((tree) => (
+      <section class="panel">
+        <h3 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13.5px] uppercase tracking-[0.1em] text-accent-hi">
+          {tree.name}
+          <span class="num ml-2 text-[11px] text-text-3">{tree.weapons.length}</span>
+        </h3>
+        <ul>
+          {tree.weapons.map((weapon) => (
+            <li class="border-b border-line-soft last:border-b-0">
+              <a
+                href={`/armas/${weapon.id}`}
+                class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-1 hover:bg-bg-2"
+              >
+                {/* La sangría es la columna del árbol: cada escalón, una mejora. */}
+                <span
+                  class="flex min-w-0 items-center gap-2"
+                  style={`padding-left:${(weapon.crafting?.column ?? 0) * 18}px`}
+                >
+                  {(weapon.crafting?.column ?? 0) > 0 && (
+                    <span class="num shrink-0 text-[11px] text-text-3">└</span>
+                  )}
+                  <span class="grid h-[20px] w-[20px] shrink-0 place-items-center border border-line-strong bg-tile">
+                    <span style={gearIconStyle(weapon.kind, 13, 'var(--text-2)')} />
+                  </span>
+                  <span class="truncate text-[13.5px]">{weapon.name}</span>
+                  <span class="num shrink-0 text-[11px] text-text-3">r{weapon.rarity}</span>
+                </span>
+                <span class="num flex shrink-0 items-center gap-2.5 text-[11.5px] text-text-2">
+                  <span>{t('builder.attackShort')} {weapon.attack}</span>
+                  {weapon.affinity !== 0 && (
+                    <span style={weapon.affinity < 0 ? 'color: var(--danger)' : undefined}>
+                      {weapon.affinity > 0 ? '+' : ''}{weapon.affinity}%
+                    </span>
+                  )}
+                  {weapon.element && (
+                    <span style={`color: var(--el-${weapon.element.kind})`}>
+                      {t(`el.${weapon.element.kind}` as TranslationKey)} {weapon.element.damage}
+                    </span>
+                  )}
+                  {weapon.sharpness && (
+                    <SharpnessBar sharpness={weapon.sharpness} width={70} height={7} />
+                  )}
+                  <span class="flex gap-[3px]">
+                    {weapon.slots.map((level) => <span set:html={slotSvg(level, false, true)} />)}
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )) : (
+      <>
+        <ul class="flex flex-col gap-1">
+          {visible.map((weapon) => (
+            <li>
+              <a
+                href={`/armas/${weapon.id}`}
+                class="grid grid-cols-[26px_minmax(0,1fr)_auto] items-center gap-2.5 border border-line bg-bg-1 px-3 py-1.5 hover:border-accent"
+              >
+                <span class="grid h-[22px] w-[22px] place-items-center border border-line-strong bg-tile">
+                  <span style={gearIconStyle(weapon.kind, 14, 'var(--text-2)')} />
+                </span>
+                <span class="min-w-0">
+                  <span class="text-[14px]">{weapon.name}</span>
+                  <span class="num ml-2 text-[11px] text-text-3">r{weapon.rarity}</span>
+                  {weapon.skills.length > 0 && (
+                    <span class="ml-2 text-[11.5px] text-text-3">{skillNames(weapon.skills).join(' · ')}</span>
+                  )}
+                </span>
+                <span class="num flex items-center gap-2.5 text-[11.5px] text-text-2">
+                  <span>{t('builder.attackShort')} {weapon.attack}</span>
+                  <span style={weapon.affinity < 0 ? 'color: var(--danger)' : undefined}>
+                    {t('builder.affinityShort')} {weapon.affinity > 0 ? '+' : ''}{weapon.affinity}%
+                  </span>
+                  {weapon.element && (
+                    <span style={`color: var(--el-${weapon.element.kind})`}>
+                      {t(`el.${weapon.element.kind}` as TranslationKey)} {weapon.element.damage}
+                    </span>
+                  )}
+                  {weapon.sharpness && (
+                    <SharpnessBar sharpness={weapon.sharpness} width={70} height={7} />
+                  )}
+                  <span class="flex gap-[3px]">
+                    {weapon.slots.length > 0
+                      ? weapon.slots.map((level) => <span set:html={slotSvg(level, false, true)} />)
+                      : <span class="text-text-3">—</span>}
+                  </span>
+                </span>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        <Pagination info={info} label={t('nav.weapons').toLowerCase()} />
+      </>
+    )}
+  </div>
+</Base>

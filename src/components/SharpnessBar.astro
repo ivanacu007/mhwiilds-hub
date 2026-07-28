@@ -1,0 +1,60 @@
+---
+import type { Sharpness } from '../lib/catalog/types.ts';
+
+/**
+ * Barra de filo, con los colores del juego.
+ *
+ * La API da unidades por color, no porcentajes, así que se normaliza sobre el
+ * total: lo que importa al comparar dos armas es qué proporción de la barra es
+ * blanca o azul, no cuántas unidades mide en bruto.
+ *
+ * El tramo que añade Artesanía va aparte y rayado: es filo que **todavía no
+ * tienes**, y pintarlo igual que el resto haría parecer mejor de lo que es un
+ * arma que depende de gastar cinco niveles de habilidad.
+ */
+interface Props {
+  sharpness: Sharpness;
+  /** Unidades que suma el nivel máximo de Artesanía, si se quieren marcar. */
+  handicraft?: number;
+  width?: number;
+  height?: number;
+}
+
+const { sharpness, handicraft = 0, width = 120, height = 8 } = Astro.props;
+
+/** Los siete colores del juego, en el orden en que se llenan. */
+const COLORS: [keyof Sharpness, string][] = [
+  ['red', '#a83232'],
+  ['orange', '#c76a1e'],
+  ['yellow', '#c9a22a'],
+  ['green', '#3a8a3a'],
+  ['blue', '#2f6fbf'],
+  ['white', '#dcdcdc'],
+  ['purple', '#8a4fbf'],
+];
+
+const total = COLORS.reduce((sum, [key]) => sum + (sharpness[key] ?? 0), 0) || 1;
+// El añadido de Artesanía se dibuja dentro del mismo ancho, al final.
+const scale = width / (total + handicraft);
+
+// Los tramos se calculan aquí y no en la plantilla: el compilador de Astro lee
+// el `<=` de una comparación como si abriera una etiqueta.
+const segments = COLORS
+  .map(([key, color]) => ({ color, units: sharpness[key] ?? 0 }))
+  .filter((segment) => segment.units > 0);
+---
+
+<span
+  class="inline-flex shrink-0 overflow-hidden border border-line-strong align-middle"
+  style={`width:${width}px;height:${height}px`}
+  role="img"
+>
+  {segments.map((segment) => (
+    <span style={`width:${segment.units * scale}px;background:${segment.color}`} />
+  ))}
+  {handicraft > 0 && (
+    <span
+      style={`width:${handicraft * scale}px;background:repeating-linear-gradient(90deg,var(--line-strong) 0 2px,transparent 2px 4px)`}
+    />
+  )}
+</span>
