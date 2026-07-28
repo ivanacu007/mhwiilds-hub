@@ -305,6 +305,14 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
   const pinnedIds = new Set(
     ARMOR_KINDS.map((kind) => pinned[kind]).filter((id): id is number => id != null),
   );
+
+  /**
+   * Cuándo se ve la tarjeta del set: siempre al hojear series —es su pantalla—,
+   * siempre que se esté editando uno guardado, y en cualquier modo si ya hay
+   * algo puesto. Vacía y en modo buscar no aporta nada, así que se calla.
+   */
+  const showLoadout = mode === 'browse' || editing != null
+    || pinnedCount > 0 || weaponId != null;
   // Volver a tocar la pieza que ya estaba la suelta: es el mismo gesto para
   // poner y quitar, y evita tener que buscar la ✕ en la otra columna.
   const pin = (kind: ArmorKind, armorId: number) =>
@@ -677,26 +685,34 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
 
       {/* El hueco evita que la barra fija tape la última tarjeta de set. */}
       <section class="flex min-w-0 flex-col gap-3 max-lg:pb-16">
+        {/* «Tu set» no es de un modo, es el sitio donde se arma: se queda a la
+            vista en los tres mientras tenga algo o se esté editando uno
+            guardado. Antes solo salía al hojear series, así que abrir un set
+            para cambiarle el arma desde «por arma» dejaba el botón de
+            actualizar fuera de la pantalla. */}
+        {showLoadout && (
+          <LoadoutCard
+            index={index}
+            locale={locale}
+            t={t}
+            pinned={pinned}
+            onUnpin={unpin}
+            weaponId={weaponId}
+            onUnpinWeapon={() => setWeaponId(null)}
+            onShowSkill={showSkill}
+            owned={checkOwned
+              ? { armor: inventory.armor ?? [], materials: inventory.materials ?? {} }
+              : null}
+            editing={editing ? { id: editing.id, slug: editing.slug } : null}
+            name={setName}
+            onName={setSetName}
+            onComplete={() => void run()}
+            canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
+          />
+        )}
+
         {mode === 'browse' && (
           <>
-            <LoadoutCard
-              index={index}
-              locale={locale}
-              t={t}
-              pinned={pinned}
-              onUnpin={unpin}
-              weaponId={weaponId}
-              onUnpinWeapon={() => setWeaponId(null)}
-              onShowSkill={showSkill}
-              owned={checkOwned
-                ? { armor: inventory.armor ?? [], materials: inventory.materials ?? {} }
-                : null}
-              editing={editing ? { id: editing.id, slug: editing.slug } : null}
-              name={setName}
-              onName={setSetName}
-              onComplete={() => void run()}
-              canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
-            />
             <SeriesBrowser
               index={index}
               locale={locale}
