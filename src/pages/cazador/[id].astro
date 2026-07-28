@@ -16,7 +16,7 @@ import { MONSTER_VARIANTS } from '../../lib/catalog/monster-icons.ts';
 const member = await getMember(Astro.params.id!);
 if (!member) return new Response(Astro.locals.t('profile.notFound'), { status: 404 });
 
-const index = await getCatalogIndex();
+const index = await getCatalogIndex(Astro.locals.locale);
 const monsters = index.catalog.monsters;
 
 const doc = await (await progressCollection()).findOne({ _id: member.id });

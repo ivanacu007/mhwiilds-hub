@@ -13,7 +13,7 @@ import { tallyCrowns } from '../lib/crowns.ts';
 
 const guild = await getGuild();
 const members = await listMembers();
-const index = await getCatalogIndex();
+const index = await getCatalogIndex(Astro.locals.locale);
 const monsters = index.catalog.monsters;
 
 // Una sola consulta por colección en vez de una por cazador.

@@ -22,7 +22,7 @@ const { hunter, size = 40, class: className } = Astro.props;
  * hay ninguna, su inicial. Lo elegido a mano manda sobre lo que vino de fuera.
  */
 const monster = hunter.avatarMonsterId != null
-  ? (await getCatalogIndex()).monsterById.get(hunter.avatarMonsterId)
+  ? (await getCatalogIndex(Astro.locals.locale)).monsterById.get(hunter.avatarMonsterId)
   : null;
 
 const label = hunter.hunterName || hunter.name;

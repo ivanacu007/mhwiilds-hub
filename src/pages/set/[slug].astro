@@ -19,7 +19,9 @@ if (!set || (!set.isPublic && set.ownerId !== user?.id)) {
   return new Response(Astro.locals.t('sets.notFound'), { status: 404 });
 }
 
-const index = await getCatalogIndex();
+// Con el idioma de quien mira: sin él sale el catálogo por defecto y la
+// interfaz queda en inglés con los nombres de armadura en español.
+const index = await getCatalogIndex(Astro.locals.locale);
 
 const KIND_LABEL: Record<ArmorKind, string> = {
   head: t('piece.head'), chest: t('piece.chest'), arms: t('piece.arms'),

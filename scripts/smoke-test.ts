@@ -409,6 +409,32 @@ try {
   check('trae og:title para el preview', html.includes('property="og:title"'));
   check('muestra el nombre del set', html.includes('Set de prueba'));
 
+  /**
+   * Los nombres de armadura salen del catálogo, y el catálogo es uno por idioma.
+   * Pedirlo sin decir cuál devuelve el de por defecto, y así la ficha del set
+   * salía con la interfaz en inglés y las piezas en español. Como la página se
+   * pinta en el servidor, la única forma de notarlo es mirar el HTML.
+   */
+  {
+    const headId = catalog.armor.find((a: any) => a.kind === 'head').id;
+    const esName = catalog.armor.find((a: any) => a.id === headId).name;
+    const enName = enCatalog.armor.find((a: any) => a.id === headId).name;
+
+    const enPage = await (await fetch(`${BASE}/set/${setData.slug}`, {
+      headers: { cookie: 'mhw_lang=en' },
+    })).text();
+    const esPage = await (await fetch(`${BASE}/set/${setData.slug}`, {
+      headers: { cookie: 'mhw_lang=es' },
+    })).text();
+
+    check('la ficha del set trae las piezas en el idioma pedido',
+      enPage.includes(enName) && esPage.includes(esName),
+      `en esperaba "${enName}", es esperaba "${esName}"`);
+    check('y no mezcla los dos idiomas',
+      esName === enName || !enPage.includes(esName),
+      `"${esName}" apareció en la página inglesa`);
+  }
+
   const missing = await fetch(`${BASE}/set/noexiste123`);
   check('slug inexistente da 404', missing.status === 404, `${missing.status}`);
 
