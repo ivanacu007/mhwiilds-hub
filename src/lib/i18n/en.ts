@@ -59,6 +59,13 @@ export const en: Record<keyof typeof es, string> = {
   'admin.setsCount': '{count} sets',
   'admin.crownsCount': '{count} crowns',
   'admin.notConfigured': 'ADMIN_EMAILS is missing from the environment: without it nobody is admin.',
+  'admin.catalog': 'Game data',
+  'admin.catalogHint': 'skills, armor, weapons and monsters',
+  'admin.catalogSync': 'Sync',
+  'admin.catalogNever': 'never downloaded',
+  'admin.catalogWarning': 'Downloads the whole catalog from wilds.mhdb.io and replaces the stored one. It takes about a minute and the page waits for it. Do it when a title update lands.',
+  'admin.catalogDone': '{skills} skills · {armor} armor · {weapons} weapons · {monsters} monsters',
+  'admin.catalogElapsed': 'took {s} s',
 
   'footer.dataFrom': 'Game data via',
   'footer.disclaimer': 'Personal project, not affiliated with Capcom.',

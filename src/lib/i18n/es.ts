@@ -57,6 +57,13 @@ export const es = {
   'admin.setsCount': '{count} sets',
   'admin.crownsCount': '{count} coronas',
   'admin.notConfigured': 'Falta ADMIN_EMAILS en el entorno: sin ella nadie es admin.',
+  'admin.catalog': 'Datos del juego',
+  'admin.catalogHint': 'habilidades, armaduras, armas y monstruos',
+  'admin.catalogSync': 'Sincronizar',
+  'admin.catalogNever': 'sin descargar',
+  'admin.catalogWarning': 'Baja el catálogo entero de wilds.mhdb.io y reemplaza el guardado. Tarda cerca de un minuto y la pantalla se queda esperando. Hazlo cuando salga un title update.',
+  'admin.catalogDone': '{skills} habilidades · {armor} armaduras · {weapons} armas · {monsters} monstruos',
+  'admin.catalogElapsed': 'tardó {s} s',
 
   'footer.dataFrom': 'Datos del juego vía',
   'footer.disclaimer': 'Proyecto personal, sin relación con Capcom.',

@@ -542,6 +542,26 @@ try {
   const anonAdmin = await fetch(`${BASE}/admin`, { redirect: 'manual' });
   check('sin sesión ni siquiera llega', (anonAdmin.headers.get('location') ?? '').startsWith('/entrar'));
 
+  check('el panel ofrece sincronizar el catálogo',
+    adminHtml.includes(es['admin.catalog']) && adminHtml.includes(es['admin.catalogSync']));
+
+  // La sincronización baja un megabyte por idioma y reemplaza el catálogo de
+  // todo el mundo: que la 404 para quien no es admin importa más que el resto
+  // del panel, y por POST no basta con que el enlace no se vea.
+  const syncAjeno = await fetch(`${BASE}/admin`, {
+    method: 'POST', headers: { cookie: otherCookie },
+    body: new URLSearchParams({ accion: 'sincronizar' }),
+  });
+  check('quien no es admin no puede lanzar la sincronización',
+    syncAjeno.status === 404, `${syncAjeno.status}`);
+
+  const syncAnon = await fetch(`${BASE}/admin`, {
+    method: 'POST', redirect: 'manual',
+    body: new URLSearchParams({ accion: 'sincronizar' }),
+  });
+  check('sin sesión tampoco',
+    (syncAnon.headers.get('location') ?? '').startsWith('/entrar'), `${syncAnon.status}`);
+
   const generadas = await (await fetch(`${BASE}/admin`, {
     method: 'POST', headers: auth,
     body: new URLSearchParams({ accion: 'invitar', cuantas: '2', nota: 'prueba de humo' }),

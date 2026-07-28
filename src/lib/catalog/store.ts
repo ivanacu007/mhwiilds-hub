@@ -145,3 +145,20 @@ export async function getCatalogIndex(locale: Locale = DEFAULT_LOCALE): Promise<
   await ensureLoaded(locale);
   return cached.get(locale)!.index;
 }
+
+/**
+ * Tira la copia en memoria para que la siguiente petición vuelva a leer Mongo.
+ *
+ * Hace falta después de sincronizar: el catálogo se guarda una vez y se sirve
+ * desde memoria para siempre, así que sin esto una sincronización desde el panel
+ * escribiría en Mongo y la app seguiría sirviendo el catálogo viejo hasta el
+ * siguiente reinicio, que es justo el fallo que parece que no pasa nada.
+ *
+ * Los recortes ya se rehacían solos al cambiar la versión, pero se limpian
+ * igual: no tiene sentido guardar el gzip de un catálogo que ya no está.
+ */
+export function invalidateCatalogCache(): void {
+  cached.clear();
+  loading.clear();
+  slices.clear();
+}

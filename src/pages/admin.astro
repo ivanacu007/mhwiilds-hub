@@ -10,6 +10,7 @@ import {
   listAdminMembers,
   listInvites,
 } from '../lib/auth/admin.ts';
+import { storedCatalogs, syncCatalog, type SyncReport } from '../lib/catalog/sync.ts';
 
 const t = Astro.locals.t;
 const user = Astro.locals.user!;
@@ -30,6 +31,7 @@ let resetUrl: string | null = null;
 let resetName: string | null = null;
 let resetError: string | null = null;
 let creados = 0;
+let sync: SyncReport | null = null;
 
 if (Astro.request.method === 'POST') {
   const form = await Astro.request.formData();
@@ -41,6 +43,9 @@ if (Astro.request.method === 'POST') {
     for (let i = 0; i < cuantas; i++) await createInvite(nota);
     creados = cuantas;
   }
+
+  // Tarda decenas de segundos: se responde cuando termina, con el parte.
+  if (accion === 'sincronizar') sync = await syncCatalog();
 
   if (accion === 'restablecer') {
     const resultado = await createResetLink(String(form.get('correo') ?? ''));
@@ -55,6 +60,8 @@ if (Astro.request.method === 'POST') {
 
 const invites = await listInvites();
 const members = await listAdminMembers();
+// Después de sincronizar, para que la versión de la pantalla sea la nueva.
+const catalogs = await storedCatalogs();
 const usadas = invites.filter((i) => i.usedByName != null).length;
 
 /** Fechas cortas: la lista se lee de un vistazo, no se audita. */
@@ -77,6 +84,61 @@ const comoEntra = (m: { hasPassword: boolean; hasGoogle: boolean }) =>
         {t('admin.notConfigured')}
       </p>
     )}
+
+    {/* Los datos del juego arriba del todo: es lo único de esta pantalla que
+        afecta a todo el mundo, y lo que se viene a hacer cuando sale un title
+        update. Lo demás es de una persona cada vez. */}
+    <SectionHeader title={t('admin.catalog')} hint={t('admin.catalogHint')} />
+
+    <div class="flex flex-col gap-2.5 border border-line bg-bg-1 p-3">
+      <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+        {catalogs.map((entry) => (
+          <span class="flex items-baseline gap-2">
+            <span class="font-ui text-[12px] uppercase tracking-[0.1em] text-text-3">{entry.locale}</span>
+            <span class="num text-[13px] text-text-1">
+              {entry.version
+                ? new Date(entry.version).toLocaleString(Astro.locals.locale)
+                : t('admin.catalogNever')}
+            </span>
+          </span>
+        ))}
+
+        <form method="post" class="ml-auto">
+          <input type="hidden" name="accion" value="sincronizar" />
+          <button
+            class="font-ui flex h-8 items-center bg-accent px-4 text-[13px] uppercase tracking-[0.08em] text-on-accent hover:bg-accent-hi"
+          >{t('admin.catalogSync')}</button>
+        </form>
+      </div>
+
+      <p class="text-[12px] text-text-3">{t('admin.catalogWarning')}</p>
+
+      {sync && (
+        <div class="flex flex-col gap-1">
+          {sync.locales.map((entry) => (
+            <p
+              class="num border px-3 py-1.5 text-[13px]"
+              style={entry.ok
+                ? 'border-color: color-mix(in srgb, var(--ok) 40%, transparent); background: color-mix(in srgb, var(--ok) 10%, transparent); color: var(--ok)'
+                : 'border-color: color-mix(in srgb, var(--danger) 40%, transparent); background: color-mix(in srgb, var(--danger) 10%, transparent); color: var(--danger)'}
+            >
+              <strong>{entry.locale}</strong>{' · '}
+              {entry.ok
+                ? t('admin.catalogDone', {
+                    skills: entry.skills ?? 0,
+                    armor: entry.armor ?? 0,
+                    weapons: entry.weapons ?? 0,
+                    monsters: entry.monsters ?? 0,
+                  })
+                : entry.error}
+            </p>
+          ))}
+          <p class="num text-[11.5px] text-text-3">
+            {t('admin.catalogElapsed', { s: (sync.elapsedMs / 1000).toFixed(1) })}
+          </p>
+        </div>
+      )}
+    </div>
 
     <div class="grid items-start gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div class="flex min-w-0 flex-col gap-2.5">
