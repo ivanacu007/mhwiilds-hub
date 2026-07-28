@@ -225,6 +225,7 @@ export async function buildCatalog(locale: string): Promise<Catalog> {
     id: s.id,
     name: s.name,
     kind: (s.kind ?? 'armor') as SkillKind,
+    description: s.description?.trim() || null,
     ranks: (s.ranks ?? []).map((r: Raw) => ({
       level: r.level,
       name: r.name ?? null,

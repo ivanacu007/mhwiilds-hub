@@ -23,6 +23,13 @@ export interface Skill {
   id: number;
   name: string;
   kind: SkillKind;
+  /**
+   * Qué hace en general, por encima del detalle de cada nivel. La traen 137 de
+   * las 179; las 42 que no son bonus de serie y de grupo, que se explican solos
+   * en su único rango. Opcional también porque los catálogos guardados antes de
+   * añadir este campo no la tienen hasta que se vuelvan a sincronizar.
+   */
+  description?: string | null;
   /** Nivel máximo alcanzable = ranks.length. */
   ranks: SkillRank[];
 }

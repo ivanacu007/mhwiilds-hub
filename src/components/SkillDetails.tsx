@@ -60,6 +60,14 @@ export default function SkillDetails({
           >×</button>
         </div>
 
+        {/* Opcional: los bonus de serie y grupo no la traen, y un catálogo
+            sincronizado antes de guardarla tampoco. */}
+        {skill.description && (
+          <p class="mb-3 border-l-2 border-line-strong pl-2.5 text-[13px] leading-[1.45] text-text-2">
+            {skill.description}
+          </p>
+        )}
+
         {ranks.length === 0 ? (
           <p class="text-[12.5px] text-text-3">{t('skill.noRanks')}</p>
         ) : (
