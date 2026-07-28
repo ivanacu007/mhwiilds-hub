@@ -706,6 +706,46 @@ try {
   check('el catálogo trae habilidades de ambos tipos',
     porTipo.armor > 50 && porTipo.weapon > 50, JSON.stringify(porTipo));
 
+  // Las dos tablas de opinión —qué persigue cada arma y los perfiles de juego—
+  // apuntan a habilidades por id. Si un title update mueve un id, sin esto la
+  // pantalla se quedaría en blanco sin decir por qué.
+  {
+    const { allWeaponSkillIds } = await import('../src/lib/builder/weapon-skills.ts');
+    const { allProfileSkillIds, ARMOR_PROFILES, SUGGESTED_KINDS } =
+      await import('../src/lib/builder/armor-profiles.ts');
+    const { weaponSkillsFor } = await import('../src/lib/builder/weapon-skills.ts');
+    const { profilesFor } = await import('../src/lib/builder/armor-profiles.ts');
+    const porId = new Map<number, any>(catalog.skills.map((s: any) => [s.id, s]));
+
+    const armaMal = allWeaponSkillIds()
+      .filter((id) => porId.get(id)?.kind !== 'weapon')
+      .map((id) => `${id}(${porId.get(id)?.kind ?? 'no existe'})`);
+    check('la tabla por arma apunta solo a habilidades de arma',
+      armaMal.length === 0, armaMal.join(', '));
+
+    const perfilMal = allProfileSkillIds()
+      .filter((id) => porId.get(id)?.kind !== 'armor')
+      .map((id) => `${id}(${porId.get(id)?.kind ?? 'no existe'})`);
+    check('los perfiles apuntan solo a habilidades de armadura',
+      perfilMal.length === 0, perfilMal.join(', '));
+
+    // Pedir más nivel del que existe dejaría el perfil sin solución para siempre.
+    const nivelMal = ARMOR_PROFILES.flatMap((p: any) => p.targets
+      .filter((t: any) => t.level > (porId.get(t.skillId)?.ranks.length ?? 0))
+      .map((t: any) => `${porId.get(t.skillId)?.name} ${t.level}`));
+    check('ningún perfil pide un nivel que no existe', nivelMal.length === 0, nivelMal.join(', '));
+
+    const tipos = [...new Set(catalog.weapons.map((w: any) => w.kind))] as string[];
+    const sinConsejo = tipos.filter((k) => weaponSkillsFor(k).length === 0);
+    check('todo tipo de arma tiene habilidades recomendadas',
+      sinConsejo.length === 0, sinConsejo.join(', '));
+    const sinPerfil = tipos.filter((k) => profilesFor(k).length === 0);
+    check('todo tipo de arma tiene perfiles', sinPerfil.length === 0, sinPerfil.join(', '));
+    const sobran = SUGGESTED_KINDS.filter((k: string) => !tipos.includes(k));
+    check('la tabla de sugerencias no nombra armas inexistentes',
+      sobran.length === 0, sobran.join(', '));
+  }
+
   const armador = await (await fetch(`${BASE}/armador`, { headers: auth })).text();
   check('el armador carga', armador.includes('SetBuilder') || armador.includes('astro-island'));
   check('explica para qué sirve el arma',

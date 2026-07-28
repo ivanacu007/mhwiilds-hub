@@ -1,6 +1,8 @@
 import { useState } from 'preact/hooks';
 import { ARMOR_KINDS, type ArmorKind, type CatalogIndex } from '../lib/catalog/types.ts';
 import { summarizeLoadout } from '../lib/catalog/loadout.ts';
+import type { OwnedForCrafting } from '../lib/catalog/availability.ts';
+import SetAvailability from './SetAvailability.tsx';
 import { MONSTER_ICONS } from '../lib/catalog/monster-icons.ts';
 import type { Locale, Translator } from '../lib/i18n/index.ts';
 import { slotSvg } from '../lib/ui/glyphs.ts';
@@ -35,6 +37,8 @@ interface Props {
   weaponId: number | null;
   onUnpinWeapon: () => void;
   onShowSkill: (skillId: number, level?: number) => void;
+  /** Null cuando el interruptor está apagado; no se pinta la franja. */
+  owned: OwnedForCrafting | null;
   onComplete: () => void;
   /** Si hay objetivos elegidos, completar con el buscador tiene sentido. */
   canComplete: boolean;
@@ -64,7 +68,7 @@ function defaultName(index: CatalogIndex, locale: Locale, armorIds: number[]): s
 
 export default function LoadoutCard(props: Props) {
   const { index, locale, t, pinned, onUnpin, weaponId, onUnpinWeapon, onShowSkill } = props;
-  const { onComplete, canComplete } = props;
+  const { owned, onComplete, canComplete } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
@@ -317,6 +321,10 @@ export default function LoadoutCard(props: Props) {
           )}
         </div>
       </div>
+
+      {owned && summary.pieceCount > 0 && (
+        <SetAvailability index={index} owned={owned} armorIds={pinned} locale={locale} t={t} />
+      )}
     </article>
   );
 }

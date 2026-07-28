@@ -5,11 +5,14 @@
  */
 import { indexCatalog, type Catalog, type CatalogIndex } from '../catalog/types.ts';
 import { solve } from './solve.ts';
+import { solveProfile } from './profile.ts';
 import type { SolveRequest } from './types.ts';
 
 export type WorkerRequest =
   | { type: 'catalogo'; catalog: Catalog }
-  | { type: 'resolver'; id: number; request: SolveRequest };
+  | { type: 'resolver'; id: number; request: SolveRequest }
+  /** Igual que resolver, pero aflojando el perfil si no cabe entero. */
+  | { type: 'perfil'; id: number; request: SolveRequest };
 
 let index: CatalogIndex | null = null;
 
@@ -23,12 +26,17 @@ self.onmessage = (event: MessageEvent<WorkerRequest>) => {
     return;
   }
 
-  if (message.type === 'resolver') {
+  if (message.type === 'resolver' || message.type === 'perfil') {
     if (!index) {
       self.postMessage({ type: 'error', id: message.id, error: 'El catálogo todavía no está cargado.' });
       return;
     }
     try {
+      if (message.type === 'perfil') {
+        const profile = solveProfile(message.request, index);
+        self.postMessage({ type: 'perfil-resultado', id: message.id, profile });
+        return;
+      }
       const response = solve(message.request, index);
       self.postMessage({ type: 'resultado', id: message.id, response });
     } catch (err) {

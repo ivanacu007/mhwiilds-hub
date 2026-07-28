@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
-import { ARMOR_KINDS, indexCatalog, type ArmorKind, type Catalog } from '../lib/catalog/types.ts';
+import { ARMOR_KINDS, indexCatalog, type ArmorKind, type Catalog, type CatalogIndex } from '../lib/catalog/types.ts';
+import type { OwnedForCrafting } from '../lib/catalog/availability.ts';
+import SetAvailability from './SetAvailability.tsx';
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
 import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import Combo from './ui/Combo.tsx';
 import SkillDetails from './SkillDetails.tsx';
 import LoadoutCard from './LoadoutCard.tsx';
 import SeriesBrowser from './SeriesBrowser.tsx';
+import WeaponMode from './WeaponMode.tsx';
+import type { ArmorProfile } from '../lib/builder/armor-profiles.ts';
+import type { ProfileResponse } from '../lib/solver/profile.ts';
 import { slotSvg } from '../lib/ui/glyphs.ts';
 import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 
@@ -31,12 +36,28 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   // Dos maneras de llegar a un set: describir lo que quieres y que el solver
   // busque, u hojear las series del juego y tomar piezas a mano. Las piezas
   // fijadas valen para las dos: el solver las respeta como restricción.
-  const [mode, setMode] = useState<'solve' | 'browse'>('solve');
+  const [mode, setMode] = useState<'solve' | 'browse' | 'weapon'>('solve');
+  const [weaponModeKind, setWeaponModeKind] = useState('');
+  const [runningProfile, setRunningProfile] = useState<string | null>(null);
+  const [profileResult, setProfileResult] = useState<
+    { profile: ArmorProfile; used: SolveRequest['targets']; dropped: SolveRequest['targets'] } | null
+  >(null);
   const [pinned, setPinned] = useState<Partial<Record<ArmorKind, number>>>({});
   // Qué habilidad se está mirando y con qué nivel. Vive aquí y no en cada
   // tarjeta porque el diálogo se abre desde cuatro sitios distintos y solo
   // puede haber uno abierto.
   const [skillInfo, setSkillInfo] = useState<{ skillId: number; level?: number } | null>(null);
+  // Preferencia, no parte de la búsqueda: quien juega con el inventario al día
+  // lo quiere siempre puesto, así que sobrevive a la visita.
+  const [checkOwned, setCheckOwned] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem('builder:checkOwned') === '1') setCheckOwned(true);
+  }, []);
+  const toggleCheckOwned = (on: boolean) => {
+    setCheckOwned(on);
+    localStorage.setItem('builder:checkOwned', on ? '1' : '0');
+  };
   // En móvil el panel es una hoja inferior: ocupa toda la altura útil y
   // taparía los resultados si estuviera siempre abierto.
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -46,7 +67,8 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
 
   const worker = useRef<Worker | null>(null);
   const nextId = useRef(1);
-  const pending = useRef(new Map<number, (r: SolveResponse) => void>());
+  // Dos formas de respuesta (búsqueda y perfil) comparten la cola de espera.
+  const pending = useRef(new Map<number, (r: any) => void>());
 
   useEffect(() => {
     let disposed = false;
@@ -56,13 +78,16 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
         const [cat, res] = await Promise.all([loadCatalog(['armor', 'armorSets', 'charms', 'decorations', 'items', 'skills', 'weapons']), fetch('/api/inventory')]);
         if (disposed) return;
         setCatalog(cat);
-        setInventory(res.ok ? await res.json() : { decorations: {}, charms: {}, armor: [] });
+        setInventory(res.ok ? await res.json() : { decorations: {}, charms: {}, armor: [], materials: {} });
 
         const w = new Worker(new URL('../lib/solver/worker.ts', import.meta.url), { type: 'module' });
         w.onmessage = (event) => {
           const data = event.data;
           if (data.type === 'resultado') {
             pending.current.get(data.id)?.(data.response);
+            pending.current.delete(data.id);
+          } else if (data.type === 'perfil-resultado') {
+            pending.current.get(data.id)?.(data.profile);
             pending.current.delete(data.id);
           } else if (data.type === 'error') {
             pending.current.get(data.id)?.({
@@ -88,6 +113,16 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
   // Un solo índice en vez de cuatro mapas sueltos: es lo que piden el navegador
   // de series y `summarizeLoadout`, y ya trae los mismos mapas por id.
   const index = useMemo(() => (catalog ? indexCatalog(catalog) : null), [catalog]);
+
+  // Inventario de fantasía para los perfiles: todo el catálogo, sin cuenta.
+  const unlimitedDecorations = useMemo(
+    () => Object.fromEntries((catalog?.decorations ?? []).map((d) => [String(d.id), 4])),
+    [catalog],
+  );
+  const unlimitedCharms = useMemo(
+    () => Object.fromEntries((catalog?.charms ?? []).map((c) => [String(c.id), 5])),
+    [catalog],
+  );
 
   // Con identidad estable: el navegador de series la usa como dependencia de su
   // agrupación, y un `Set` nuevo en cada render la rehacía entera sin motivo.
@@ -172,6 +207,49 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
     setBusy(false);
   };
 
+  /**
+   * Un perfil se resuelve aflojándolo si no cabe entero, así que va por otro
+   * mensaje del worker. Se pide con inventario ilimitado de adornos —la pregunta
+   * es «cuál es el mejor set posible», no «cuál puedo forjar»—; de lo segundo ya
+   * avisa la franja de disponibilidad de cada tarjeta.
+   */
+  const runProfile = async (profile: ArmorProfile) => {
+    if (!worker.current || !inventory) return;
+    setRunningProfile(profile.id);
+    setResult(null);
+    setProfileResult(null);
+
+    const id = nextId.current++;
+    const request: SolveRequest = {
+      targets: profile.targets,
+      inventory: {
+        // Adornos y talismanes sin límite: un perfil responde «cuál es el mejor
+        // set posible», no «cuál puedo armar hoy». Con el inventario real, quien
+        // empieza vería los cinco perfiles recortados y pensaría que el juego no
+        // da para más. De lo que te falta ya avisa la franja de cada tarjeta.
+        decorations: unlimitedDecorations,
+        charms: unlimitedCharms,
+        armor: onlyOwnedArmor ? (inventory.armor ?? []) : null,
+      },
+      locked: pinned,
+      weaponId: null,
+      rank: 'all',
+      maxResults: 10,
+      // Más holgado que la búsqueda normal: aquí se espera una vez por perfil,
+      // no en cada retoque de la lista de objetivos.
+      timeBudgetMs: 3000,
+    };
+
+    const answer = await new Promise<ProfileResponse>((resolve) => {
+      pending.current.set(id, resolve);
+      worker.current!.postMessage({ type: 'perfil', id, request });
+    });
+
+    setResult(answer.response);
+    setProfileResult({ profile, used: answer.used, dropped: answer.dropped });
+    setRunningProfile(null);
+  };
+
   const sorted = useMemo(() => {
     if (!result?.ok) return [];
     const list = [...result.solutions];
@@ -229,11 +307,18 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
         <>
           {/* El conmutador vive en la fila de cabecera, junto a «Limpiar»: es una
               decisión de pantalla, no del panel de objetivos. */}
-          {([['solve', t('builder.modeSolve')], ['browse', t('builder.modeBrowse')]] as const).map(
+          {([
+            ['solve', t('builder.modeSolve')],
+            ['browse', t('builder.modeBrowse')],
+            ['weapon', t('builder.modeWeapon')],
+          ] as const).map(
             ([key, label]) => (
               <button
                 key={key}
-                onClick={() => setMode(key)}
+                // Cambiar de modo limpia lo que hubiera abajo: unos resultados
+                // de la búsqueda colgando bajo el modo por arma se leerían como
+                // si fueran del perfil.
+                onClick={() => { setMode(key); setResult(null); setProfileResult(null); }}
                 aria-pressed={mode === key}
                 class={`font-ui flex h-7 items-center px-3 text-[13px] uppercase tracking-[0.08em] ${
                   mode === key
@@ -376,6 +461,25 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               {t('builder.onlyForged')}
             </label>
           </div>
+
+          {/* Hermana de la de arriba pero al revés: aquella esconde lo que no
+              tienes, esta lo enseña y dice qué te falta para forjarlo. Se marcan
+              las dos sin contradecirse. */}
+          <label class="flex cursor-pointer items-center gap-1.5 text-[12.5px] text-text-2">
+            <input
+              type="checkbox"
+              checked={checkOwned}
+              onChange={(e) => toggleCheckOwned((e.target as HTMLInputElement).checked)}
+              class="peer sr-only"
+            />
+            <span
+              class={`grid h-3.5 w-3.5 place-items-center border text-[10px] font-bold peer-focus-visible:outline peer-focus-visible:outline-accent ${
+                checkOwned ? 'border-ok bg-ok text-bg-0' : 'border-line-strong text-transparent'
+              }`}
+              aria-hidden="true"
+            >✓</span>
+            {t('builder.checkOwned')}
+          </label>
         </div>
 
         {/* Lo único que crece es la lista de objetivos: el arma y el botón se
@@ -561,6 +665,9 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
               weaponId={weaponId}
               onUnpinWeapon={() => setWeaponId(null)}
               onShowSkill={showSkill}
+              owned={checkOwned
+                ? { armor: inventory.armor ?? [], materials: inventory.materials ?? {} }
+                : null}
               onComplete={() => void run()}
               canComplete={targets.length > 0 && pinnedCount < ARMOR_KINDS.length}
             />
@@ -577,11 +684,36 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
           </>
         )}
 
+        {mode === 'weapon' && (
+          <WeaponMode
+            index={index}
+            t={t}
+            weaponKinds={weaponKinds}
+            kind={weaponModeKind}
+            onKind={setWeaponModeKind}
+            ownedDecorations={inventory.decorations ?? {}}
+            onShowSkill={showSkill}
+            onRunProfile={runProfile}
+            runningProfile={runningProfile}
+          />
+        )}
+
+        {/* Lo que el perfil no pudo servir se dice, no se calla: si no, un set
+            con tres de las cinco habilidades parecería que cumple. */}
+        {mode === 'weapon' && profileResult && profileResult.dropped.length > 0 && (
+          <div class="border border-warn bg-bg-1 px-3 py-2 text-[12.5px]" style="color: var(--warn)">
+            {t('builder.profileDropped', {
+              skills: profileResult.dropped
+                .map((x) => `${skillById.get(x.skillId)?.name} ${x.level}`).join(', '),
+            })}
+          </div>
+        )}
+
         {mode === 'solve' && !result && !busy && (
           <p class="py-16 text-center text-text-3">{t('builder.pickAndSearch')}</p>
         )}
 
-        {mode === 'solve' && result && !result.ok && result.reason === 'falta-arma' && (
+        {mode !== 'browse' && result && !result.ok && result.reason === 'falta-arma' && (
           <div class="bevel-head border border-accent bg-accent-weak p-4">
             <h2 class="font-ui mb-1 text-[17px] uppercase tracking-wide text-accent-hi">
               {t('builder.needWeapon')}
@@ -594,7 +726,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
           </div>
         )}
 
-        {mode === 'solve' && result && !result.ok && result.reason === 'sin-solucion' && (
+        {mode !== 'browse' && result && !result.ok && result.reason === 'sin-solucion' && (
           <div class="panel bevel-head p-4">
             <h2 class="font-ui mb-1 text-[17px] uppercase tracking-wide">{t('builder.noSolution')}</h2>
             {result.unreachable.length > 0 && (
@@ -623,7 +755,7 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
           </div>
         )}
 
-        {mode === 'solve' && result?.ok && (
+        {mode !== 'browse' && result?.ok && (
           <>
             <div class="flex min-h-8 flex-wrap items-center gap-x-2.5 gap-y-1 border border-line bg-bg-1 px-3 py-[3px]">
               <h2 class="font-ui text-[14px] uppercase tracking-[0.12em]">
@@ -666,8 +798,13 @@ export default function SetBuilder({ locale }: { locale: Locale }) {
                 decoById={decoById}
                 charmById={charmById}
                 skillById={skillById}
-                targets={targets}
+                // En modo perfil lo pedido son los objetivos del perfil, no los
+                // de la lista lateral: son ellos los que hay que resaltar.
+                targets={profileResult ? profileResult.used : targets}
                 onShowSkill={showSkill}
+                availability={checkOwned
+                  ? { index, owned: { armor: inventory.armor ?? [], materials: inventory.materials ?? {} }, locale }
+                  : null}
                 t={t}
               />
             ))}
@@ -689,9 +826,12 @@ function SolutionCard(props: {
   skillById: Map<number, Catalog['skills'][number]>;
   targets: Target[];
   onShowSkill: (skillId: number, level: number) => void;
+  /** Null cuando el interruptor está apagado; no se pinta la franja. */
+  availability: { index: CatalogIndex; owned: OwnedForCrafting; locale: Locale } | null;
   t: Translator;
 }) {
   const { index, solution, armorById, decoById, charmById, skillById, targets, onShowSkill, t } = props;
+  const { availability } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
@@ -898,6 +1038,18 @@ function SolutionCard(props: {
           </ul>
         </div>
       </div>
+
+      {availability && (
+        <SetAvailability
+          index={availability.index}
+          owned={availability.owned}
+          armorIds={Object.fromEntries(
+            ARMOR_KINDS.map((kind) => [kind, solution.pieces[kind].armorId]),
+          )}
+          locale={availability.locale}
+          t={t}
+        />
+      )}
     </article>
   );
 }
