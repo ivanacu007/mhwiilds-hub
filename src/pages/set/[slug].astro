@@ -164,6 +164,12 @@ const author = set.ownerHunterName || set.ownerName;
     </div>
 
     <div class="mt-6 flex flex-wrap gap-3">
+      {user && (
+        <a
+          href={`/set/${set.slug}/plan`}
+          class="rounded border border-line-strong px-4 py-2 font-medium hover:bg-bg-2"
+        >{t('plan.open')}</a>
+      )}
       {isOwner && (
         <a
           href={`/armador?editar=${set.slug}`}

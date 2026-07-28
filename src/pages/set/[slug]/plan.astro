@@ -1,0 +1,231 @@
+---
+import Base from '../../../layouts/Base.astro';
+import PageHeader from '../../../components/PageHeader.astro';
+import SectionHeader from '../../../components/ui/SectionHeader.astro';
+import { savedSets, inventories } from '../../../lib/db.ts';
+import { getCatalogIndex } from '../../../lib/catalog/store.ts';
+import { buildFarmPlan } from '../../../lib/catalog/farm-plan.ts';
+import { ARMOR_KINDS, type ArmorKind } from '../../../lib/catalog/types.ts';
+import { gearIconStyle } from '../../../lib/ui/gear-icons.ts';
+import { itemIconColor, itemIconPath } from '../../../lib/catalog/item-icons.ts';
+import { monsterIconPath } from '../../../lib/catalog/monster-icons.ts';
+import type { TranslationKey } from '../../../lib/i18n/index.ts';
+
+const t = Astro.locals.t;
+const { slug } = Astro.params;
+const user = Astro.locals.user;
+
+// El plan se apoya en tu inventario, así que sin sesión no hay nada que
+// planear. Se vuelve aquí después de entrar.
+if (!user) return Astro.redirect(`/entrar?siguiente=${encodeURIComponent(`/set/${slug}/plan`)}`);
+
+const set = await (await savedSets()).findOne({ slug: slug! });
+if (!set || (!set.isPublic && set.ownerId !== user.id)) {
+  return new Response(t('sets.notFound'), { status: 404 });
+}
+
+const index = await getCatalogIndex(Astro.locals.locale);
+const inventory = await (await inventories()).findOne({ _id: user.id });
+
+const plan = buildFarmPlan(
+  index,
+  {
+    armor: inventory?.armor ?? [],
+    weapons: inventory?.weapons ?? [],
+    materials: inventory?.materials ?? {},
+  },
+  {
+    weaponId: set.weaponId,
+    pieces: Object.fromEntries(
+      ARMOR_KINDS.map((kind) => [kind, set[kind]?.armorId ?? null]),
+    ) as Partial<Record<ArmorKind, number | null>>,
+  },
+);
+
+const SLOT_LABEL: Record<string, string> = {
+  head: t('piece.head'), chest: t('piece.chest'), arms: t('piece.arms'),
+  waist: t('piece.waist'), legs: t('piece.legs'), weapon: t('piece.weapon'),
+};
+
+const itemStyle = (itemId: number) => {
+  const item = index.itemById.get(itemId);
+  const path = itemIconPath(item?.iconKind ?? undefined);
+  const color = itemIconColor(item?.iconColor ?? undefined);
+  return path
+    ? `display:inline-block;width:16px;height:16px;background-color:${color};-webkit-mask:url("${path}") center/contain no-repeat;mask:url("${path}") center/contain no-repeat`
+    : `display:inline-block;width:16px;height:16px;border-radius:8px;background:${color};opacity:.45`;
+};
+---
+
+<Base title={`${t('plan.title')} · ${set.name}`} noIndex flush>
+  <PageHeader
+    title={t('plan.title')}
+    context={t('plan.progress', { done: plan.owned, total: plan.total })}
+  >
+    <a
+      slot="actions"
+      href={`/set/${set.slug}`}
+      class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1"
+    >{set.name}</a>
+  </PageHeader>
+
+  <div
+    class="flex flex-col gap-3 px-4 py-3.5"
+    data-crafting={t('plan.marking')}
+    data-failed={t('common.error')}
+  >
+    {plan.owned === plan.total ? (
+      <p class="border border-ok/40 bg-ok/10 px-3 py-2 text-[13.5px] text-ok">{t('plan.allDone')}</p>
+    ) : (
+      <>
+        {/* A quién visitar, antes que la lista pieza a pieza: es la decisión que
+            se toma al sentarse a jugar. */}
+        {plan.byMonster.length > 0 && (
+          <>
+            <SectionHeader title={t('plan.whoToHunt')} hint={t('plan.whoToHuntHint')} />
+            <ul class="flex flex-col gap-1">
+              {plan.byMonster.slice(0, 5).map((entry) => (
+                <li class="flex items-center gap-2.5 border border-line bg-bg-1 px-3 py-1.5">
+                  <img
+                    src={monsterIconPath(entry.monsterId)}
+                    alt=""
+                    width={26}
+                    height={26}
+                    loading="lazy"
+                    class="shrink-0"
+                  />
+                  <span class="font-ui min-w-0 flex-1 truncate text-[13.5px] uppercase tracking-[0.06em]">
+                    {index.monsterById.get(entry.monsterId)?.name}
+                  </span>
+                  <span class="num shrink-0 text-[11.5px] text-text-3">
+                    {t('plan.covers', { count: entry.items.length })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+
+        <SectionHeader title={t('plan.steps')} hint={t('plan.stepsHint')} />
+      </>
+    )}
+
+    <ol class="flex flex-col gap-2">
+      {plan.steps.map((step, i) => (
+        <li
+          class:list={['panel', step.owned && 'opacity-60']}
+          data-step
+        >
+          <header class="flex flex-wrap items-center gap-2.5 border-b border-line bg-panel-head px-3 py-1.5">
+            <span class="num shrink-0 text-[12px] text-text-3">{i + 1}</span>
+            <span class="grid h-[24px] w-[24px] shrink-0 place-items-center border border-line-strong bg-tile">
+              <span style={gearIconStyle(step.icon, 15, step.owned ? 'var(--ok)' : 'var(--text-2)')} />
+            </span>
+            <span class="min-w-0 flex-1">
+              <span class="font-ui block text-[10.5px] uppercase tracking-[0.1em] text-text-3">
+                {SLOT_LABEL[step.slotLabel]}
+                {step.upgradeFrom && ` · ${t('plan.from', { name: step.upgradeFrom })}`}
+              </span>
+              <span class="block truncate text-[14px]">{step.name}</span>
+            </span>
+
+            {/* El botón va destacado cuando ya se puede forjar y discreto
+                cuando falta material: marcarlo igual es legítimo —lo forjaste en
+                el juego y aquí el inventario iba desfasado— pero no es el camino
+                normal. */}
+            {step.owned ? (
+              <span class="font-ui shrink-0 text-[12px] uppercase tracking-[0.08em] text-ok">
+                {t('plan.done')}
+              </span>
+            ) : (
+              <button
+                data-kind={step.kind}
+                data-id={step.id}
+                class:list={[
+                  'marcar font-ui shrink-0 border px-3 py-1 text-[12.5px] uppercase tracking-[0.08em]',
+                  step.missing.length === 0
+                    ? 'border-accent bg-accent text-on-accent hover:bg-accent-hi'
+                    : 'border-line-strong bg-bg-2 text-text-3 hover:text-text-1',
+                ]}
+              >{step.missing.length === 0 ? t('plan.craft') : t('plan.markAnyway')}</button>
+            )}
+          </header>
+
+          {!step.owned && (
+            step.missing.length === 0 ? (
+              <p class="px-3 py-2 text-[13px]" style="color: var(--ok)">{t('plan.canCraft')}</p>
+            ) : (
+              <ul>
+                {step.missing.map((material) => (
+                  <li class="border-b border-line-soft px-3 py-1.5 last:border-b-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span style={itemStyle(material.itemId)} />
+                      <span class="text-[13.5px]">
+                        {index.itemById.get(material.itemId)?.name ?? `#${material.itemId}`}
+                      </span>
+                      <span class="num text-[12px]" style="color: var(--warn)">
+                        {material.have}/{material.need}
+                      </span>
+                    </div>
+                    {/* Cómo se consigue: la vía, el rango y la probabilidad. Es
+                        lo que decide si conviene romper una parte o capturar. */}
+                    <ul class="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 pl-6">
+                      {material.sources.slice(0, 4).map((source) => (
+                        <li class="flex items-center gap-1.5 text-[11.5px] text-text-3">
+                          <img
+                            src={monsterIconPath(source.monsterId)}
+                            alt=""
+                            width={14}
+                            height={14}
+                            loading="lazy"
+                          />
+                          {index.monsterById.get(source.monsterId)?.name}
+                          <span>· {t(`cd.${source.kind}` as TranslationKey)}</span>
+                          {source.part && <span>· {source.part}</span>}
+                          {source.chance != null && (
+                            <span class:list={['num', source.chance >= 50 && 'text-ok']}>
+                              {source.chance}%
+                            </span>
+                          )}
+                        </li>
+                      ))}
+                      {material.sources.length === 0 && (
+                        <li class="text-[11.5px] text-text-3">{t('plan.noSource')}</li>
+                      )}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <script>
+    // Marcar recarga la página: el plan entero cambia al forjar algo —se gastan
+    // materiales y el orden de los pasos se recalcula—, así que repintar a mano
+    // solo esa tarjeta dejaría el resto mintiendo.
+    document.querySelectorAll<HTMLButtonElement>('button.marcar').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const box = button.closest('[data-crafting]') ?? document.querySelector('[data-crafting]');
+        const original = button.textContent;
+        button.disabled = true;
+        button.textContent = (box as HTMLElement)?.dataset.crafting ?? '…';
+        try {
+          const res = await fetch('/api/inventory/craft', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ kind: button.dataset.kind, id: Number(button.dataset.id) }),
+          });
+          if (!res.ok) throw new Error();
+          location.reload();
+        } catch {
+          button.disabled = false;
+          button.textContent = (box as HTMLElement)?.dataset.failed ?? original;
+        }
+      });
+    });
+  </script>
+</Base>
