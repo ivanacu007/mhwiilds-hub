@@ -8,6 +8,7 @@ import { effectiveRaw, slotCapacity } from '../lib/builder/weapon-ranking.ts';
 import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 import { slotSvg } from '../lib/ui/glyphs.ts';
 import SharpnessBar from '../components/SharpnessBar.astro';
+import WeaponTree from '../components/WeaponTree.astro';
 import type { TranslationKey } from '../lib/i18n/index.ts';
 
 const t = Astro.locals.t;
@@ -62,29 +63,19 @@ const info = paginate(sorted.length, Number(Astro.url.searchParams.get('p') ?? 1
 const visible = sorted.slice(info.start, info.end);
 
 /**
- * Los árboles del tipo elegido, agrupados por serie.
+ * En modo árbol se dibuja **uno solo** por tipo de arma, no uno por serie.
  *
- * `row` y `column` vienen de la API y son las coordenadas con las que el juego
- * dibuja el árbol, así que no hay que reconstruir nada: se ordena por fila y la
- * columna se convierte en sangría. Es la diferencia entre copiar la forma buena
- * y adivinar una a partir de `previousId`.
+ * `row` y `column` son coordenadas del árbol del tipo entero —en espadón van de
+ * 0 a 27 y de 0 a 9—, y cada serie ocupa una sola fila: «Rathian Tree» es la
+ * fila 17, columnas 5 a 8. O sea que una serie no es un árbol, es una rama.
+ * Agruparlas por separado dejaba cada nodo colocado en su fila global dentro de
+ * una caja propia, con todo el hueco por encima vacío.
  */
-const trees = asTree
-  ? [...matching
-      .reduce((acc, weapon) => {
-        const key = weapon.seriesName ?? t('weapons.noTree');
-        if (!acc.has(key)) acc.set(key, []);
-        acc.get(key)!.push(weapon);
-        return acc;
-      }, new Map<string, typeof matching>())]
-      .map(([name, list]) => ({
-        name,
-        weapons: [...list].sort(
-          (a, b) => (a.crafting?.row ?? 0) - (b.crafting?.row ?? 0)
-            || (a.crafting?.column ?? 0) - (b.crafting?.column ?? 0),
-        ),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name))
+const treeWeapons = asTree
+  ? [...matching].sort(
+      (a, b) => (a.crafting?.row ?? 0) - (b.crafting?.row ?? 0)
+        || (a.crafting?.column ?? 0) - (b.crafting?.column ?? 0),
+    )
   : [];
 
 /** Conserva el resto de filtros al cambiar uno solo. */
@@ -125,6 +116,15 @@ const ORDERS = [
       <button class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-2 hover:bg-bg-3 hover:text-text-1">
         {t('weapons.search').replace('…', '')}
       </button>
+      {/* Enlace y no un botón que vacíe el campo: hay que volver a pedir la
+          página sin `q`, y así funciona igual sin JavaScript. Solo aparece
+          cuando hay algo que limpiar. */}
+      {(query || kind) && (
+        <a
+          href={linkWith({ q: '', tipo: '', p: '' })}
+          class="font-ui flex h-7 items-center border border-line-strong bg-bg-2 px-3 text-[13px] uppercase tracking-[0.08em] text-text-3 hover:border-danger hover:text-danger"
+        >{t('weapons.clear')}</a>
+      )}
     </form>
   </PageHeader>
 
@@ -192,58 +192,13 @@ const ORDERS = [
       <p class="py-10 text-center text-text-3">{t('weapons.noneMatch')}</p>
     )}
 
-    {asTree ? trees.map((tree) => (
+    {asTree ? (
       <section class="panel">
-        <h3 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13.5px] uppercase tracking-[0.1em] text-accent-hi">
-          {tree.name}
-          <span class="num ml-2 text-[11px] text-text-3">{tree.weapons.length}</span>
-        </h3>
-        <ul>
-          {tree.weapons.map((weapon) => (
-            <li class="border-b border-line-soft last:border-b-0">
-              <a
-                href={`/armas/${weapon.id}`}
-                class="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2.5 px-3 py-1 hover:bg-bg-2"
-              >
-                {/* La sangría es la columna del árbol: cada escalón, una mejora. */}
-                <span
-                  class="flex min-w-0 items-center gap-2"
-                  style={`padding-left:${(weapon.crafting?.column ?? 0) * 18}px`}
-                >
-                  {(weapon.crafting?.column ?? 0) > 0 && (
-                    <span class="num shrink-0 text-[11px] text-text-3">└</span>
-                  )}
-                  <span class="grid h-[20px] w-[20px] shrink-0 place-items-center border border-line-strong bg-tile">
-                    <span style={gearIconStyle(weapon.kind, 13, 'var(--text-2)')} />
-                  </span>
-                  <span class="truncate text-[13.5px]">{weapon.name}</span>
-                  <span class="num shrink-0 text-[11px] text-text-3">r{weapon.rarity}</span>
-                </span>
-                <span class="num flex shrink-0 items-center gap-2.5 text-[11.5px] text-text-2">
-                  <span>{t('builder.attackShort')} {weapon.attack}</span>
-                  {weapon.affinity !== 0 && (
-                    <span style={weapon.affinity < 0 ? 'color: var(--danger)' : undefined}>
-                      {weapon.affinity > 0 ? '+' : ''}{weapon.affinity}%
-                    </span>
-                  )}
-                  {weapon.element && (
-                    <span style={`color: var(--el-${weapon.element.kind})`}>
-                      {t(`el.${weapon.element.kind}` as TranslationKey)} {weapon.element.damage}
-                    </span>
-                  )}
-                  {weapon.sharpness && (
-                    <SharpnessBar sharpness={weapon.sharpness} width={70} height={7} />
-                  )}
-                  <span class="flex gap-[3px]">
-                    {weapon.slots.map((level) => <span set:html={slotSvg(level, false, true)} />)}
-                  </span>
-                </span>
-              </a>
-            </li>
-          ))}
-        </ul>
+        <div class="p-2">
+          <WeaponTree weapons={treeWeapons} t={t} />
+        </div>
       </section>
-    )) : (
+    ) : (
       <>
         <ul class="flex flex-col gap-1">
           {visible.map((weapon) => (

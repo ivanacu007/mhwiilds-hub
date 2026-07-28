@@ -313,6 +313,7 @@ export const es = {
   'weapons.noneMatch': 'Ningún arma coincide.',
   'weapons.byAffinity': 'Afinidad',
   'weapons.byName': 'Nombre',
+  'weapons.clear': 'Limpiar',
   'weapons.tree': 'Árbol',
   'weapons.list': 'Lista',
   'weapons.noTree': 'Sin árbol',

@@ -40,7 +40,9 @@ const owned: Record<string, number> = Astro.locals.user
   ? (await (await inventories()).findOne({ _id: Astro.locals.user.id }))?.materials ?? {}
   : {};
 
-const handicraftBonus = weapon.handicraft.at(-1) ?? 0;
+// Con cinturón y tirantes: `fillMissingFields` ya lo garantiza, pero esta
+// página fue la que se cayó y no vale la pena que dependa de eso.
+const handicraftBonus = weapon.handicraft?.at(-1) ?? 0;
 ---
 
 <Base title={`${weapon.name} · ${t('app.name')}`} noIndex flush>

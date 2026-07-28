@@ -314,6 +314,7 @@ export const en: Record<keyof typeof es, string> = {
   'weapons.noneMatch': 'No weapon matches.',
   'weapons.byAffinity': 'Affinity',
   'weapons.byName': 'Name',
+  'weapons.clear': 'Clear',
   'weapons.tree': 'Tree',
   'weapons.list': 'List',
   'weapons.noTree': 'No tree',

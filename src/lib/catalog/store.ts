@@ -45,6 +45,27 @@ async function bootstrap(apiLocale: string): Promise<Catalog> {
   return catalog;
 }
 
+/**
+ * Rellena lo que un catálogo guardado por una versión anterior no trae.
+ *
+ * El catálogo vive en Mongo y sobrevive a los despliegues, así que al añadir un
+ * campo hay un rato —hasta que alguien sincroniza— en que el código nuevo lee
+ * datos viejos. Eso ya rompió la ficha de arma en producción: `handicraft` no
+ * existía y `.at(-1)` reventaba con una página en blanco.
+ *
+ * Rellenar aquí es mejor que ir poniendo `?.` por las pantallas: se hace una vez
+ * al cargar y vale igual para el servidor y para lo que se manda al navegador.
+ */
+function fillMissingFields(catalog: Catalog): void {
+  for (const weapon of catalog.weapons) {
+    weapon.handicraft ??= [];
+    weapon.sharpness ??= null;
+    weapon.seriesId ??= null;
+    weapon.seriesName ??= null;
+    weapon.crafting ??= null;
+  }
+}
+
 async function ensureLoaded(locale: Locale): Promise<void> {
   if (cached.has(locale)) return;
 
@@ -57,6 +78,7 @@ async function ensureLoaded(locale: Locale): Promise<void> {
       // ganan la atribución sin volver a sincronizar. Son 194 series contra sus
       // materiales, una vez por idioma y arranque.
       applyMonsterAttribution(catalog);
+      fillMissingFields(catalog);
       cached.set(locale, {
         catalog,
         json: JSON.stringify(catalog),

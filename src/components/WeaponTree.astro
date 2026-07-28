@@ -1,0 +1,119 @@
+---
+import SharpnessBar from './SharpnessBar.astro';
+import { gearIconStyle } from '../lib/ui/gear-icons.ts';
+import { slotSvg } from '../lib/ui/glyphs.ts';
+import type { Weapon } from '../lib/catalog/types.ts';
+import type { TranslationKey } from '../lib/i18n/index.ts';
+
+/**
+ * El árbol de mejora dibujado como el del juego: de izquierda a derecha, con la
+ * línea que une cada arma con la que sale de ella.
+ *
+ * Las posiciones no se calculan: `row` y `column` vienen de la API y son las
+ * mismas coordenadas con las que el juego lo pinta. Por eso se coloca en
+ * absoluto sobre una cuadrícula de celdas fijas en vez de dejar que el navegador
+ * reparta —una rejilla automática pondría las ramas donde le conviniera a ella,
+ * no donde van.
+ *
+ * Los codos se dibujan en el pasillo entre columnas: horizontal desde el padre,
+ * vertical hasta la fila del hijo, y horizontal otra vez hasta él. Es lo que
+ * hace que dos ramas que salen de la misma arma se lean como dos ramas.
+ */
+interface Props {
+  weapons: Weapon[];
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string;
+}
+
+const { weapons, t } = Astro.props;
+
+const CELL_W = 210;
+const CELL_H = 32;
+const GAP_X = 26;
+const NODE_W = CELL_W - GAP_X;
+
+const byId = new Map(weapons.map((w) => [w.id, w]));
+const posOf = (w: Weapon) => ({
+  x: (w.crafting?.column ?? 0) * CELL_W,
+  y: (w.crafting?.row ?? 0) * CELL_H,
+});
+
+const maxCol = Math.max(0, ...weapons.map((w) => w.crafting?.column ?? 0));
+const maxRow = Math.max(0, ...weapons.map((w) => w.crafting?.row ?? 0));
+
+/** Un codo por cada arma que viene de otra del mismo árbol. */
+const elbows = weapons
+  .map((child) => {
+    const parentId = child.crafting?.previousId;
+    const parent = parentId != null ? byId.get(parentId) : undefined;
+    if (!parent) return null;
+    const from = posOf(parent);
+    const to = posOf(child);
+    return {
+      // Sale del borde derecho del padre y entra por el izquierdo del hijo.
+      startX: from.x + NODE_W,
+      midX: to.x - GAP_X / 2,
+      endX: to.x,
+      fromY: from.y + CELL_H / 2,
+      toY: to.y + CELL_H / 2,
+    };
+  })
+  .filter((e) => e != null);
+---
+
+<div class="overflow-x-auto">
+  <div
+    class="relative"
+    style={`width:${(maxCol + 1) * CELL_W}px;height:${(maxRow + 1) * CELL_H}px`}
+  >
+    {elbows.map((elbow) => (
+      <>
+        {/* Tramo horizontal desde el padre */}
+        <span
+          class="absolute"
+          style={`left:${elbow!.startX}px;top:${elbow!.fromY}px;width:${elbow!.midX - elbow!.startX}px;height:1px;background:var(--line-strong)`}
+        />
+        {/* Tramo vertical hasta la fila del hijo */}
+        <span
+          class="absolute"
+          style={`left:${elbow!.midX}px;top:${Math.min(elbow!.fromY, elbow!.toY)}px;width:1px;height:${Math.abs(elbow!.toY - elbow!.fromY)}px;background:var(--line-strong)`}
+        />
+        {/* Tramo horizontal hasta el hijo */}
+        <span
+          class="absolute"
+          style={`left:${elbow!.midX}px;top:${elbow!.toY}px;width:${elbow!.endX - elbow!.midX}px;height:1px;background:var(--line-strong)`}
+        />
+      </>
+    ))}
+
+    {weapons.map((weapon) => {
+      const pos = posOf(weapon);
+      return (
+        <a
+          href={`/armas/${weapon.id}`}
+          class="absolute flex items-center gap-1.5 border border-line bg-bg-1 px-1.5 hover:border-accent"
+          style={`left:${pos.x}px;top:${pos.y + 3}px;width:${NODE_W}px;height:${CELL_H - 6}px`}
+          title={`${weapon.name} · ${t('builder.attackShort')} ${weapon.attack}`}
+        >
+          <span class="grid h-[18px] w-[18px] shrink-0 place-items-center border border-line-strong bg-tile">
+            <span style={gearIconStyle(weapon.kind, 12, 'var(--text-2)')} />
+          </span>
+          <span class="min-w-0 flex-1 truncate text-[12.5px]">
+            {weapon.name}
+            {/* La serie es la etiqueta de la rama; en el árbol del tipo cada una
+                ocupa su fila, así que verla aquí orienta sin salir. */}
+            {weapon.crafting?.column === 0 && weapon.seriesName && (
+              <span class="ml-1.5 text-[10.5px] text-text-3">{weapon.seriesName}</span>
+            )}
+          </span>
+          <span class="num shrink-0 text-[11px] text-text-2">{weapon.attack}</span>
+          {weapon.sharpness && (
+            <SharpnessBar sharpness={weapon.sharpness} width={34} height={6} />
+          )}
+          <span class="flex shrink-0 gap-[2px]">
+            {weapon.slots.map((level) => <span set:html={slotSvg(level, false, true)} />)}
+          </span>
+        </a>
+      );
+    })}
+  </div>
+</div>
