@@ -277,6 +277,7 @@ export const es = {
   'builder.noSeriesMatch': 'Ninguna serie coincide.',
   'builder.completeWithSearch': 'Completar con el buscador',
   'builder.saveNeedsPiece': 'Un set necesita al menos una pieza de armadura.',
+  'builder.wanted': 'querías',
   'builder.update': 'Actualizar',
   'builder.setName': 'Nombre del set',
   'sets.edit': 'Editar',

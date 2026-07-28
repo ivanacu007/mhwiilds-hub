@@ -278,6 +278,7 @@ export const en: Record<keyof typeof es, string> = {
   'builder.noSeriesMatch': 'No series match.',
   'builder.completeWithSearch': 'Complete with the search',
   'builder.saveNeedsPiece': 'A set needs at least one armor piece.',
+  'builder.wanted': 'wanted',
   'builder.update': 'Update',
   'builder.setName': 'Set name',
   'sets.edit': 'Edit',

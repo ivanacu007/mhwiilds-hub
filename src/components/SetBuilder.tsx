@@ -1045,8 +1045,13 @@ function SolutionCard(props: {
                     }
                   >
                     {entry.skill!.name}
+                    {/* El denominador es siempre el máximo de la habilidad, no
+                        el nivel pedido. Con el pedido salía «Poder latente 3/3»
+                        para una habilidad que llega a 5, y se leía como que
+                        estaba al tope. Que el objetivo se quede corto ya lo dice
+                        el ámbar, y el pedido va detrás cuando no se alcanza. */}
                     <span class="num text-[11px]" style={short ? undefined : 'color: var(--accent-hi)'}>
-                      {entry.level}/{target ? target.level : max}
+                      {entry.level}/{max}{short && <span> · {t('builder.wanted')} {target!.level}</span>}
                     </span>
                   </button>
                 );
