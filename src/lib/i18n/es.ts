@@ -293,6 +293,7 @@ export const es = {
   'plan.steps': 'Paso a paso',
   'plan.stepsHint': 'primero lo que ya puedes forjar',
   'plan.from': 'mejora de {name}',
+  'plan.fromTree': 'viene del {tree}',
   'plan.done': 'Forjada',
   'plan.craft': 'Ya la forjé',
   'plan.markAnyway': 'Marcar igual',

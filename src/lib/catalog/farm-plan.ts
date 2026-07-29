@@ -43,6 +43,16 @@ export interface PlanStep {
   recipe: Material[];
   /** El arma sale de mejorar otra; este es el eslabón anterior. */
   upgradeFrom: string | null;
+  /**
+   * Árbol del eslabón anterior, solo si es distinto del suyo.
+   *
+   * Los árboles de Wilds se cruzan: el de Doshaguma arranca mejorando un arco
+   * del árbol de hueso. En el juego cada árbol es una fila y ese salto se marca
+   * con una flechita al principio de la fila, así que ver «mejora de Hunter's
+   * Bow I» a secas parece un error —ese arco está en otra fila— cuando lo que
+   * pasa es que se cambia de árbol.
+   */
+  upgradeFromTree: string | null;
 }
 
 export interface FarmPlan {
@@ -126,18 +136,24 @@ export function buildFarmPlan(
       chain.unshift(cursor);
       // Al llegar a una que ya tienes, el resto de la cadena ya está hecho.
       if (ownedWeapons.has(cursor)) break;
+      /**
+       * Si se puede forjar de cero, se para aquí: 54 armas tienen padre **y**
+       * receta propia, y para esas subir la cadena entera haría forjar cuatro
+       * armas cuando bastaba con una.
+       */
+      if (weapon.crafting?.craftable && weapon.crafting.craftMaterials.length > 0) break;
       cursor = weapon.crafting?.previousId ?? null;
     }
 
     for (const [i, id] of chain.entries()) {
       const weapon = index.weaponById.get(id)!;
       const owned = ownedWeapons.has(id);
-      const previous = weapon.crafting?.previousId != null
-        ? index.weaponById.get(weapon.crafting.previousId) ?? null
-        : null;
-      const recipe = previous && (weapon.crafting?.upgradeMaterials.length ?? 0) > 0
+      // Se forja de cero cuando puede y no arrastra a su padre al plan.
+      const asUpgrade = i > 0 && (weapon.crafting?.upgradeMaterials.length ?? 0) > 0;
+      const recipe = asUpgrade
         ? weapon.crafting!.upgradeMaterials
         : weapon.crafting?.craftMaterials ?? [];
+      const parent = i > 0 ? index.weaponById.get(chain[i - 1]) ?? null : null;
       steps.push({
         key: `weapon-${id}`,
         kind: 'weapon',
@@ -149,7 +165,10 @@ export function buildFarmPlan(
         recipe,
         missing: owned ? [] : need(recipe),
         // Solo se nombra el eslabón anterior si también forma parte del plan.
-        upgradeFrom: i > 0 ? index.weaponById.get(chain[i - 1])?.name ?? null : null,
+        upgradeFrom: parent?.name ?? null,
+        upgradeFromTree: parent && parent.seriesName && parent.seriesName !== weapon.seriesName
+          ? parent.seriesName
+          : null,
       });
     }
   }
@@ -172,6 +191,7 @@ export function buildFarmPlan(
       recipe: piece.materials,
       missing: owned ? [] : need(piece.materials),
       upgradeFrom: null,
+      upgradeFromTree: null,
     });
   }
 

@@ -125,6 +125,11 @@ const itemStyle = (itemId: number) => {
               <span class="font-ui block text-[10.5px] uppercase tracking-[0.1em] text-text-3">
                 {SLOT_LABEL[step.slotLabel]}
                 {step.upgradeFrom && ` · ${t('plan.from', { name: step.upgradeFrom })}`}
+                {/* El árbol de origen solo cuando cambia: es lo que explica que
+                    el padre aparezca en otra fila del herrero. */}
+                {step.upgradeFromTree && (
+                  <span class="text-accent-hi"> · {t('plan.fromTree', { tree: step.upgradeFromTree })}</span>
+                )}
               </span>
               <span class="block truncate text-[14px]">{step.name}</span>
             </span>

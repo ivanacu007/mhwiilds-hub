@@ -294,6 +294,7 @@ export const en: Record<keyof typeof es, string> = {
   'plan.steps': 'Step by step',
   'plan.stepsHint': 'what you can already forge comes first',
   'plan.from': 'upgrade of {name}',
+  'plan.fromTree': 'crosses over from the {tree}',
   'plan.done': 'Forged',
   'plan.craft': 'I forged it',
   'plan.markAnyway': 'Mark anyway',
