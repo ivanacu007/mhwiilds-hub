@@ -7,6 +7,7 @@ import { summarizeLoadout } from '../../lib/catalog/loadout.ts';
 import { gearIconStyle } from '../../lib/ui/gear-icons.ts';
 import { slotSvg } from '../../lib/ui/glyphs.ts';
 import SetSockets from '../../components/SetSockets.tsx';
+import SkillPanel from '../../components/SkillPanel.tsx';
 import { ARMOR_KINDS, type ArmorKind } from '../../lib/catalog/types.ts';
 
 const { slug } = Astro.params;
@@ -147,37 +148,19 @@ const author = set.ownerHunterName || set.ownerName;
         ))}
       </section>
 
-      <section class="panel">
-        <h2 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13px] uppercase tracking-[0.1em] text-text-2">
-          {t('sets.activeSkills')}
-        </h2>
-
-        {skills.map((skill) => (
-          <div class="flex items-center gap-2.5 border-b border-line-soft px-3 py-1.5 last:border-b-0">
-            <span class="min-w-0 flex-1">
-              <span class:list={['block truncate text-[13.5px]', skill.level >= skill.max && 'text-ok']}>
-                {skill.name}
-              </span>
-              {/* La barra por segmentos es lo que hace legible el nivel de un
-                  vistazo: cuántos llenos sobre cuántos hay. Verde al tope,
-                  como en el juego. */}
-              <span class="mt-[3px] flex gap-[2px]">
-                {Array.from({ length: skill.max }, (_, i) => (
-                  <span
-                    class="h-[7px] w-[9px] border"
-                    style={i < skill.level
-                      ? `background: var(${skill.level >= skill.max ? '--ok' : '--accent'}); border-color: var(${skill.level >= skill.max ? '--ok' : '--accent'})`
-                      : 'background: transparent; border-color: var(--line-strong)'}
-                  />
-                ))}
-              </span>
-            </span>
-            <span
-              class:list={['num shrink-0 text-[12.5px]', skill.level >= skill.max ? 'text-ok' : 'text-text-2']}
-            >{t('sets.level', { n: skill.level })}</span>
-          </div>
-        ))}
-      </section>
+      {/* El mismo panel que ve el dueño: se le pasan solo las habilidades de
+          este set con sus rangos, no el catálogo, así que hidratarlo cuesta
+          unos kilobytes y a cambio la ficha de cada habilidad se abre también
+          para quien llega por un enlace. */}
+      <SkillPanel
+        client:load
+        locale={Astro.locals.locale}
+        title={t('sets.activeSkills')}
+        skills={skills.flatMap((s) => {
+          const skill = index.skillById.get(s.skillId);
+          return skill ? [{ skill, level: s.level, max: s.max }] : [];
+        })}
+      />
     </div>
     )}
 

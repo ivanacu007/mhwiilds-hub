@@ -4,7 +4,8 @@ import { ARMOR_KINDS, indexCatalog, type ArmorKind, type Catalog } from '../lib/
 import { summarizeLoadout } from '../lib/catalog/loadout.ts';
 import { weaponSkillsFor } from '../lib/builder/weapon-skills.ts';
 import SlotPicker from './SlotPicker.tsx';
-import { translatorFor, type Locale, type TranslationKey } from '../lib/i18n/index.ts';
+import SkillPanel from './SkillPanel.tsx';
+import { translatorFor, type Locale } from '../lib/i18n/index.ts';
 import { gearIconStyle } from '../lib/ui/gear-icons.ts';
 import { slotSvg } from '../lib/ui/glyphs.ts';
 
@@ -235,34 +236,14 @@ export default function SetSockets(props: SetSocketsProps) {
           ))}
         </section>
 
-        <section class="panel">
-          <h2 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13px] uppercase tracking-[0.1em] text-text-2">
-            {t('sets.activeSkills')}
-          </h2>
-          {summary.skills.map((skill) => (
-            <div key={skill.skillId} class="flex items-center gap-2.5 border-b border-line-soft px-3 py-1.5 last:border-b-0">
-              <span class="min-w-0 flex-1">
-                <span class={`block truncate text-[13.5px] ${skill.level >= skill.max ? 'text-ok' : ''}`}>
-                  {skill.name}
-                </span>
-                <span class="mt-[3px] flex gap-[2px]">
-                  {Array.from({ length: skill.max }, (_, i) => (
-                    <span
-                      key={i}
-                      class="h-[7px] w-[9px] border"
-                      style={i < skill.level
-                        ? `background: var(${skill.level >= skill.max ? '--ok' : '--accent'}); border-color: var(${skill.level >= skill.max ? '--ok' : '--accent'})`
-                        : 'background: transparent; border-color: var(--line-strong)'}
-                    />
-                  ))}
-                </span>
-              </span>
-              <span class={`num shrink-0 text-[12.5px] ${skill.level >= skill.max ? 'text-ok' : 'text-text-2'}`}>
-                {t('sets.level' as TranslationKey, { n: skill.level })}
-              </span>
-            </div>
-          ))}
-        </section>
+        <SkillPanel
+          locale={locale}
+          title={t('sets.activeSkills')}
+          skills={summary.skills.flatMap((s) => {
+            const skill = index.skillById.get(s.skillId);
+            return skill ? [{ skill, level: s.level, max: s.max }] : [];
+          })}
+        />
       </div>
     </>
   );
