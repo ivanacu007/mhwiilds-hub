@@ -299,6 +299,27 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
   const totalSkills = catalog.skills.filter((s) => s.kind === 'armor' || s.kind === 'weapon').length;
 
   const showSkill = (skillId: number, level?: number) => setSkillInfo({ skillId, level });
+
+  /**
+   * Nombre por defecto de un set guardado desde los resultados.
+   *
+   * Antes era la lista de objetivos pegada y cortada a 60 caracteres, que salía
+   * como «Punto débil 5 + Instigador 5 + Plena forma 3 + Poder la»: partida a
+   * mitad de palabra y sin decir para qué arma es, que es lo primero que se
+   * busca al repasar la lista de sets. Ahora el arma va delante y el corte
+   * respeta la palabra.
+   */
+  const suggestName = (solution: Solution) => {
+    const weapon = solution.weaponId != null ? index.weaponById.get(solution.weaponId) : null;
+    const skills = targets
+      .slice(0, 2)
+      .map((x) => `${skillById.get(x.skillId)?.name} ${x.level}`)
+      .join(' + ');
+    const raw = [weapon ? t(`wk.${weapon.kind}` as never) : null, skills]
+      .filter(Boolean)
+      .join(' · ');
+    return raw.length <= 60 ? raw : raw.slice(0, 60).replace(/\s+\S*$/, '');
+  };
   const openSkill = skillInfo ? skillById.get(skillInfo.skillId) : undefined;
 
   const pinnedCount = ARMOR_KINDS.filter((kind) => pinned[kind] != null).length;
@@ -848,6 +869,7 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
                 // En modo perfil lo pedido son los objetivos del perfil, no los
                 // de la lista lateral: son ellos los que hay que resaltar.
                 targets={profileResult ? profileResult.used : targets}
+                suggestName={suggestName}
                 onShowSkill={showSkill}
                 availability={checkOwned
                   ? { index, owned: { armor: inventory.armor ?? [], materials: inventory.materials ?? {} }, locale }
@@ -872,22 +894,20 @@ function SolutionCard(props: {
   charmById: Map<number, Catalog['charms'][number]>;
   skillById: Map<number, Catalog['skills'][number]>;
   targets: Target[];
+  suggestName: (solution: Solution) => string;
   onShowSkill: (skillId: number, level: number) => void;
   /** Null cuando el interruptor está apagado; no se pinta la franja. */
   availability: { index: CatalogIndex; owned: OwnedForCrafting; locale: Locale } | null;
   t: Translator;
 }) {
   const { index, solution, armorById, decoById, charmById, skillById, targets, onShowSkill, t } = props;
-  const { availability } = props;
+  const { availability, suggestName } = props;
   const [saving, setSaving] = useState<'idle' | 'guardando' | 'guardado' | 'error'>('idle');
   const [slug, setSlug] = useState<string | null>(null);
 
   const save = async () => {
     setSaving('guardando');
-    const name = targets
-      .map((x) => `${skillById.get(x.skillId)?.name} ${x.level}`)
-      .join(' + ')
-      .slice(0, 60);
+    const name = suggestName(solution);
     try {
       const res = await fetch('/api/sets', {
         method: 'POST',

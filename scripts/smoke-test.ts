@@ -1130,8 +1130,11 @@ try {
     'el clip-path del bisel recorta a sus descendientes y la cortaba');
   check('la lista se abre hacia arriba si abajo no cabe',
     comboSrc.includes('rect.up'));
+  // El «no abreviaturas» se comprueba sobre el nombre del tipo, no sobre
+  // cualquier `.slice(0, 2)` del archivo: así estaba y saltaba en falso en
+  // cuanto algo recortaba una lista a dos elementos.
   check('los tipos de arma usan el icono del juego, no abreviaturas',
-    builderSrc.includes('gearIconStyle(kind') && !builderSrc.includes('.slice(0, 2)'));
+    builderSrc.includes('gearIconStyle(kind') && !/\bkind\.slice\(/.test(builderSrc));
   check('las piezas del set llevan el icono de su ranura',
     builderSrc.includes("gearIconStyle('charm'") && builderSrc.includes("gearIconStyle(kind, 14"));
 

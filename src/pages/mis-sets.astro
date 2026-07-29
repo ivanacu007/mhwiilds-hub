@@ -6,6 +6,11 @@ import Pagination from '../components/Pagination.astro';
 import { paginate } from '../lib/paginate.ts';
 import { INTL_LOCALE } from '../lib/i18n/index.ts';
 import { savedSets } from '../lib/db.ts';
+import { getCatalogIndex } from '../lib/catalog/store.ts';
+import { summarizeLoadout } from '../lib/catalog/loadout.ts';
+import { ARMOR_KINDS } from '../lib/catalog/types.ts';
+import { gearIconStyle } from '../lib/ui/gear-icons.ts';
+import type { TranslationKey } from '../lib/i18n/index.ts';
 
 const user = Astro.locals.user!;
 const collection = await savedSets();
@@ -22,6 +27,35 @@ const sets = await collection
   .toArray();
 
 const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/, '');
+
+/**
+ * Con el catálogo, para poder decir de qué va cada set.
+ *
+ * Una lista de nombres no basta: los nombres automáticos son cosas como
+ * «Punto débil 5 + Instigador 5», que dicen las habilidades pero no para qué
+ * arma es el set ni cuánto aguanta. El arma es lo primero que se busca al
+ * repasar la lista, así que va delante, con su icono.
+ */
+const index = await getCatalogIndex(Astro.locals.locale);
+
+const rows = sets.map((set) => {
+  const weapon = set.weaponId != null ? index.weaponById.get(set.weaponId) ?? null : null;
+  const summary = summarizeLoadout(index, {
+    pieces: Object.fromEntries(ARMOR_KINDS.map((kind) => [kind, set[kind]])),
+    weaponId: set.weaponId,
+    weaponDecorations: set.weaponDecorations,
+    charmId: set.charmId,
+    charmLevel: set.charmLevel,
+  });
+  return {
+    set,
+    weapon,
+    defense: summary.defense,
+    pieceCount: summary.pieceCount,
+    // Las tres de más nivel: suficientes para reconocer el set sin abrirlo.
+    top: summary.skills.slice(0, 3),
+  };
+});
 ---
 
 <Base title={`${t('sets.title')} · ${t('app.name')}`} noIndex flush>
@@ -39,17 +73,53 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
     data-copied={t('sets.copied')}
     data-error={t('common.error')}
   >
-    {sets.map((set) => (
+    {rows.map(({ set, weapon, defense, pieceCount, top }) => (
       <li class="flex flex-wrap items-center gap-3 rounded border border-bg-3 bg-bg-1 px-3 py-2.5">
+        {/* El arma primero y con su icono: es lo que distingue un set de otro de
+            un vistazo, y sin ella la lista eran nombres sueltos. */}
+        <span
+          class="grid h-[30px] w-[30px] shrink-0 place-items-center border border-line-strong bg-tile"
+          title={weapon ? `${t(`wk.${weapon.kind}` as TranslationKey)} · ${weapon.name}` : t('sets.noWeapon')}
+        >
+          {weapon
+            ? <span style={gearIconStyle(weapon.kind, 19, 'var(--accent-hi)')} />
+            : <span class="num text-[13px] text-text-3">—</span>}
+        </span>
+
         <div class="min-w-0 flex-1">
-          <a href={`/set/${set.slug}`} class="font-medium hover:text-accent-hi">{set.name}</a>
-          <p class="text-xs text-text-3">
-            {new Date(set.updatedAt).toLocaleDateString(INTL_LOCALE[Astro.locals.locale], { day: 'numeric', month: 'short', year: 'numeric' })}
+          {/* El nombre se edita aquí mismo: nombrar un set es lo que lo hace
+              reconocible, y mandar a otra pantalla para cambiar una palabra
+              hacía que nadie lo hiciera. */}
+          <input
+            value={set.name}
+            maxlength="60"
+            aria-label={t('builder.setName')}
+            data-id={set._id}
+            class="renombrar w-full min-w-0 truncate border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none hover:border-line focus:border-accent focus:bg-bg-0"
+          />
+          <p class="px-1 text-xs text-text-3">
+            {weapon ? weapon.name : t('sets.noWeapon')}
+            {' · '}{t('builder.defense')} {defense}
+            {' · '}{t('sets.pieces', { count: pieceCount })}
+            {' · '}{new Date(set.updatedAt).toLocaleDateString(INTL_LOCALE[Astro.locals.locale], { day: 'numeric', month: 'short', year: 'numeric' })}
             {!set.isPublic && ` · ${t('sets.private')}`}
             {set.clonedFrom && ` · ${t('sets.cloned')}`}
           </p>
+          {top.length > 0 && (
+            <p class="truncate px-1 text-xs text-accent-hi">
+              {top.map((s) => `${s.name} ${s.level}`).join(' · ')}
+            </p>
+          )}
         </div>
 
+        <a
+          href={`/set/${set.slug}`}
+          class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
+        >{t('sets.view')}</a>
+        <a
+          href={`/set/${set.slug}/plan`}
+          class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
+        >{t('plan.open')}</a>
         <a
           href={`/armador?editar=${set.slug}`}
           class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
@@ -80,6 +150,38 @@ const site = (import.meta.env.PUBLIC_SITE_URL || Astro.url.origin).replace(/\/$/
       const original = button.textContent;
       button.textContent = button.closest('ul')?.dataset.copied ?? 'OK';
       setTimeout(() => { button.textContent = original; }, 1500);
+    });
+  }
+
+  /**
+   * Renombrar al salir del campo, y con Enter para quien escribe y sigue.
+   * Solo se manda si cambió: pasar por encima de la lista no debería escribir
+   * en la base ocho veces.
+   */
+  for (const input of document.querySelectorAll<HTMLInputElement>('.renombrar')) {
+    let saved = input.value;
+    const guardar = async () => {
+      const name = input.value.trim();
+      if (!name || name === saved) {
+        input.value = saved;
+        return;
+      }
+      const res = await fetch(`/api/sets/${input.dataset.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        saved = name;
+        input.value = name;
+      } else {
+        input.value = saved;
+      }
+    };
+    input.addEventListener('blur', guardar);
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') input.blur();
+      if (event.key === 'Escape') { input.value = saved; input.blur(); }
     });
   }
 
