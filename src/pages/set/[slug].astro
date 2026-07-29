@@ -6,6 +6,7 @@ import { getCatalogIndex } from '../../lib/catalog/store.ts';
 import { summarizeLoadout } from '../../lib/catalog/loadout.ts';
 import { gearIconStyle } from '../../lib/ui/gear-icons.ts';
 import { slotSvg } from '../../lib/ui/glyphs.ts';
+import SetSockets from '../../components/SetSockets.tsx';
 import { ARMOR_KINDS, type ArmorKind } from '../../lib/catalog/types.ts';
 
 const { slug } = Astro.params;
@@ -74,9 +75,25 @@ const author = set.ownerHunterName || set.ownerName;
       {set.notes && <p class="mt-2 text-sm text-text-2">{set.notes}</p>}
     </header>
 
-    {/* Como en el juego: el equipo a la izquierda y las habilidades activas a la
-        derecha. Es la disposición que ya tiene en la cabeza quien viene de la
-        pantalla de equipo, y las dos listas se leen en paralelo. */}
+    {/* Al dueño se le da la versión con las ranuras pulsables. Lleva bajarse el
+        catálogo, así que a quien abre un enlace compartido para mirar se le
+        sirve la de siempre: pintada en el servidor y sin JavaScript. */}
+    {isOwner ? (
+      <SetSockets
+        client:only="preact"
+        locale={Astro.locals.locale}
+        setId={set._id}
+        pieces={Object.fromEntries(ARMOR_KINDS.map((kind) => [kind, set[kind]?.armorId ?? null]))}
+        weaponId={set.weaponId}
+        charmId={set.charmId}
+        charmLevel={set.charmLevel}
+        initialSockets={Object.fromEntries([
+          ...ARMOR_KINDS.flatMap((kind) =>
+            (set[kind]?.decorations ?? []).map((d) => [`${kind}:${d.slotIndex}`, d.decorationId])),
+          ...set.weaponDecorations.map((d) => [`weapon:${d.slotIndex}`, d.decorationId]),
+        ])}
+      />
+    ) : (
     <div class="grid items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
       <section class="panel">
         <h2 class="font-ui border-b border-line bg-panel-head px-3 py-1 text-[13px] uppercase tracking-[0.1em] text-text-2">
@@ -162,6 +179,7 @@ const author = set.ownerHunterName || set.ownerName;
         ))}
       </section>
     </div>
+    )}
 
     <div class="mt-6 flex flex-wrap gap-3">
       {user && (

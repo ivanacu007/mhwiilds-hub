@@ -296,6 +296,7 @@ export const en: Record<keyof typeof es, string> = {
   'slots.notOwned': 'not owned',
   'slots.fits': 'fits you',
   'slots.fitsTwo': 'fits you ×2',
+  'slots.tapHint': 'tap a slot to socket',
 
   'plan.title': 'What to hunt',
   'plan.progress': '{done} of {total} forged',

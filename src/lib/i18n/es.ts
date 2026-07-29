@@ -295,6 +295,7 @@ export const es = {
   'slots.notOwned': 'no la tienes',
   'slots.fits': 'te sirve',
   'slots.fitsTwo': 'te sirve ×2',
+  'slots.tapHint': 'toca una ranura para engarzar',
 
   'plan.title': 'Qué cazar',
   'plan.progress': '{done} de {total} forjadas',
