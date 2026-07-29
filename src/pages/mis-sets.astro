@@ -87,16 +87,21 @@ const rows = sets.map((set) => {
         </span>
 
         <div class="min-w-0 flex-1">
-          {/* El nombre se edita aquí mismo: nombrar un set es lo que lo hace
-              reconocible, y mandar a otra pantalla para cambiar una palabra
-              hacía que nadie lo hiciera. */}
-          <input
-            value={set.name}
-            maxlength="60"
-            aria-label={t('builder.setName')}
-            data-id={set._id}
-            class="renombrar w-full min-w-0 truncate border border-transparent bg-transparent px-1 py-0.5 font-medium outline-none hover:border-line focus:border-accent focus:bg-bg-0"
-          />
+          {/* El nombre es texto hasta que se pide cambiarlo: un campo siempre
+              vivo se edita sin querer al pasar por encima, y aquí lo normal es
+              leer la lista, no renombrar. El botón «Renombrar» lo despierta. */}
+          <span class="nombre block" data-id={set._id}>
+            <a href={`/set/${set.slug}`} class="texto block truncate px-1 py-0.5 font-medium hover:text-accent-hi">
+              {set.name}
+            </a>
+            <input
+              value={set.name}
+              maxlength="60"
+              hidden
+              aria-label={t('builder.setName')}
+              class="campo w-full min-w-0 truncate border border-accent bg-bg-0 px-1 py-0.5 font-medium outline-none"
+            />
+          </span>
           <p class="px-1 text-xs text-text-3">
             {weapon ? weapon.name : t('sets.noWeapon')}
             {' · '}{t('builder.defense')} {defense}
@@ -112,6 +117,9 @@ const rows = sets.map((set) => {
           )}
         </div>
 
+        <button
+          class="renombrar rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
+        >{t('sets.rename')}</button>
         <a
           href={`/set/${set.slug}`}
           class="rounded border border-line-strong px-2 py-1 text-xs hover:bg-bg-2"
@@ -154,34 +162,51 @@ const rows = sets.map((set) => {
   }
 
   /**
-   * Renombrar al salir del campo, y con Enter para quien escribe y sigue.
-   * Solo se manda si cambió: pasar por encima de la lista no debería escribir
-   * en la base ocho veces.
+   * Renombrar: el botón despierta el campo, y se guarda al salir de él o con
+   * Enter. Solo se manda si cambió —abrirlo y cerrarlo no debería escribir en
+   * la base— y Escape lo deja como estaba.
    */
-  for (const input of document.querySelectorAll<HTMLInputElement>('.renombrar')) {
-    let saved = input.value;
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.renombrar')) {
+    const row = button.closest('li')!;
+    const box = row.querySelector<HTMLElement>('.nombre')!;
+    const label = box.querySelector<HTMLElement>('.texto')!;
+    const input = box.querySelector<HTMLInputElement>('.campo')!;
+
+    const cerrar = () => {
+      input.hidden = true;
+      label.hidden = false;
+    };
+
     const guardar = async () => {
       const name = input.value.trim();
-      if (!name || name === saved) {
-        input.value = saved;
+      if (!name || name === label.textContent?.trim()) {
+        input.value = label.textContent?.trim() ?? '';
+        cerrar();
         return;
       }
-      const res = await fetch(`/api/sets/${input.dataset.id}`, {
+      const res = await fetch(`/api/sets/${box.dataset.id}`, {
         method: 'PATCH',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name }),
       });
-      if (res.ok) {
-        saved = name;
-        input.value = name;
-      } else {
-        input.value = saved;
-      }
+      if (res.ok) label.textContent = name;
+      else input.value = label.textContent?.trim() ?? '';
+      cerrar();
     };
+
+    button.addEventListener('click', () => {
+      label.hidden = true;
+      input.hidden = false;
+      input.focus();
+      input.select();
+    });
     input.addEventListener('blur', guardar);
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') input.blur();
-      if (event.key === 'Escape') { input.value = saved; input.blur(); }
+      if (event.key === 'Escape') {
+        input.value = label.textContent?.trim() ?? '';
+        cerrar();
+      }
     });
   }
 

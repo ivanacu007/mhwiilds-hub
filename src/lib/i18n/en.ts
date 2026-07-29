@@ -283,6 +283,7 @@ export const en: Record<keyof typeof es, string> = {
   'builder.setName': 'Set name',
   'sets.edit': 'Edit',
   'sets.view': 'View',
+  'sets.rename': 'Rename',
   'sets.noWeapon': 'No weapon',
   'sets.pieces': '{count} pieces',
   'plan.title': 'What to hunt',

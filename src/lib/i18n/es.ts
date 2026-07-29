@@ -282,6 +282,7 @@ export const es = {
   'builder.setName': 'Nombre del set',
   'sets.edit': 'Editar',
   'sets.view': 'Ver',
+  'sets.rename': 'Renombrar',
   'sets.noWeapon': 'Sin arma',
   'sets.pieces': '{count} piezas',
   'plan.title': 'Qué cazar',
