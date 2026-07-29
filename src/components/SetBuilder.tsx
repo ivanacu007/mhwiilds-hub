@@ -3,11 +3,14 @@ import { createPortal } from 'preact/compat';
 import { loadCatalog } from '../lib/client/catalog-client.ts';
 import { ARMOR_KINDS, indexCatalog, type ArmorKind, type Catalog, type CatalogIndex } from '../lib/catalog/types.ts';
 import type { OwnedForCrafting } from '../lib/catalog/availability.ts';
+import { summarizeLoadout } from '../lib/catalog/loadout.ts';
 import SetAvailability from './SetAvailability.tsx';
 import type { Solution, SolveRequest, SolveResponse } from '../lib/solver/types.ts';
 import { INTL_LOCALE, translatorFor, type Locale, type Translator } from '../lib/i18n/index.ts';
 import Combo from './ui/Combo.tsx';
 import SkillDetails from './SkillDetails.tsx';
+import SlotPicker from './SlotPicker.tsx';
+import { weaponSkillsFor } from '../lib/builder/weapon-skills.ts';
 import LoadoutCard from './LoadoutCard.tsx';
 import SeriesBrowser from './SeriesBrowser.tsx';
 import WeaponMode from './WeaponMode.tsx';
@@ -32,6 +35,9 @@ export interface EditingSet {
   charmId: number | null;
   charmLevel: number | null;
   isPublic: boolean;
+  /** Joyas ya puestas, por ranura de cada pieza. */
+  decorations?: Partial<Record<ArmorKind, { slotIndex: number; decorationId: number }[]>>;
+  weaponDecorations?: { slotIndex: number; decorationId: number }[];
   head: number | null;
   chest: number | null;
   arms: number | null;
@@ -60,6 +66,21 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
   const [profileResult, setProfileResult] = useState<
     { profile: ArmorProfile; used: SolveRequest['targets']; dropped: SolveRequest['targets'] } | null
   >(null);
+  /**
+   * Joyas puestas a mano, por ranura: `head:0` es la primera ranura del casco y
+   * `weapon:2` la tercera del arma. Con clave plana en vez de un array por
+   * pieza porque lo que se toca siempre es «esta ranura concreta».
+   */
+  const [sockets, setSockets] = useState<Record<string, number>>(() => {
+    if (!editing) return {};
+    return Object.fromEntries([
+      ...ARMOR_KINDS.flatMap((kind) =>
+        (editing.decorations?.[kind] ?? []).map((d) => [`${kind}:${d.slotIndex}`, d.decorationId])),
+      ...(editing.weaponDecorations ?? []).map((d) => [`weapon:${d.slotIndex}`, d.decorationId]),
+    ]);
+  });
+  const [openSlot, setOpenSlot] = useState<{ kind: ArmorKind | 'weapon'; index: number; slot: number } | null>(null);
+
   const [pinned, setPinned] = useState<Partial<Record<ArmorKind, number>>>(() => {
     if (!editing) return {};
     return Object.fromEntries(
@@ -334,6 +355,66 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
    */
   const showLoadout = mode === 'browse' || editing != null
     || pinnedCount > 0 || weaponId != null;
+
+  /**
+   * Qué habilidades busca este set, para ordenar las joyas.
+   *
+   * Tres fuentes, de más concreta a más general: los objetivos que se hayan
+   * pedido a mano, el perfil de juego que se haya lanzado, y lo que persigue el
+   * tipo de arma elegido. Sin ninguna de las tres no hay nada que sugerir y el
+   * selector se queda en «busca por nombre», que sigue siendo útil.
+   */
+  const wantedSkills = useMemo(() => {
+    const map = new Map<number, number>();
+    for (const target of targets) map.set(target.skillId, target.level);
+    for (const target of profileResult?.used ?? []) {
+      map.set(target.skillId, Math.max(map.get(target.skillId) ?? 0, target.level));
+    }
+    if (weaponKind) {
+      for (const hint of weaponSkillsFor(weaponKind)) {
+        const max = index?.skillById.get(hint.skillId)?.ranks.length ?? 1;
+        map.set(hint.skillId, Math.max(map.get(hint.skillId) ?? 0, max));
+      }
+    }
+    return map;
+  }, [targets, profileResult, weaponKind, index]);
+
+  /** Las joyas de una pieza, en la forma que espera el resto del proyecto. */
+  const socketsOf = (kind: ArmorKind | 'weapon') =>
+    Object.entries(sockets)
+      .filter(([key]) => key.startsWith(`${kind}:`))
+      .map(([key, decorationId]) => ({ slotIndex: Number(key.split(':')[1]), decorationId }));
+
+  /**
+   * El set tal como queda con sus joyas. Se calcula aquí y no dentro de la
+   * tarjeta porque ahora hacen falta dos cosas a la vez: pintarlo y saber a qué
+   * nivel va cada habilidad para no sugerir una joya que ya no sube nada.
+   */
+  const loadout = useMemo(() => ({
+    pieces: Object.fromEntries(
+      ARMOR_KINDS.filter((kind) => pinned[kind] != null).map((kind) => [
+        kind,
+        { armorId: pinned[kind]!, decorations: socketsOf(kind) },
+      ]),
+    ),
+    weaponId,
+    weaponDecorations: socketsOf('weapon'),
+  }), [pinned, weaponId, sockets]);
+
+  const loadoutSummary = useMemo(
+    () => (index ? summarizeLoadout(index, loadout) : null),
+    [index, loadout],
+  );
+
+  const setSocket = (kind: ArmorKind | 'weapon', slotIndex: number, decorationId: number | null) => {
+    setSockets((prev) => {
+      const next = { ...prev };
+      if (decorationId == null) delete next[`${kind}:${slotIndex}`];
+      else next[`${kind}:${slotIndex}`] = decorationId;
+      return next;
+    });
+    setOpenSlot(null);
+  };
   // Volver a tocar la pieza que ya estaba la suelta: es el mismo gesto para
   // poner y quitar, y evita tener que buscar la ✕ en la otra columna.
   const pin = (kind: ArmorKind, armorId: number) =>
@@ -346,6 +427,21 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
 
   return (
     <div class="grid gap-3.5 lg:grid-cols-[380px_minmax(0,1fr)]">
+      {openSlot && (
+        <SlotPicker
+          index={index}
+          t={t}
+          slot={openSlot.slot}
+          kind={openSlot.kind === 'weapon' ? 'weapon' : 'armor'}
+          wantedSkills={wantedSkills}
+          currentLevels={new Map((loadoutSummary?.skills ?? []).map((s) => [s.skillId, s.level]))}
+          ownedDecorations={inventory.decorations ?? {}}
+          current={sockets[`${openSlot.kind}:${openSlot.index}`] ?? null}
+          onPick={(decorationId) => setSocket(openSlot.kind, openSlot.index, decorationId)}
+          onClose={() => setOpenSlot(null)}
+        />
+      )}
+
       {openSkill && (
         <SkillDetails
           skill={openSkill}
@@ -711,11 +807,15 @@ export default function SetBuilder({ locale, editing }: { locale: Locale; editin
             guardado. Antes solo salía al hojear series, así que abrir un set
             para cambiarle el arma desde «por arma» dejaba el botón de
             actualizar fuera de la pantalla. */}
-        {showLoadout && (
+        {showLoadout && loadoutSummary && (
           <LoadoutCard
             index={index}
             locale={locale}
             t={t}
+            summary={loadoutSummary}
+            loadout={loadout}
+            sockets={sockets}
+            onOpenSlot={(kind, i, slot) => setOpenSlot({ kind, index: i, slot })}
             pinned={pinned}
             onUnpin={unpin}
             weaponId={weaponId}

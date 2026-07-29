@@ -1,6 +1,6 @@
 import { useState } from 'preact/hooks';
 import { ARMOR_KINDS, type ArmorKind, type CatalogIndex } from '../lib/catalog/types.ts';
-import { summarizeLoadout } from '../lib/catalog/loadout.ts';
+import type { Loadout, LoadoutSummary } from '../lib/catalog/loadout.ts';
 import type { OwnedForCrafting } from '../lib/catalog/availability.ts';
 import SetAvailability from './SetAvailability.tsx';
 import { MONSTER_ICONS } from '../lib/catalog/monster-icons.ts';
@@ -37,6 +37,12 @@ interface Props {
   weaponId: number | null;
   onUnpinWeapon: () => void;
   onShowSkill: (skillId: number, level?: number) => void;
+  /** Ya calculado en el padre: las joyas cambian las habilidades del set. */
+  summary: LoadoutSummary;
+  loadout: Loadout;
+  /** `head:0` -> id de la joya puesta en la primera ranura del casco. */
+  sockets: Record<string, number>;
+  onOpenSlot: (kind: ArmorKind | 'weapon', index: number, slot: number) => void;
   /** Null cuando el interruptor está apagado; no se pinta la franja. */
   owned: OwnedForCrafting | null;
   /** Set guardado que se está cambiando; null si es uno nuevo. */
@@ -77,24 +83,41 @@ export default function LoadoutCard(props: Props) {
   const [slug, setSlug] = useState<string | null>(null);
 
   const weapon = weaponId != null ? index.weaponById.get(weaponId) ?? null : null;
-  const summary = summarizeLoadout(index, {
-    pieces: Object.fromEntries(
-      ARMOR_KINDS.filter((kind) => pinned[kind] != null)
-        .map((kind) => [kind, { armorId: pinned[kind]! }]),
-    ),
-    weaponId,
-  });
+  const { summary, loadout, sockets, onOpenSlot } = props;
   const freeSlots = [...summary.freeArmorSlots, ...summary.freeWeaponSlots];
+
+  /** Rombo por ranura: se pulsa para elegir joya, y enseña la que lleva. */
+  const slotRow = (kind: ArmorKind | 'weapon', slots: number[]) => (
+    <span class="flex gap-[3px]">
+      {slots.map((level, i) => {
+        const decorationId = sockets[`${kind}:${i}`];
+        const deco = decorationId != null ? index.decorationById.get(decorationId) : null;
+        return (
+          <button
+            key={i}
+            onClick={() => onOpenSlot(kind, i, level)}
+            title={deco ? deco.name : t('slots.empty')}
+            aria-label={deco ? deco.name : t('slots.empty')}
+            class="leading-none hover:opacity-80"
+            dangerouslySetInnerHTML={{ __html: slotSvg(level, deco != null, true) }}
+          />
+        );
+      })}
+    </span>
+  );
 
   const save = async () => {
     setSaving('guardando');
     const armorIds = ARMOR_KINDS.map((kind) => pinned[kind]).filter((id): id is number => id != null);
-    const loadout = {
-      weaponId, weaponDecorations: [],
+    const payload = {
+      weaponId,
+      weaponDecorations: loadout.weaponDecorations ?? [],
       ...Object.fromEntries(
         ARMOR_KINDS.map((kind) => [
           kind,
-          pinned[kind] != null ? { armorId: pinned[kind], decorations: [] } : null,
+          pinned[kind] != null
+            ? { armorId: pinned[kind], decorations: loadout.pieces[kind]?.decorations ?? [] }
+            : null,
         ]),
       ),
       charmId: null, charmLevel: null,
@@ -108,13 +131,13 @@ export default function LoadoutCard(props: Props) {
         ? await fetch(`/api/sets/${editing.id}`, {
             method: 'PATCH',
             headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ ...loadout, piezas: true, name: name.trim() || undefined }),
+            body: JSON.stringify({ ...payload, piezas: true, name: name.trim() || undefined }),
           })
         : await fetch('/api/sets', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({
-              ...loadout,
+              ...payload,
               name: name.trim() || defaultName(index, locale, armorIds),
               notes: null,
               isPublic: true,
@@ -250,11 +273,7 @@ export default function LoadoutCard(props: Props) {
               <span class="num text-right text-[12.5px] text-text-2" title={t('builder.attackShort')}>
                 {weapon.attack}
               </span>
-              <span class="flex gap-[3px]">
-                {weapon.slots.map((level, i) => (
-                  <span key={i} dangerouslySetInnerHTML={{ __html: slotSvg(level, false, true) }} />
-                ))}
-              </span>
+              {slotRow('weapon', weapon.slots)}
               <button
                 onClick={onUnpinWeapon}
                 aria-label={`${t('builder.unpin')} ${weapon.name}`}
@@ -280,11 +299,7 @@ export default function LoadoutCard(props: Props) {
                   {piece?.name ?? '—'}
                 </span>
                 <span class="num text-right text-[12.5px] text-text-2">{piece?.defense ?? ''}</span>
-                <span class="flex gap-[3px]">
-                  {(piece?.slots ?? []).map((level, i) => (
-                    <span key={i} dangerouslySetInnerHTML={{ __html: slotSvg(level, false, true) }} />
-                  ))}
-                </span>
+                {piece ? slotRow(kind, piece.slots) : <span />}
                 {piece ? (
                   <button
                     onClick={() => onUnpin(kind)}

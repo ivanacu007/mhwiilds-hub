@@ -5,6 +5,7 @@ import PageHeader from '../components/PageHeader.astro';
 import SetBuilder, { type EditingSet } from '../components/SetBuilder.tsx';
 import { getCatalogIndex } from '../lib/catalog/store.ts';
 import { savedSets } from '../lib/db.ts';
+import { ARMOR_KINDS } from '../lib/catalog/types.ts';
 
 // Las cifras salen del catálogo real, no de constantes que se queden viejas.
 const index = await getCatalogIndex(Astro.locals.locale);
@@ -38,6 +39,10 @@ if (editSlug) {
       charmId: doc.charmId,
       charmLevel: doc.charmLevel,
       isPublic: doc.isPublic,
+      decorations: Object.fromEntries(
+        ARMOR_KINDS.map((kind) => [kind, doc[kind]?.decorations ?? []]),
+      ),
+      weaponDecorations: doc.weaponDecorations ?? [],
       head: doc.head?.armorId ?? null,
       chest: doc.chest?.armorId ?? null,
       arms: doc.arms?.armorId ?? null,
